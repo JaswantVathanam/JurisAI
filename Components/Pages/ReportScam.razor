@@ -1,0 +1,67 @@
+@page "/report-scam"
+@using AILegalAsst.Models
+@inject AILegalAsst.Services.ScamRadarService ScamRadarService
+
+<PageTitle>Report a Scam</PageTitle>
+
+<div class="report-scam-page">
+    <h1>Report a Scam or Fraud</h1>
+    <EditForm Model="report" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="form-group-v2">
+            <label>Scam Type</label>
+            <InputSelect @bind-Value="report.Type" class="form-control-v2">
+                @foreach (var type in Enum.GetValues(typeof(CommunityScamType)))
+                {
+                    <option value="@type">@type</option>
+                }
+            </InputSelect>
+        </div>
+        <div class="form-group-v2">
+            <label>Description</label>
+            <InputTextArea @bind-Value="report.Description" class="form-control-v2" rows="4" />
+        </div>
+        <div class="form-group-v2">
+            <label>Location (City/District)</label>
+            <InputText @bind-Value="report.Location" class="form-control-v2" />
+        </div>
+        <div class="form-group-v2">
+            <label>Phone Number (optional)</label>
+            <InputText @bind-Value="report.PhoneNumber" class="form-control-v2" />
+        </div>
+        <div class="form-group-v2">
+            <label>UPI ID (optional)</label>
+            <InputText @bind-Value="report.UPIId" class="form-control-v2" />
+        </div>
+        <div class="form-group-v2">
+            <label>Keywords (comma separated, optional)</label>
+            <InputText @bind-Value="keywordsString" class="form-control-v2" />
+        </div>
+        <button type="submit" class="btn-primary-v2">Submit Report</button>
+    </EditForm>
+    @if (submitted)
+    {
+        <div class="success-banner-v2">
+            <i class="bi bi-check-circle"></i> Thank you for your report! It will help protect others.
+        </div>
+    }
+</div>
+
+@code {
+    private CommunityScamReport report = new();
+    private string keywordsString = string.Empty;
+    private bool submitted = false;
+
+    private void HandleSubmit()
+    {
+        if (!string.IsNullOrWhiteSpace(keywordsString))
+        {
+            report.Keywords = keywordsString.Split(',').Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).ToList();
+        }
+        ScamRadarService.SubmitReport(report);
+        submitted = true;
+        report = new CommunityScamReport();
+        keywordsString = string.Empty;
+    }
+}

@@ -1,0 +1,235 @@
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+
+<div class="case-timeline @(Compact ? "compact" : "")">
+    @if (ShowStatistics && Statistics != null)
+    {
+        <div class="timeline-stats">
+            <div class="stat-card">
+                <i class="bi bi-calendar-range"></i>
+                <div class="stat-info">
+                    <span class="stat-value">@Statistics.DaysSinceFiling</span>
+                    <span class="stat-label">Days Since Filing</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <i class="bi bi-flag-fill"></i>
+                <div class="stat-info">
+                    <span class="stat-value">@Statistics.MilestoneCount</span>
+                    <span class="stat-label">Milestones</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <i class="bi bi-envelope-paper"></i>
+                <div class="stat-info">
+                    <span class="stat-value">@Statistics.NoticeSentCount</span>
+                    <span class="stat-label">Notices Sent</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <i class="bi bi-calendar-event"></i>
+                <div class="stat-info">
+                    <span class="stat-value">@Statistics.HearingCount</span>
+                    <span class="stat-label">Hearings</span>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (ShowMilestoneBar && MilestoneEvents.Any())
+    {
+        <div class="milestone-progress-bar">
+            <div class="milestone-track">
+                @foreach (var milestone in MilestoneEvents)
+                {
+                    var display = TimelineEventHelper.GetMilestoneDisplay(milestone.MilestoneType ?? MilestoneType.CaseFiled);
+                    var isPast = milestone.EventDate <= DateTime.Now;
+                    <div class="milestone-marker @(isPast ? "completed" : "pending")" 
+                         style="--milestone-color: @display.Color"
+                         title="@milestone.Title - @milestone.EventDate.ToString("dd MMM yyyy")">
+                        <i class="bi @display.Icon"></i>
+                        <span class="milestone-label">@GetMilestoneShortLabel(milestone.MilestoneType)</span>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    @if (Events.Any())
+    {
+        <div class="timeline-container">
+            @if (ShowFilters)
+            {
+                <div class="timeline-filters">
+                    <button class="filter-btn @(selectedFilter == "all" ? "active" : "")" 
+                            @onclick='() => FilterEvents("all")'>
+                        All Events
+                    </button>
+                    <button class="filter-btn @(selectedFilter == "milestones" ? "active" : "")" 
+                            @onclick='() => FilterEvents("milestones")'>
+                        <i class="bi bi-flag"></i> Milestones
+                    </button>
+                    <button class="filter-btn @(selectedFilter == "notices" ? "active" : "")" 
+                            @onclick='() => FilterEvents("notices")'>
+                        <i class="bi bi-envelope"></i> Notices
+                    </button>
+                    <button class="filter-btn @(selectedFilter == "hearings" ? "active" : "")" 
+                            @onclick='() => FilterEvents("hearings")'>
+                        <i class="bi bi-calendar"></i> Hearings
+                    </button>
+                </div>
+            }
+
+            <div class="timeline-events">
+                @{
+                    var filteredEvents = GetFilteredEvents();
+                    var groupedByDate = filteredEvents
+                        .GroupBy(e => e.EventDate.Date)
+                        .OrderByDescending(g => g.Key);
+                }
+
+                @foreach (var dateGroup in groupedByDate)
+                {
+                    <div class="timeline-date-group">
+                        <div class="date-header">
+                            <span class="date-badge">@dateGroup.Key.ToString("dd MMM yyyy")</span>
+                            @if (dateGroup.Key.Date == DateTime.Today)
+                            {
+                                <span class="today-badge">Today</span>
+                            }
+                        </div>
+
+                        @foreach (var evt in dateGroup.OrderByDescending(e => e.EventDate))
+                        {
+                            var display = TimelineEventHelper.GetEventDisplay(evt.EventType);
+                            <div class="timeline-event @(evt.IsMilestone ? "milestone" : "") @(evt.EventDate > DateTime.Now ? "future" : "")">
+                                <div class="event-connector">
+                                    <div class="event-dot" style="--event-color: @display.Color">
+                                        <i class="bi @display.Icon"></i>
+                                    </div>
+                                    <div class="event-line"></div>
+                                </div>
+                                <div class="event-content glass-card-subtle">
+                                    <div class="event-header">
+                                        <span class="event-type-badge" style="--badge-color: @display.Color">
+                                            @display.Label
+                                        </span>
+                                        <span class="event-time">
+                                            <i class="bi bi-clock"></i>
+                                            @evt.EventDate.ToString("hh:mm tt")
+                                        </span>
+                                    </div>
+                                    <h4 class="event-title">@evt.Title</h4>
+                                    <p class="event-description">@evt.Description</p>
+                                    @if (!string.IsNullOrEmpty(evt.PerformedBy))
+                                    {
+                                        <div class="event-meta">
+                                            <span class="performed-by">
+                                                <i class="bi bi-person"></i>
+                                                @evt.PerformedBy
+                                                @if (!string.IsNullOrEmpty(evt.PerformedByRole))
+                                                {
+                                                    <span class="role-tag">(@evt.PerformedByRole)</span>
+                                                }
+                                            </span>
+                                        </div>
+                                    }
+                                    @if (evt.StatusAtEvent.HasValue)
+                                    {
+                                        <div class="status-at-event">
+                                            <span class="status-badge @GetStatusClass(evt.StatusAtEvent.Value)">
+                                                @evt.StatusAtEvent
+                                            </span>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="timeline-empty">
+            <i class="bi bi-clock-history"></i>
+            <p>No timeline events yet</p>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public List<CaseTimelineEvent> Events { get; set; } = new();
+
+    [Parameter]
+    public TimelineStatistics? Statistics { get; set; }
+
+    [Parameter]
+    public bool ShowStatistics { get; set; } = true;
+
+    [Parameter]
+    public bool ShowMilestoneBar { get; set; } = true;
+
+    [Parameter]
+    public bool ShowFilters { get; set; } = true;
+
+    [Parameter]
+    public bool Compact { get; set; } = false;
+
+    private string selectedFilter = "all";
+    private List<CaseTimelineEvent> MilestoneEvents => Events.Where(e => e.IsMilestone).OrderBy(e => e.EventDate).ToList();
+
+    private void FilterEvents(string filter)
+    {
+        selectedFilter = filter;
+    }
+
+    private List<CaseTimelineEvent> GetFilteredEvents()
+    {
+        return selectedFilter switch
+        {
+            "milestones" => Events.Where(e => e.IsMilestone).ToList(),
+            "notices" => Events.Where(e => e.EventType == TimelineEventType.LegalNoticeSent || 
+                                           e.EventType == TimelineEventType.NoticeResponseReceived ||
+                                           e.EventType == TimelineEventType.SummonsIssued).ToList(),
+            "hearings" => Events.Where(e => e.EventType == TimelineEventType.HearingScheduled || 
+                                            e.EventType == TimelineEventType.HearingCompleted).ToList(),
+            _ => Events
+        };
+    }
+
+    private string GetMilestoneShortLabel(MilestoneType? type)
+    {
+        return type switch
+        {
+            MilestoneType.CaseFiled => "Filed",
+            MilestoneType.FIRRegistered => "FIR",
+            MilestoneType.InvestigationComplete => "Investigated",
+            MilestoneType.ChargesheetSubmitted => "Chargesheet",
+            MilestoneType.TrialBegan => "Trial",
+            MilestoneType.JudgementDelivered => "Judgement",
+            MilestoneType.CaseResolved => "Resolved",
+            _ => "Milestone"
+        };
+    }
+
+    private string GetStatusClass(CaseStatus status)
+    {
+        return status switch
+        {
+            CaseStatus.Draft => "status-draft",
+            CaseStatus.Filed => "status-filed",
+            CaseStatus.UnderInvestigation => "status-investigation",
+            CaseStatus.ChargesheetFiled => "status-chargesheet",
+            CaseStatus.InProgress or CaseStatus.TrialInProgress => "status-trial",
+            CaseStatus.OnHold => "status-hold",
+            CaseStatus.Judgement => "status-judgement",
+            CaseStatus.Closed => "status-closed",
+            CaseStatus.Dismissed => "status-dismissed",
+            CaseStatus.Appealed => "status-appealed",
+            _ => ""
+        };
+    }
+}

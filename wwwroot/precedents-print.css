@@ -1,0 +1,424 @@
+/* ============================================
+   PRECEDENTS PAGE - PRINT STYLES
+   Optimized for legal citation printing (A4 Portrait)
+   ============================================ */
+
+@media print {
+    /* Page Setup */
+    @page {
+        size: A4 portrait;
+        margin: 2cm 1.5cm;
+    }
+
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* Hide Interactive Elements */
+    .no-print,
+    .page-header .header-actions,
+    .btn-print,
+    .btn-export,
+    .export-dropdown-container,
+    .advanced-filters .filter-actions,
+    .advanced-search,
+    button,
+    .btn-link,
+    .action-buttons,
+    .precedent-item-footer,
+    .navbar,
+    .sidebar,
+    input[type="checkbox"],
+    input[type="search"],
+    select {
+        display: none !important;
+    }
+
+    /* Show Print-Only Elements */
+    .print-only {
+        display: block !important;
+    }
+
+    .print-header {
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #333;
+    }
+
+    .print-header h1 {
+        font-size: 1.8rem;
+        color: #000;
+        margin: 0 0 0.5rem 0;
+        font-weight: 700;
+    }
+
+    .print-header p {
+        margin: 0.25rem 0;
+        color: #333;
+        font-size: 0.9rem;
+    }
+
+    /* Page Container */
+    .page-container {
+        background: white !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .page-header h1 {
+        font-size: 1.5rem;
+        color: #000;
+        margin-bottom: 1rem;
+        page-break-after: avoid;
+    }
+
+    /* Precedents List */
+    .precedents-list {
+        display: block !important;
+    }
+
+    .precedent-item {
+        background: white !important;
+        border: 1px solid #ddd !important;
+        border-radius: 4px !important;
+        padding: 1rem !important;
+        margin-bottom: 1.5rem !important;
+        page-break-inside: avoid;
+        box-shadow: none !important;
+    }
+
+    .precedent-item-header {
+        margin-bottom: 0.75rem;
+        page-break-after: avoid;
+    }
+
+    .precedent-item-header h3 {
+        font-size: 1.1rem;
+        color: #000;
+        margin: 0 0 0.25rem 0;
+        font-weight: 700;
+    }
+
+    .citation-text {
+        font-size: 0.85rem;
+        color: #555;
+        font-style: italic;
+        margin: 0;
+    }
+
+    .precedent-summary {
+        font-size: 0.9rem;
+        color: #333;
+        line-height: 1.5;
+        margin: 0.5rem 0;
+    }
+
+    /* Meta Information */
+    .precedent-item-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin: 0.75rem 0;
+        padding: 0.5rem 0;
+        border-top: 1px solid #e0e0e0;
+    }
+
+    .meta-item {
+        font-size: 0.85rem;
+        color: #555;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .meta-item i {
+        display: inline-block;
+        margin-right: 0.25rem;
+    }
+
+    /* Keywords */
+    .keywords-preview {
+        margin-top: 0.5rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .keyword-tag-sm {
+        display: inline-block;
+        padding: 0.15rem 0.5rem;
+        font-size: 0.75rem;
+        background: #f5f5f5 !important;
+        border: 1px solid #ddd !important;
+        border-radius: 3px;
+        color: #333 !important;
+    }
+
+    /* Badges - Print-Friendly */
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+        border-radius: 3px;
+        font-weight: 500;
+    }
+
+    .badge-court {
+        background: #e3f2fd !important;
+        color: #1565c0 !important;
+        border: 1px solid #90caf9 !important;
+    }
+
+    .badge-date {
+        background: #fff3e0 !important;
+        color: #e65100 !important;
+        border: 1px solid #ffb74d !important;
+    }
+
+    .badge-cybercrime {
+        background: #ffebee !important;
+        color: #c62828 !important;
+        border: 1px solid #ef5350 !important;
+    }
+
+    .badge-section {
+        background: #f3e5f5 !important;
+        color: #6a1b9a !important;
+        border: 1px solid #ba68c8 !important;
+    }
+
+    .cybercrime-icon {
+        font-size: 1.5rem;
+        color: #c62828 !important;
+    }
+
+    /* Precedent Detail View */
+    .precedent-detail-container {
+        background: white !important;
+    }
+
+    .precedent-header {
+        margin-bottom: 1.5rem;
+        page-break-after: avoid;
+    }
+
+    .precedent-header h2 {
+        font-size: 1.4rem;
+        color: #000;
+        margin: 0 0 0.5rem 0;
+        font-weight: 700;
+    }
+
+    .precedent-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+
+    /* Glass Cards - Remove effects for print */
+    .glass-card {
+        background: white !important;
+        border: 1px solid #ddd !important;
+        border-radius: 4px !important;
+        padding: 1rem !important;
+        margin-bottom: 1rem !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+    }
+
+    .glass-card h3 {
+        font-size: 1.1rem;
+        color: #000;
+        margin: 0 0 0.75rem 0;
+        font-weight: 700;
+        page-break-after: avoid;
+    }
+
+    .glass-card h3 i {
+        margin-right: 0.5rem;
+        color: #555;
+    }
+
+    /* Case Summary and Judgement */
+    .precedent-text,
+    .judgement-content {
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: #333;
+        text-align: justify;
+    }
+
+    .judgement-content p {
+        margin-bottom: 0.75rem;
+    }
+
+    /* Legal Principles */
+    .principles-list {
+        list-style-type: decimal;
+        padding-left: 1.5rem;
+        margin: 0;
+    }
+
+    .principles-list li {
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: #333;
+        margin-bottom: 0.5rem;
+        page-break-inside: avoid;
+    }
+
+    /* Sections List */
+    .sections-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    /* Info Lists */
+    .info-list,
+    .info-item {
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+
+    .info-item label {
+        font-weight: 600;
+        color: #555;
+        font-size: 0.85rem;
+        display: inline-block;
+        min-width: 100px;
+    }
+
+    .info-item span {
+        font-size: 0.9rem;
+        color: #333;
+    }
+
+    .citation-badge {
+        font-family: 'Courier New', monospace;
+        background: #f5f5f5 !important;
+        padding: 0.25rem 0.5rem;
+        border: 1px solid #ddd !important;
+        border-radius: 3px;
+        font-size: 0.85rem;
+    }
+
+    /* Keywords in Detail View */
+    .keywords-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .keyword-tag {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+        background: #f5f5f5 !important;
+        border: 1px solid #ddd !important;
+        border-radius: 3px;
+        color: #333 !important;
+    }
+
+    /* Related Cases */
+    .related-list {
+        display: block;
+    }
+
+    .related-item {
+        padding: 0.5rem;
+        margin-bottom: 0.5rem;
+        border: 1px solid #e0e0e0;
+        border-radius: 3px;
+        page-break-inside: avoid;
+    }
+
+    .related-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #000;
+        margin: 0 0 0.25rem 0;
+    }
+
+    .related-citation {
+        font-size: 0.8rem;
+        color: #555;
+        font-style: italic;
+        margin: 0;
+    }
+
+    /* Grid Layouts */
+    .row {
+        display: block !important;
+    }
+
+    .col-lg-8,
+    .col-lg-4,
+    .col-md-6 {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Search Section - Hide but keep structure */
+    .glass-card.mb-3 {
+        margin-bottom: 1rem !important;
+    }
+
+    .search-section,
+    .filter-row {
+        display: none !important;
+    }
+
+    /* Results Info */
+    .results-info {
+        font-size: 0.9rem;
+        color: #555;
+        margin-bottom: 1rem;
+    }
+
+    .results-info strong {
+        color: #000;
+        font-weight: 700;
+    }
+
+    /* Page Breaks */
+    h1, h2, h3 {
+        page-break-after: avoid;
+    }
+
+    .precedent-item,
+    .glass-card,
+    .related-item,
+    .principles-list li {
+        page-break-inside: avoid;
+    }
+
+    /* Empty States */
+    .text-center {
+        text-align: center;
+    }
+
+    .text-muted {
+        color: #888 !important;
+    }
+
+    /* Spinner - Hide */
+    .spinner-border,
+    .spinner-small,
+    .visually-hidden {
+        display: none !important;
+    }
+
+    /* Footer */
+    @page {
+        @bottom-right {
+            content: "Page " counter(page) " of " counter(pages);
+            font-size: 0.8rem;
+            color: #888;
+        }
+    }
+}

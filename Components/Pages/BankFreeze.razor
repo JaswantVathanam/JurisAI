@@ -1,0 +1,476 @@
+@page "/bank-freeze"
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@inject FIRDraftService FIRService
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>Bank Freeze Request - AI Legal Assistant</PageTitle>
+
+<div class="bank-freeze-page-v2">
+    <!-- Header -->
+    <div class="freeze-header-v2">
+        <div class="header-content-v2">
+            <div class="header-icon-v2">
+                <i class="bi bi-bank"></i>
+            </div>
+            <div class="header-text-v2">
+                <h1>Bank Account Freeze Request</h1>
+                <p>Generate official letters to freeze fraudster's bank accounts</p>
+            </div>
+        </div>
+        <div class="urgent-notice-v2">
+            <i class="bi bi-clock-history"></i>
+            <span>Act within 24 hours for best recovery chances!</span>
+        </div>
+    </div>
+
+    <!-- Info Banner -->
+    <div class="info-banner-v2">
+        <i class="bi bi-info-circle"></i>
+        <div>
+            <strong>Golden Hour Rule:</strong> Banks can freeze accounts and recover funds faster if reported within 24 hours of fraud.
+            Call <strong>1930</strong> immediately after filing this request.
+        </div>
+    </div>
+
+    <div class="freeze-content-v2">
+        @if (!letterGenerated)
+        {
+            <div class="form-container-v2">
+                <EditForm Model="@request" OnValidSubmit="GenerateLetter">
+                    <!-- Your Details -->
+                    <div class="form-section-v2">
+                        <div class="section-header-v2">
+                            <i class="bi bi-person"></i>
+                            <h2>Your Details (Victim)</h2>
+                        </div>
+
+                        <div class="form-grid-v2">
+                            <div class="form-group-v2">
+                                <label>Full Name <span class="required">*</span></label>
+                                <input type="text" @bind="request.ComplainantName" class="form-control-v2" placeholder="Your full name" required />
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>Phone Number <span class="required">*</span></label>
+                                <input type="tel" @bind="request.ComplainantPhone" class="form-control-v2" placeholder="+91 XXXXX XXXXX" required />
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>Email</label>
+                                <input type="email" @bind="request.ComplainantEmail" class="form-control-v2" placeholder="email@example.com" />
+                            </div>
+
+                            <div class="form-group-v2 full-width">
+                                <label>Address <span class="required">*</span></label>
+                                <textarea @bind="request.ComplainantAddress" class="form-control-v2" rows="2" placeholder="Complete address" required></textarea>
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>Your Bank Name</label>
+                                <select @bind="request.ComplainantBankName" class="form-control-v2">
+                                    <option value="">Select your bank</option>
+                                    @foreach (var category in LanguageSupport.MajorBanks)
+                                    {
+                                        <optgroup label="@category.Key Banks">
+                                            @foreach (var bank in category.Value)
+                                            {
+                                                <option value="@bank">@bank</option>
+                                            }
+                                        </optgroup>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>Your Account Number</label>
+                                <input type="text" @bind="request.ComplainantAccountNumber" class="form-control-v2" placeholder="Your account number" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fraud Details -->
+                    <div class="form-section-v2">
+                        <div class="section-header-v2">
+                            <i class="bi bi-exclamation-octagon"></i>
+                            <h2>Fraud Details</h2>
+                        </div>
+
+                        <div class="form-grid-v2">
+                            <div class="form-group-v2">
+                                <label>Date of Fraud <span class="required">*</span></label>
+                                <input type="date" @bind="request.FraudDate" class="form-control-v2" required />
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>Amount Defrauded (₹) <span class="required">*</span></label>
+                                <input type="number" @bind="request.AmountDefrauded" class="form-control-v2" placeholder="0.00" required />
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>Transaction Reference / UTR</label>
+                                <input type="text" @bind="request.TransactionReference" class="form-control-v2" placeholder="UTR number or reference" />
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>1930 Complaint Number</label>
+                                <input type="text" @bind="request.CyberCrimePortalNumber" class="form-control-v2" placeholder="If already filed" />
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>FIR Number (if filed)</label>
+                                <input type="text" @bind="request.FIRNumber" class="form-control-v2" placeholder="FIR number" />
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>Police Station</label>
+                                <input type="text" @bind="request.PoliceStation" class="form-control-v2" placeholder="Where FIR was filed" />
+                            </div>
+
+                            <div class="form-group-v2 full-width">
+                                <label>Brief Description of Fraud <span class="required">*</span></label>
+                                <textarea @bind="request.FraudDescription" class="form-control-v2" rows="4" 
+                                    placeholder="How were you defrauded? What method was used?" required></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fraudster's Bank Details -->
+                    <div class="form-section-v2">
+                        <div class="section-header-v2">
+                            <i class="bi bi-bank2"></i>
+                            <h2>Fraudster's Bank Account Details</h2>
+                            <span class="section-subtitle">Add all accounts where money was sent</span>
+                        </div>
+
+                        <!-- Primary Account -->
+                        <div class="account-card-v2 primary">
+                            <h4><i class="bi bi-1-circle"></i> Primary Account to Freeze</h4>
+                            <div class="form-grid-v2">
+                                <div class="form-group-v2">
+                                    <label>Bank Name <span class="required">*</span></label>
+                                    <select @bind="request.AccusedBankName" class="form-control-v2" required>
+                                        <option value="">Select bank</option>
+                                        @foreach (var category in LanguageSupport.MajorBanks)
+                                        {
+                                            <optgroup label="@category.Key Banks">
+                                                @foreach (var bank in category.Value)
+                                                {
+                                                    <option value="@bank">@bank</option>
+                                                }
+                                            </optgroup>
+                                        }
+                                        <option value="Other">Other Bank</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group-v2">
+                                    <label>Account Number <span class="required">*</span></label>
+                                    <input type="text" @bind="request.AccusedAccountNumber" class="form-control-v2" placeholder="Fraudster's account number" required />
+                                </div>
+
+                                <div class="form-group-v2">
+                                    <label>IFSC Code</label>
+                                    <input type="text" @bind="request.AccusedIFSC" class="form-control-v2" placeholder="IFSC code" />
+                                </div>
+
+                                <div class="form-group-v2">
+                                    <label>Account Holder Name</label>
+                                    <input type="text" @bind="request.AccusedAccountHolderName" class="form-control-v2" placeholder="If known" />
+                                </div>
+
+                                <div class="form-group-v2">
+                                    <label>UPI ID</label>
+                                    <input type="text" @bind="request.AccusedUPIId" class="form-control-v2" placeholder="fraudster@upi" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Additional Accounts -->
+                        @if (request.FraudulentAccounts.Any())
+                        {
+                            @for (int i = 0; i < request.FraudulentAccounts.Count; i++)
+                            {
+                                var index = i;
+                                <div class="account-card-v2">
+                                    <div class="account-header-v2">
+                                        <h4><i class="bi bi-@(index + 2)-circle"></i> Additional Account @(index + 1)</h4>
+                                        <button type="button" class="remove-btn-v2" @onclick="() => RemoveAccount(index)">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    </div>
+                                    <div class="form-grid-v2">
+                                        <div class="form-group-v2">
+                                            <label>Bank Name</label>
+                                            <input type="text" @bind="request.FraudulentAccounts[index].BankName" class="form-control-v2" />
+                                        </div>
+                                        <div class="form-group-v2">
+                                            <label>Account Number</label>
+                                            <input type="text" @bind="request.FraudulentAccounts[index].AccountNumber" class="form-control-v2" />
+                                        </div>
+                                        <div class="form-group-v2">
+                                            <label>UPI ID</label>
+                                            <input type="text" @bind="request.FraudulentAccounts[index].UPIId" class="form-control-v2" />
+                                        </div>
+                                        <div class="form-group-v2">
+                                            <label>Amount Sent (₹)</label>
+                                            <input type="number" @bind="request.FraudulentAccounts[index].AmountTransferred" class="form-control-v2" />
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        }
+
+                        <button type="button" class="add-account-btn-v2" @onclick="AddAccount">
+                            <i class="bi bi-plus-circle"></i> Add Another Account
+                        </button>
+                    </div>
+
+                    <!-- Generate Button -->
+                    <div class="form-actions-v2">
+                        <button type="submit" class="btn-generate-v2" disabled="@isGenerating">
+                            @if (isGenerating)
+                            {
+                                <span class="spinner"></span>
+                                <span>Generating Letter...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-file-earmark-text"></i>
+                                <span>Generate Freeze Request Letter</span>
+                            }
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        }
+        else
+        {
+            <!-- Generated Letter -->
+            <div class="letter-generated-v2">
+                <div class="success-banner-v2">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <div>
+                        <h3>Bank Freeze Request Letter Generated!</h3>
+                        <p>Print this letter and submit to the bank branch OR email to their nodal officer</p>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="quick-actions-v2">
+                    <div class="action-card-v2" @onclick="PrintLetter">
+                        <i class="bi bi-printer"></i>
+                        <span>Print Letter</span>
+                    </div>
+                    <div class="action-card-v2" @onclick="DownloadLetter">
+                        <i class="bi bi-download"></i>
+                        <span>Download PDF</span>
+                    </div>
+                    <div class="action-card-v2" @onclick="CopyLetter">
+                        <i class="bi bi-clipboard"></i>
+                        <span>Copy Text</span>
+                    </div>
+                    <div class="action-card-v2" @onclick="EmailToBank">
+                        <i class="bi bi-envelope"></i>
+                        <span>Email to Bank</span>
+                    </div>
+                </div>
+
+                <!-- Next Steps -->
+                <div class="next-steps-v2">
+                    <h3><i class="bi bi-list-check"></i> Next Steps</h3>
+                    <div class="steps-list-v2">
+                        <div class="step-v2">
+                            <span class="step-num-v2">1</span>
+                            <div class="step-content-v2">
+                                <strong>Call 1930 immediately</strong>
+                                <p>Report the fraud on the National Cyber Crime Helpline</p>
+                            </div>
+                            <a href="tel:1930" class="step-action-v2"><i class="bi bi-telephone"></i></a>
+                        </div>
+                        <div class="step-v2">
+                            <span class="step-num-v2">2</span>
+                            <div class="step-content-v2">
+                                <strong>Visit the fraudster's bank branch</strong>
+                                <p>Submit this letter to the branch manager</p>
+                            </div>
+                        </div>
+                        <div class="step-v2">
+                            <span class="step-num-v2">3</span>
+                            <div class="step-content-v2">
+                                <strong>Email the nodal officer</strong>
+                                <p>Send to: <a href="mailto:@GetNodalEmail(request.AccusedBankName)">@GetNodalEmail(request.AccusedBankName)</a></p>
+                            </div>
+                        </div>
+                        <div class="step-v2">
+                            <span class="step-num-v2">4</span>
+                            <div class="step-content-v2">
+                                <strong>File FIR at Police Station</strong>
+                                <p>Use our <a href="/fir-generator">FIR Generator</a> to create a draft</p>
+                            </div>
+                        </div>
+                        <div class="step-v2">
+                            <span class="step-num-v2">5</span>
+                            <div class="step-content-v2">
+                                <strong>File on Cyber Crime Portal</strong>
+                                <p><a href="https://cybercrime.gov.in" target="_blank">cybercrime.gov.in</a></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Letter Preview -->
+                <div class="letter-preview-v2" id="letter-content">
+                    <div class="letter-paper-v2">
+                        <pre class="letter-text-v2">@request.GeneratedLetter</pre>
+                    </div>
+                </div>
+
+                <!-- Bank Nodal Officer Info -->
+                <div class="nodal-info-v2">
+                    <h3><i class="bi bi-building"></i> Bank Nodal Officer Contact</h3>
+                    <div class="nodal-card-v2">
+                        <div class="bank-name-v2">@request.AccusedBankName</div>
+                        <div class="contact-row-v2">
+                            <i class="bi bi-envelope"></i>
+                            <span>@GetNodalEmail(request.AccusedBankName)</span>
+                            <button class="copy-btn-v2" @onclick="() => CopyToClipboard(GetNodalEmail(request.AccusedBankName))">
+                                <i class="bi bi-clipboard"></i>
+                            </button>
+                        </div>
+                        <div class="contact-row-v2">
+                            <i class="bi bi-telephone"></i>
+                            <span>@GetNodalPhone(request.AccusedBankName)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Start New -->
+                <div class="new-request-v2">
+                    <button class="btn-secondary-v2" @onclick="StartNew">
+                        <i class="bi bi-plus-circle"></i> Create Another Request
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private BankFreezeRequest request = new();
+    private bool isGenerating = false;
+    private bool letterGenerated = false;
+
+    protected override void OnInitialized()
+    {
+        request = new BankFreezeRequest
+        {
+            FraudDate = DateTime.Today
+        };
+    }
+
+    private void AddAccount()
+    {
+        request.FraudulentAccounts.Add(new FraudulentAccount
+        {
+            TransactionDate = DateTime.Today
+        });
+    }
+
+    private void RemoveAccount(int index)
+    {
+        if (index >= 0 && index < request.FraudulentAccounts.Count)
+        {
+            request.FraudulentAccounts.RemoveAt(index);
+        }
+    }
+
+    private async Task GenerateLetter()
+    {
+        isGenerating = true;
+        StateHasChanged();
+
+        try
+        {
+            request = await FIRService.GenerateBankFreezeLetterAsync(request);
+            letterGenerated = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+        finally
+        {
+            isGenerating = false;
+        }
+    }
+
+    private async Task PrintLetter()
+    {
+        await JSRuntime.InvokeVoidAsync("window.print");
+    }
+
+    private async Task DownloadLetter()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "PDF download feature coming soon!");
+    }
+
+    private async Task CopyLetter()
+    {
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", request.GeneratedLetter);
+        await JSRuntime.InvokeVoidAsync("alert", "Letter copied to clipboard!");
+    }
+
+    private async Task CopyToClipboard(string text)
+    {
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", text);
+    }
+
+    private async Task EmailToBank()
+    {
+        var email = GetNodalEmail(request.AccusedBankName);
+        var subject = Uri.EscapeDataString("Urgent: Request for Freezing Bank Account - Cyber Fraud Case");
+        var body = Uri.EscapeDataString(request.GeneratedLetter);
+        await JSRuntime.InvokeVoidAsync("window.open", $"mailto:{email}?subject={subject}&body={body}");
+    }
+
+    private void StartNew()
+    {
+        request = new BankFreezeRequest { FraudDate = DateTime.Today };
+        letterGenerated = false;
+    }
+
+    private string GetNodalEmail(string bankName)
+    {
+        // Sample nodal officer emails (in production, maintain a proper database)
+        return bankName switch
+        {
+            var b when b.Contains("SBI") || b.Contains("State Bank") => "cms@sbi.co.in",
+            var b when b.Contains("HDFC") => "head.fraudriskmgmt@hdfcbank.com",
+            var b when b.Contains("ICICI") => "nodalofficer@icicibank.com",
+            var b when b.Contains("Axis") => "nodalofficer@axisbank.com",
+            var b when b.Contains("Kotak") => "nodalofficer@kotak.com",
+            var b when b.Contains("Punjab National") || b.Contains("PNB") => "nodaloffice@pnb.co.in",
+            var b when b.Contains("Bank of Baroda") => "nodalofficer@bankofbaroda.co.in",
+            var b when b.Contains("Canara") => "nodalofficer@canarabank.com",
+            var b when b.Contains("Union Bank") => "nodalofficer@unionbankofindia.com",
+            var b when b.Contains("Paytm") => "nodalofficer@paytm.com",
+            _ => "nodalofficer@" + bankName.ToLower().Replace(" ", "").Replace("bank", "") + ".com"
+        };
+    }
+
+    private string GetNodalPhone(string bankName)
+    {
+        return bankName switch
+        {
+            var b when b.Contains("SBI") || b.Contains("State Bank") => "1800-11-2211",
+            var b when b.Contains("HDFC") => "1800-1600",
+            var b when b.Contains("ICICI") => "1800-1080",
+            var b when b.Contains("Axis") => "1800-419-5959",
+            var b when b.Contains("Kotak") => "1800-266-2666",
+            var b when b.Contains("Punjab National") || b.Contains("PNB") => "1800-180-2222",
+            _ => "Contact bank customer care"
+        };
+    }
+}

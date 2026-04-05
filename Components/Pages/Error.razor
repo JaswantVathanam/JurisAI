@@ -1,0 +1,201 @@
+﻿@page "/Error"
+@page "/error/{StatusCode:int?}"
+@using System.Diagnostics
+@using AILegalAsst.Services
+@inject NavigationManager Navigation
+@inject AuthenticationService AuthService
+
+<PageTitle>Error - AI Legal Assistant</PageTitle>
+
+<link href="error-page.css" rel="stylesheet" />
+
+<div class="error-page">
+    <div class="error-container">
+        <!-- Animated Error Icon -->
+        <div class="error-icon-wrapper">
+            <div class="error-icon @GetErrorClass()">
+                <i class="bi @GetErrorIcon()"></i>
+            </div>
+            <div class="error-glow"></div>
+        </div>
+
+        <!-- Error Code -->
+        <div class="error-code">@GetErrorCode()</div>
+        
+        <!-- Error Title -->
+        <h1>@GetErrorTitle()</h1>
+        
+        <!-- Error Description -->
+        <p class="error-description">@GetErrorDescription()</p>
+
+        <!-- Request ID (for debugging) -->
+        @if (ShowRequestId)
+        {
+            <div class="request-id-card">
+                <div class="request-id-label">
+                    <i class="bi bi-bug"></i> Request ID
+                </div>
+                <code class="request-id-value">@RequestId</code>
+                <button class="copy-btn" @onclick="CopyRequestId" title="Copy Request ID">
+                    <i class="bi @(copied ? "bi-check" : "bi-clipboard")"></i>
+                </button>
+            </div>
+        }
+
+        <!-- Quick Actions -->
+        <div class="error-actions">
+            <button class="btn-primary" @onclick="GoHome">
+                <i class="bi bi-house-door"></i>
+                Go to Home
+            </button>
+            <button class="btn-secondary" @onclick="GoBack">
+                <i class="bi bi-arrow-left"></i>
+                Go Back
+            </button>
+            <button class="btn-secondary" @onclick="RefreshPage">
+                <i class="bi bi-arrow-clockwise"></i>
+                Try Again
+            </button>
+        </div>
+
+        <!-- Helpful Links -->
+        <div class="helpful-links">
+            <h3><i class="bi bi-signpost-2"></i> Helpful Links</h3>
+            <div class="links-grid">
+                <a href="/ai-chat" class="helpful-link">
+                    <i class="bi bi-chat-dots"></i>
+                    <span>AI Assistant</span>
+                </a>
+                <a href="/cases" class="helpful-link">
+                    <i class="bi bi-folder2-open"></i>
+                    <span>My Cases</span>
+                </a>
+                <a href="/database" class="helpful-link">
+                    <i class="bi bi-database"></i>
+                    <span>Legal Database</span>
+                </a>
+                <a href="/cybercrime" class="helpful-link">
+                    <i class="bi bi-shield-exclamation"></i>
+                    <span>Report Cybercrime</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Contact Support -->
+        <div class="support-section">
+            <p>
+                <i class="bi bi-headset"></i>
+                Still having issues? Contact our support team at 
+                <a href="mailto:support@ailegal.in">support@ailegal.in</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- Decorative Elements -->
+    <div class="error-decoration">
+        <div class="decoration-circle circle-1"></div>
+        <div class="decoration-circle circle-2"></div>
+        <div class="decoration-circle circle-3"></div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? StatusCode { get; set; }
+
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+    private bool copied = false;
+
+    protected override void OnInitialized()
+    {
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+    }
+
+    private string GetErrorCode()
+    {
+        return StatusCode?.ToString() ?? "Error";
+    }
+
+    private string GetErrorClass()
+    {
+        return StatusCode switch
+        {
+            404 => "not-found",
+            403 => "forbidden",
+            401 => "unauthorized",
+            500 => "server-error",
+            503 => "service-unavailable",
+            _ => "general-error"
+        };
+    }
+
+    private string GetErrorIcon()
+    {
+        return StatusCode switch
+        {
+            404 => "bi-search",
+            403 => "bi-shield-lock",
+            401 => "bi-person-lock",
+            500 => "bi-exclamation-triangle",
+            503 => "bi-cloud-slash",
+            _ => "bi-exclamation-circle"
+        };
+    }
+
+    private string GetErrorTitle()
+    {
+        return StatusCode switch
+        {
+            404 => "Page Not Found",
+            403 => "Access Forbidden",
+            401 => "Unauthorized Access",
+            500 => "Internal Server Error",
+            503 => "Service Unavailable",
+            _ => "Oops! Something Went Wrong"
+        };
+    }
+
+    private string GetErrorDescription()
+    {
+        return StatusCode switch
+        {
+            404 => "The page you're looking for doesn't exist or has been moved. Please check the URL or navigate using the links below.",
+            403 => "You don't have permission to access this resource. Please ensure you're logged in with the appropriate credentials.",
+            401 => "Authentication is required to access this page. Please log in to continue.",
+            500 => "We're experiencing some technical difficulties. Our team has been notified and is working on a fix.",
+            503 => "The service is temporarily unavailable. Please try again in a few minutes.",
+            _ => "An unexpected error occurred while processing your request. Please try again or contact support if the issue persists."
+        };
+    }
+
+    private void GoHome()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("javascript:history.back()");
+    }
+
+    private void RefreshPage()
+    {
+        Navigation.NavigateTo(Navigation.Uri, true);
+    }
+
+    private async Task CopyRequestId()
+    {
+        if (!string.IsNullOrEmpty(RequestId))
+        {
+            copied = true;
+            StateHasChanged();
+            await Task.Delay(2000);
+            copied = false;
+            StateHasChanged();
+        }
+    }
+}

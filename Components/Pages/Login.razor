@@ -1,0 +1,187 @@
+@page "/login"
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@inject AuthenticationService AuthService
+@inject NavigationManager NavigationManager
+@inject LanguageService LangService
+@inject IJSRuntime JSRuntime
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@implements IDisposable
+
+<div class="auth-page-v2">
+    <div class="auth-card-v2">
+        <div class="auth-header-v2">
+            <div class="auth-logo-v2">
+                <i class="bi bi-shield-check"></i>
+            </div>
+            <h1 class="auth-title-v2">JurisAI</h1>
+            <p class="auth-subtitle-v2">Indian Judiciary Legal Aid System</p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="auth-alert-v2">
+                <i class="bi bi-exclamation-circle"></i>
+                <span>@errorMessage</span>
+            </div>
+        }
+
+        <form @onsubmit="HandleLogin" class="auth-form-v2">
+            <div class="form-group-v2">
+                <label class="role-label-v2">Select Your Role</label>
+                <div class="role-grid-v2">
+                    <div class="role-card-v2 @(selectedRole == UserRole.Citizen ? "selected" : "")" @onclick="() => SelectRole(UserRole.Citizen)">
+                        <i class="bi bi-person-circle role-icon-v2"></i>
+                        <div class="role-name-v2">Citizen</div>
+                        <div class="role-desc-v2">General User</div>
+                    </div>
+                    <div class="role-card-v2 @(selectedRole == UserRole.Lawyer ? "selected" : "")" @onclick="() => SelectRole(UserRole.Lawyer)">
+                        <i class="bi bi-briefcase role-icon-v2"></i>
+                        <div class="role-name-v2">Lawyer/Judge</div>
+                        <div class="role-desc-v2">Legal Professional</div>
+                    </div>
+                    <div class="role-card-v2 @(selectedRole == UserRole.Police ? "selected" : "")" @onclick="() => SelectRole(UserRole.Police)">
+                        <i class="bi bi-shield-fill-check role-icon-v2"></i>
+                        <div class="role-name-v2">Police</div>
+                        <div class="role-desc-v2">Law Enforcement</div>
+                    </div>
+                    <div class="role-card-v2 @(selectedRole == UserRole.Admin ? "selected" : "")" @onclick="() => SelectRole(UserRole.Admin)">
+                        <i class="bi bi-shield-lock-fill role-icon-v2"></i>
+                        <div class="role-name-v2">Admin</div>
+                        <div class="role-desc-v2">System Administrator</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group-v2">
+                <label class="form-label-v2">Email</label>
+                <div class="input-with-icon-v2">
+                    <i class="bi bi-envelope input-icon-v2"></i>
+                    <input type="email" @bind="email" class="form-input-v2" placeholder="Enter your email" required />
+                </div>
+            </div>
+
+            <div class="form-group-v2">
+                <label class="form-label-v2">Password</label>
+                <div class="input-with-icon-v2">
+                    <i class="bi bi-lock input-icon-v2"></i>
+                    <input type="password" @bind="password" class="form-input-v2" placeholder="Enter your password" required />
+                </div>
+            </div>
+
+            <button type="submit" class="auth-submit-v2 @(isLoading ? "loading" : "")" disabled="@isLoading">
+                @if (isLoading)
+                {
+                    <span>Signing in...</span>
+                }
+                else
+                {
+                    <span>Sign In</span>
+                    <i class="bi bi-arrow-right"></i>
+                }
+            </button>
+        </form>
+
+        <div class="auth-footer-v2">
+            <p class="auth-link-v2">
+                Don't have an account? <a href="/signup">Create account</a>
+            </p>
+            
+            <div class="demo-credentials-v2">
+                <div class="demo-title-v2">Demo Credentials</div>
+                <div class="demo-list-v2">
+                    <strong>Citizens:</strong> <code>jaswant@citizen.in</code> / <code>Jaswant@123</code><br />
+                    <strong>Lawyer:</strong> <code>lawyer@legal.in</code> / <code>Lawyer@123</code><br />
+                    <strong>Police:</strong> <code>police@gov.in</code> / <code>Police@123</code><br />
+                    <strong>Admin:</strong> <code>admin@ailegal.com</code> / <code>Admin@123</code>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string email = "";
+    private string password = "";
+    private UserRole selectedRole = UserRole.Citizen;
+    private string errorMessage = "";
+    private bool isLoading = false;
+
+    private void SelectRole(UserRole role)
+    {
+        selectedRole = role;
+        errorMessage = "";
+    }
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        errorMessage = "";
+        StateHasChanged();
+
+        try
+        {
+            // Get device fingerprint before login
+            string fingerprint = "web-default";
+            try
+            {
+                fingerprint = await JSRuntime.InvokeAsync<string>("deviceFingerprint.generate");
+            }
+            catch { }
+
+            await Task.Delay(500); // Simulate network delay
+            
+            var success = await AuthService.LoginAsync(email, password, selectedRole, fingerprint);
+            
+            if (success)
+            {
+                // Update session with full device profile
+                try
+                {
+                    var profile = await JSRuntime.InvokeAsync<DeviceProfile>("deviceFingerprint.getDeviceProfile");
+                    if (profile != null)
+                    {
+                        AuthService.UpdateDeviceProfile(profile);
+                    }
+                }
+                catch { }
+
+                NavigationManager.NavigateTo("/", false);
+            }
+            else
+            {
+                errorMessage = "Invalid credentials or role mismatch. Please check and try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Login failed: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        LangService.OnLanguageChanged += OnLanguageChanged;
+        
+        // If already logged in, redirect to home
+        if (AuthService.IsAuthenticated())
+        {
+            NavigationManager.NavigateTo("/", false);
+        }
+    }
+
+    private void OnLanguageChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        LangService.OnLanguageChanged -= OnLanguageChanged;
+    }
+}

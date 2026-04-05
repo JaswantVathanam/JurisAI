@@ -1,0 +1,647 @@
+@page "/legal-notices"
+@page "/legal-notices/{CaseIdParam:int?}"
+@rendermode InteractiveServer
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@inject LegalNoticeService NoticeService
+@inject CaseService CaseService
+@inject AuthenticationService AuthService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Legal Notice Generator - JurisAI</PageTitle>
+
+@if (!isAuthorized)
+{
+    <div class="legal-notices-page-v2">
+        <div class="access-restricted-v2">
+            <i class="bi bi-shield-lock"></i>
+            <h3>Access Restricted</h3>
+            <p>Only Police officers can access the Legal Notice Generator.</p>
+            <a href="/" class="btn-gold-v2">Go to Home</a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="legal-notices-page-v2">
+        <div class="legal-notices-container-v2">
+            <!-- Page Header -->
+            <div class="section-header-v2">
+                <h1 class="section-title-v2">
+                    <i class="bi bi-file-earmark-text"></i>
+                    Legal Notice Generator
+                </h1>
+                <p class="section-subtitle-v2">Generate official notices for banks, telecoms, and social media platforms</p>
+            </div>
+
+            <div class="notices-layout-v2">
+                <!-- Left Panel: Notice Type Selection & Form -->
+                <div class="notice-form-panel-v2">
+                    @if (!showPreview)
+                    {
+                        <!-- Step 1: Select Case -->
+                        <div class="form-section-v2">
+                            <h3><i class="bi bi-folder"></i> Step 1: Select Case</h3>
+                            <div class="form-group-v2">
+                                <label>Case</label>
+                                <select class="form-control-v2" @bind="selectedCaseId" @bind:after="OnCaseSelected">
+                                    <option value="0">-- Select a Case --</option>
+                                    @foreach (var c in availableCases)
+                                    {
+                                        <option value="@c.Id">@c.CaseNumber - @c.Title</option>
+                                    }
+                                </select>
+                            </div>
+                            @if (selectedCase != null)
+                            {
+                                <div class="case-summary-v2">
+                                    <div class="case-badge-v2 @(selectedCase.IsCybercrime ? "cybercrime" : "criminal")">
+                                        @(selectedCase.IsCybercrime ? "Cybercrime" : "Criminal")
+                                    </div>
+                                    <p><strong>FIR:</strong> @(selectedCase.FIRNumber ?? "Pending")</p>
+                                    <p><strong>Status:</strong> @selectedCase.Status</p>
+                                    <p><strong>Accused:</strong> @selectedCase.Accused</p>
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Step 2: Select Notice Type -->
+                        @if (selectedCase != null)
+                        {
+                            <div class="form-section-v2">
+                                <h3><i class="bi bi-file-text"></i> Step 2: Select Notice Type</h3>
+                                <div class="notice-type-grid-v2">
+                                    @foreach (var noticeType in GetNoticeTypes())
+                                    {
+                                        <button class="notice-type-btn-v2 @(selectedNoticeType == noticeType.Type ? "active" : "")"
+                                                @onclick="() => SelectNoticeType(noticeType.Type)">
+                                            <i class="bi @noticeType.Icon"></i>
+                                            <span>@noticeType.Name</span>
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        <!-- Step 3: Fill Details -->
+                        @if (selectedNoticeType.HasValue)
+                        {
+                            <div class="form-section-v2">
+                                <h3><i class="bi bi-pencil-square"></i> Step 3: Fill Details</h3>
+
+                                <!-- Recipient Selection -->
+                                <div class="form-group-v2">
+                                    <label>Recipient Organization</label>
+                                    <select class="form-control-v2" @bind="selectedRecipientIndex" @bind:after="OnRecipientSelected">
+                                        <option value="-1">-- Select or Add Custom --</option>
+                                        @for (int i = 0; i < filteredRecipients.Count; i++)
+                                        {
+                                            var r = filteredRecipients[i];
+                                            <option value="@i">@r.Organization</option>
+                                        }
+                                        <option value="-2">+ Add Custom Recipient</option>
+                                    </select>
+                                </div>
+
+                                @if (selectedRecipientIndex == -2)
+                                {
+                                    <div class="custom-recipient-form-v2">
+                                        <div class="form-row-v2">
+                                            <div class="form-group-v2">
+                                                <label>Organization Name</label>
+                                                <input type="text" class="form-control-v2" @bind="customRecipient.Organization" />
+                                            </div>
+                                            <div class="form-group-v2">
+                                                <label>Recipient Name</label>
+                                                <input type="text" class="form-control-v2" @bind="customRecipient.Name" placeholder="e.g., Nodal Officer" />
+                                            </div>
+                                        </div>
+                                        <div class="form-group-v2">
+                                            <label>Designation</label>
+                                            <input type="text" class="form-control-v2" @bind="customRecipient.Designation" />
+                                        </div>
+                                        <div class="form-group-v2">
+                                            <label>Address</label>
+                                            <textarea class="form-control-v2" rows="2" @bind="customRecipient.Address"></textarea>
+                                        </div>
+                                    </div>
+                                }
+
+                                <!-- Dynamic fields based on notice type -->
+                                @switch (selectedNoticeType)
+                                {
+                                    case LegalNoticeType.BankAccountFreeze:
+                                        <div class="form-group-v2">
+                                            <label>Bank Account Number(s) <span class="text-muted">(one per line)</span></label>
+                                            <textarea class="form-control-v2" rows="3" @bind="accountNumbersText" 
+                                                      placeholder="Enter account numbers, one per line"></textarea>
+                                        </div>
+                                        break;
+
+                                    case LegalNoticeType.CDRRequest:
+                                        <div class="form-group-v2">
+                                            <label>Mobile Number(s) <span class="text-muted">(one per line)</span></label>
+                                            <textarea class="form-control-v2" rows="3" @bind="phoneNumbersText"
+                                                      placeholder="Enter phone numbers, one per line"></textarea>
+                                        </div>
+                                        <div class="form-row-v2">
+                                            <div class="form-group-v2">
+                                                <label>From Date</label>
+                                                <input type="date" class="form-control-v2" @bind="fromDate" />
+                                            </div>
+                                            <div class="form-group-v2">
+                                                <label>To Date</label>
+                                                <input type="date" class="form-control-v2" @bind="toDate" />
+                                            </div>
+                                        </div>
+                                        break;
+
+                                    case LegalNoticeType.SocialMediaTakedown:
+                                        <div class="form-group-v2">
+                                            <label>Account URL(s) / Username(s) <span class="text-muted">(one per line)</span></label>
+                                            <textarea class="form-control-v2" rows="3" @bind="socialMediaText"
+                                                      placeholder="Enter profile URLs or usernames, one per line"></textarea>
+                                        </div>
+                                        break;
+
+                                    case LegalNoticeType.UPIWalletFreeze:
+                                        <div class="form-group-v2">
+                                            <label>UPI ID(s) <span class="text-muted">(one per line)</span></label>
+                                            <textarea class="form-control-v2" rows="3" @bind="upiIdsText"
+                                                      placeholder="e.g., name@paytm, 9876543210@upi"></textarea>
+                                        </div>
+                                        break;
+
+                                    case LegalNoticeType.IPAddressRequest:
+                                        <div class="form-group-v2">
+                                            <label>IP Address(es) <span class="text-muted">(one per line)</span></label>
+                                            <textarea class="form-control-v2" rows="3" @bind="ipAddressesText"
+                                                      placeholder="Enter IP addresses, one per line"></textarea>
+                                        </div>
+                                        <div class="form-row-v2">
+                                            <div class="form-group-v2">
+                                                <label>From Date/Time</label>
+                                                <input type="datetime-local" class="form-control-v2" @bind="fromDate" />
+                                            </div>
+                                            <div class="form-group-v2">
+                                                <label>To Date/Time</label>
+                                                <input type="datetime-local" class="form-control-v2" @bind="toDate" />
+                                            </div>
+                                        </div>
+                                        break;
+
+                                    case LegalNoticeType.WitnessSummons:
+                                    case LegalNoticeType.VictimStatusUpdate:
+                                        <!-- Uses recipient info only -->
+                                        break;
+
+                                    case LegalNoticeType.MerchantDetailsRequest:
+                                        <div class="form-group-v2">
+                                            <label>Merchant/Seller Account(s) <span class="text-muted">(one per line)</span></label>
+                                            <textarea class="form-control-v2" rows="3" @bind="socialMediaText"
+                                                      placeholder="Enter seller IDs, shop names, or URLs"></textarea>
+                                        </div>
+                                        break;
+                                }
+
+                                <div class="form-group-v2">
+                                    <label>Additional Details <span class="text-muted">(optional)</span></label>
+                                    <textarea class="form-control-v2" rows="3" @bind="additionalDetails"
+                                              placeholder="Any additional information to include in the notice"></textarea>
+                                </div>
+
+                                <div class="form-actions-v2">
+                                    <button class="btn-outline-v2" @onclick="ResetForm">
+                                        <i class="bi bi-arrow-counterclockwise"></i> Reset
+                                    </button>
+                                    <button class="btn-primary-v2" @onclick="GeneratePreview" disabled="@(!CanGenerate())">
+                                        <i class="bi bi-eye"></i> Generate Preview
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <!-- Preview Mode -->
+                        <div class="preview-actions-v2">
+                            <button class="btn-outline-v2" @onclick="() => showPreview = false">
+                                <i class="bi bi-arrow-left"></i> Back to Edit
+                            </button>
+                            <button class="btn-outline-v2" @onclick="DownloadAsPDF">
+                                <i class="bi bi-file-pdf"></i> Download PDF
+                            </button>
+                            <button class="btn-success-v2" @onclick="PrintNotice">
+                                <i class="bi bi-printer"></i> Print
+                            </button>
+                            <button class="btn-primary-v2" @onclick="SaveAndMark">
+                                <i class="bi bi-check-circle"></i> Mark as Sent
+                            </button>
+                        </div>
+                    }
+                </div>
+
+                <!-- Right Panel: Preview / History -->
+                <div class="notice-preview-panel-v2">
+                    @if (showPreview && generatedNotice != null)
+                    {
+                        <div class="notice-preview-v2" id="notice-print-area">
+                            <div class="notice-letterhead-v2">
+                                <div class="letterhead-logo-v2">
+                                    <i class="bi bi-shield-check"></i>
+                                </div>
+                                <div class="letterhead-text-v2">
+                                    <h2>CYBER CRIME POLICE STATION</h2>
+                                    <p>State Police Department</p>
+                                </div>
+                            </div>
+
+                            <div class="notice-meta-v2">
+                                <div class="notice-ref-v2">
+                                    <p><strong>Notice No:</strong> @generatedNotice.NoticeNumber</p>
+                                    <p><strong>Date:</strong> @generatedNotice.GeneratedDate.ToString("dd/MM/yyyy")</p>
+                                </div>
+                                <div class="notice-case-ref-v2">
+                                    <p><strong>Case No:</strong> @generatedNotice.CaseNumber</p>
+                                    <p><strong>FIR No:</strong> @generatedNotice.FIRNumber</p>
+                                </div>
+                            </div>
+
+                            <div class="notice-recipient-v2">
+                                <p>To,</p>
+                                <p><strong>@generatedNotice.RecipientName</strong></p>
+                                <p>@generatedNotice.RecipientDesignation</p>
+                                <p>@generatedNotice.RecipientOrganization</p>
+                                <p>@generatedNotice.RecipientAddress</p>
+                            </div>
+
+                            <div class="notice-subject-v2">
+                                <p><strong>Subject:</strong> @generatedNotice.Subject</p>
+                            </div>
+
+                            <div class="notice-body-v2">
+                                @((MarkupString)FormatNoticeBody(generatedNotice.Body))
+                            </div>
+
+                            <div class="notice-signature-v2">
+                                <p>Yours faithfully,</p>
+                                <div class="signature-space-v2"></div>
+                                <p><strong>@generatedNotice.SenderName</strong></p>
+                                <p>@generatedNotice.SenderDesignation</p>
+                                <p>@generatedNotice.SenderStation</p>
+                                <p>Contact: @generatedNotice.SenderContact</p>
+                            </div>
+
+                            <div class="notice-footer-v2">
+                                <p class="urgent-note-v2">⚠️ This is an official communication. Please respond within the stipulated time.</p>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <!-- Notice History -->
+                        <div class="glass-card-v2">
+                            <h3 class="panel-title-v2">
+                                <i class="bi bi-clock-history"></i> Recent Notices
+                            </h3>
+                            @if (recentNotices.Any())
+                            {
+                                <div class="notices-list-v2">
+                                    @foreach (var notice in recentNotices.Take(10))
+                                    {
+                                        <div class="notice-item-v2 @(notice.IsSent ? "sent" : "pending")">
+                                            <div class="notice-item-header-v2">
+                                                <span class="notice-number-v2">@notice.NoticeNumber</span>
+                                                <span class="notice-type-badge-v2">@GetNoticeTypeName(notice.Type)</span>
+                                            </div>
+                                            <p class="notice-item-case-v2">Case: @notice.CaseNumber</p>
+                                            <p class="notice-item-to-v2">To: @notice.RecipientOrganization</p>
+                                            <div class="notice-item-footer-v2">
+                                                <span class="notice-date-v2">@notice.GeneratedDate.ToString("dd MMM yyyy")</span>
+                                                <span class="status-badge-v2 @(notice.IsSent ? "sent" : "pending")">
+                                                    @(notice.IsSent ? "Sent" : "Pending")
+                                                </span>
+                                            </div>
+                                            <button class="btn-outline-v2 btn-sm-v2" @onclick="() => ViewNotice(notice)">
+                                                <i class="bi bi-eye"></i> View
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="empty-state-v2">
+                                    <i class="bi bi-inbox"></i>
+                                    <p>No notices generated yet</p>
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Quick Stats -->
+                        <div class="glass-card-v2 mt-3-v2">
+                            <h3 class="panel-title-v2">
+                                <i class="bi bi-graph-up"></i> Statistics
+                            </h3>
+                            <div class="stats-grid-v2">
+                                <div class="stat-item-v2">
+                                    <span class="stat-value-v2">@recentNotices.Count</span>
+                                    <span class="stat-label-v2">Total Notices</span>
+                                </div>
+                                <div class="stat-item-v2">
+                                    <span class="stat-value-v2">@recentNotices.Count(n => n.IsSent)</span>
+                                    <span class="stat-label-v2">Sent</span>
+                                </div>
+                                <div class="stat-item-v2">
+                                    <span class="stat-value-v2">@recentNotices.Count(n => !n.IsSent)</span>
+                                    <span class="stat-label-v2">Pending</span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int? CaseIdParam { get; set; }
+
+    private User? currentUser;
+    private bool isAuthorized = false;
+
+    // Case selection
+    private List<Case> availableCases = new();
+    private int selectedCaseId = 0;
+    private Case? selectedCase;
+
+    // Notice type selection
+    private LegalNoticeType? selectedNoticeType;
+
+    // Recipient selection
+    private List<NoticeRecipient> filteredRecipients = new();
+    private int selectedRecipientIndex = -1;
+    private NoticeRecipient customRecipient = new();
+
+    // Form fields
+    private string accountNumbersText = "";
+    private string phoneNumbersText = "";
+    private string socialMediaText = "";
+    private string upiIdsText = "";
+    private string ipAddressesText = "";
+    private DateTime? fromDate;
+    private DateTime? toDate;
+    private string additionalDetails = "";
+
+    // Preview
+    private bool showPreview = false;
+    private LegalNotice? generatedNotice;
+
+    // History
+    private List<LegalNotice> recentNotices = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentUser = AuthService.GetCurrentUser();
+        isAuthorized = currentUser?.Role == UserRole.Police || currentUser?.Role == UserRole.Admin;
+
+        if (isAuthorized)
+        {
+            availableCases = await CaseService.GetAllCasesAsync();
+            recentNotices = await NoticeService.GetAllNoticesAsync();
+
+            if (CaseIdParam.HasValue)
+            {
+                selectedCaseId = CaseIdParam.Value;
+                await OnCaseSelected();
+            }
+        }
+    }
+
+    private async Task OnCaseSelected()
+    {
+        if (selectedCaseId > 0)
+        {
+            selectedCase = await CaseService.GetCaseByIdAsync(selectedCaseId);
+        }
+        else
+        {
+            selectedCase = null;
+        }
+        selectedNoticeType = null;
+        ResetFormFields();
+    }
+
+    private void SelectNoticeType(LegalNoticeType type)
+    {
+        selectedNoticeType = type;
+        ResetFormFields();
+        UpdateFilteredRecipients();
+    }
+
+    private void UpdateFilteredRecipients()
+    {
+        var category = selectedNoticeType switch
+        {
+            LegalNoticeType.BankAccountFreeze => "Bank",
+            LegalNoticeType.CDRRequest => "Telecom",
+            LegalNoticeType.SocialMediaTakedown => "SocialMedia",
+            LegalNoticeType.UPIWalletFreeze => "Payment",
+            LegalNoticeType.IPAddressRequest => "ISP",
+            LegalNoticeType.MerchantDetailsRequest => "Ecommerce",
+            _ => ""
+        };
+
+        if (!string.IsNullOrEmpty(category))
+        {
+            filteredRecipients = NoticeService.GetRecipientsByCategory(category);
+        }
+        else
+        {
+            filteredRecipients = new List<NoticeRecipient>();
+        }
+    }
+
+    private void OnRecipientSelected()
+    {
+        if (selectedRecipientIndex >= 0 && selectedRecipientIndex < filteredRecipients.Count)
+        {
+            // Pre-selected recipient
+            customRecipient = new NoticeRecipient();
+        }
+        else if (selectedRecipientIndex == -2)
+        {
+            // Custom recipient
+            customRecipient = new NoticeRecipient();
+        }
+    }
+
+    private void ResetFormFields()
+    {
+        accountNumbersText = "";
+        phoneNumbersText = "";
+        socialMediaText = "";
+        upiIdsText = "";
+        ipAddressesText = "";
+        fromDate = selectedCase?.FiledDate.AddMonths(-1);
+        toDate = DateTime.Now;
+        additionalDetails = "";
+        selectedRecipientIndex = -1;
+        customRecipient = new NoticeRecipient();
+    }
+
+    private void ResetForm()
+    {
+        selectedNoticeType = null;
+        ResetFormFields();
+        showPreview = false;
+        generatedNotice = null;
+    }
+
+    private bool CanGenerate()
+    {
+        if (selectedCase == null || !selectedNoticeType.HasValue) return false;
+
+        // Check if recipient is selected
+        if (selectedRecipientIndex == -1) return false;
+        if (selectedRecipientIndex == -2 && string.IsNullOrWhiteSpace(customRecipient.Organization)) return false;
+
+        // Check type-specific requirements
+        return selectedNoticeType switch
+        {
+            LegalNoticeType.BankAccountFreeze => !string.IsNullOrWhiteSpace(accountNumbersText),
+            LegalNoticeType.CDRRequest => !string.IsNullOrWhiteSpace(phoneNumbersText),
+            LegalNoticeType.SocialMediaTakedown => !string.IsNullOrWhiteSpace(socialMediaText),
+            LegalNoticeType.UPIWalletFreeze => !string.IsNullOrWhiteSpace(upiIdsText),
+            LegalNoticeType.IPAddressRequest => !string.IsNullOrWhiteSpace(ipAddressesText),
+            LegalNoticeType.MerchantDetailsRequest => !string.IsNullOrWhiteSpace(socialMediaText),
+            _ => true
+        };
+    }
+
+    private async Task GeneratePreview()
+    {
+        if (!CanGenerate() || currentUser == null) return;
+
+        var request = new LegalNoticeRequest
+        {
+            Type = selectedNoticeType!.Value,
+            CaseId = selectedCaseId,
+            AccountNumbers = ParseLines(accountNumbersText),
+            PhoneNumbers = ParseLines(phoneNumbersText),
+            SocialMediaHandles = ParseLines(socialMediaText),
+            UPIIds = ParseLines(upiIdsText),
+            IPAddresses = ParseLines(ipAddressesText),
+            FromDate = fromDate,
+            ToDate = toDate,
+            AdditionalDetails = additionalDetails
+        };
+
+        // Set recipient
+        if (selectedRecipientIndex >= 0 && selectedRecipientIndex < filteredRecipients.Count)
+        {
+            request.CustomRecipient = filteredRecipients[selectedRecipientIndex];
+        }
+        else if (selectedRecipientIndex == -2)
+        {
+            request.CustomRecipient = customRecipient;
+        }
+
+        generatedNotice = await NoticeService.GenerateNoticeAsync(request, currentUser);
+        showPreview = true;
+        recentNotices = await NoticeService.GetAllNoticesAsync();
+    }
+
+    private List<string> ParseLines(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return new List<string>();
+        return text.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                   .Select(s => s.Trim())
+                   .Where(s => !string.IsNullOrEmpty(s))
+                   .ToList();
+    }
+
+    private async Task PrintNotice()
+    {
+        await JSRuntime.InvokeVoidAsync("printElement", "notice-print-area");
+    }
+
+    private async Task SaveAndMark()
+    {
+        if (generatedNotice != null)
+        {
+            await NoticeService.MarkNoticeSentAsync(generatedNotice.Id);
+            recentNotices = await NoticeService.GetAllNoticesAsync();
+            showPreview = false;
+            ResetForm();
+        }
+    }
+
+    private void ViewNotice(LegalNotice notice)
+    {
+        generatedNotice = notice;
+        showPreview = true;
+    }
+
+    private string FormatNoticeBody(string body)
+    {
+        // Convert markdown-like formatting to HTML
+        return body
+            .Replace("\n", "<br/>")
+            .Replace("**", "<strong>")
+            .Replace("**", "</strong>");
+    }
+
+    private List<(LegalNoticeType Type, string Name, string Icon)> GetNoticeTypes()
+    {
+        return new List<(LegalNoticeType, string, string)>
+        {
+            (LegalNoticeType.BankAccountFreeze, "Bank Freeze", "bi-bank"),
+            (LegalNoticeType.CDRRequest, "CDR Request", "bi-telephone"),
+            (LegalNoticeType.SocialMediaTakedown, "Social Media", "bi-share"),
+            (LegalNoticeType.UPIWalletFreeze, "UPI Freeze", "bi-phone"),
+            (LegalNoticeType.IPAddressRequest, "IP Details", "bi-globe"),
+            (LegalNoticeType.WitnessSummons, "Witness Summons", "bi-person-badge"),
+            (LegalNoticeType.MerchantDetailsRequest, "Merchant Info", "bi-shop"),
+            (LegalNoticeType.VictimStatusUpdate, "Victim Update", "bi-envelope")
+        };
+    }
+
+    private string GetNoticeTypeName(LegalNoticeType type)
+    {
+        return type switch
+        {
+            LegalNoticeType.BankAccountFreeze => "Bank Freeze",
+            LegalNoticeType.CDRRequest => "CDR",
+            LegalNoticeType.SocialMediaTakedown => "Social Media",
+            LegalNoticeType.UPIWalletFreeze => "UPI Freeze",
+            LegalNoticeType.IPAddressRequest => "IP Request",
+            LegalNoticeType.WitnessSummons => "Summons",
+            LegalNoticeType.MerchantDetailsRequest => "Merchant",
+            LegalNoticeType.VictimStatusUpdate => "Status Update",
+            _ => type.ToString()
+        };
+    }
+
+    private async Task DownloadAsPDF()
+    {
+        if (generatedNotice == null) return;
+        
+        try
+        {
+            var filename = $"Notice_{generatedNotice.NoticeNumber}_{DateTime.Now:yyyyMMdd}.pdf";
+            await JSRuntime.InvokeAsync<object>("pdfDownload.downloadPdfPost", 
+                "/api/PdfExport/notice", 
+                generatedNotice,
+                filename);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error downloading PDF: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "Error generating PDF. Please try again.");
+        }
+    }
+}

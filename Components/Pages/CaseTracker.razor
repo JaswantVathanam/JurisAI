@@ -1,0 +1,759 @@
+@page "/case-tracker"
+@page "/case-tracker/{CaseIdParam:int}"
+@rendermode InteractiveServer
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@inject CaseService CaseService
+@inject CaseTimelineService TimelineService
+@inject AuthenticationService AuthService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject LanguageService LangService
+@implements IDisposable
+
+<PageTitle>Case Tracker - AI Legal Assistant</PageTitle>
+
+<div class="case-tracker-page-v2">
+    <div class="case-tracker-container-v2">
+        <!-- Page Header -->
+        <div class="tracker-header-v2">
+            <h1 class="tracker-title-v2">
+                <i class="bi bi-geo-alt-fill"></i>
+                Track Your Case
+            </h1>
+            <p class="tracker-subtitle-v2">Real-time updates on your case progress - like tracking a delivery</p>
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="tracker-loading-v2">
+                <div class="spinner"></div>
+                <p>Loading your cases...</p>
+            </div>
+        }
+        else if (!userCases.Any())
+        {
+            <div class="no-cases-v2">
+                <i class="bi bi-folder2-open"></i>
+                <h3>No Cases Found</h3>
+                <p>You haven't filed any cases yet. Start by filing a complaint.</p>
+                <a href="/ai-chat" class="action-btn-v2 primary">
+                    <i class="bi bi-chat-dots"></i> File a Complaint
+                </a>
+            </div>
+        }
+        else
+        {
+            <!-- Case Selector -->
+            @if (userCases.Count > 1)
+            {
+                <div class="case-selector-v2">
+                    <label class="case-selector-label-v2">Select a case to track:</label>
+                    <select class="case-select-v2" @onchange="OnCaseSelected">
+                        @foreach (var c in userCases)
+                        {
+                            <option value="@c.Id" selected="@(c.Id == selectedCase?.Id)">
+                                @c.CaseNumber - @c.Title (@c.Status)
+                            </option>
+                        }
+                    </select>
+                </div>
+            }
+
+            @if (selectedCase != null)
+            {
+                <!-- Progress Bar -->
+                <div class="progress-section-v2">
+                    <div class="progress-header-v2">
+                        <span class="progress-title-v2">Case Progress</span>
+                        <span class="progress-percentage-v2">@GetProgressPercentage()%</span>
+                    </div>
+                    <div class="progress-bar-container-v2">
+                        <div class="progress-bar-fill-v2" style="width: @GetProgressPercentage()%"></div>
+                    </div>
+                    <div class="progress-stages-v2">
+                        <div class="progress-stage-v2">
+                            <div class="progress-stage-dot-v2 @(GetStageClass(0))"></div>
+                            <span class="progress-stage-label-v2">Filed</span>
+                        </div>
+                        <div class="progress-stage-v2">
+                            <div class="progress-stage-dot-v2 @(GetStageClass(1))"></div>
+                            <span class="progress-stage-label-v2">FIR</span>
+                        </div>
+                        <div class="progress-stage-v2">
+                            <div class="progress-stage-dot-v2 @(GetStageClass(2))"></div>
+                            <span class="progress-stage-label-v2">Investigation</span>
+                        </div>
+                        <div class="progress-stage-v2">
+                            <div class="progress-stage-dot-v2 @(GetStageClass(3))"></div>
+                            <span class="progress-stage-label-v2">Chargesheet</span>
+                        </div>
+                        <div class="progress-stage-v2">
+                            <div class="progress-stage-dot-v2 @(GetStageClass(4))"></div>
+                            <span class="progress-stage-label-v2">Trial</span>
+                        </div>
+                        <div class="progress-stage-v2">
+                            <div class="progress-stage-dot-v2 @(GetStageClass(5))"></div>
+                            <span class="progress-stage-label-v2">Resolved</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tracker-layout-v2">
+                    <!-- Main Content - Timeline -->
+                    <div class="tracker-main-v2">
+                        <!-- Case Summary -->
+                        <div class="case-summary-card-v2">
+                            <div class="case-summary-header-v2">
+                                <div>
+                                    <div class="case-number-v2">@selectedCase.CaseNumber</div>
+                                    <span class="case-type-badge-v2">
+                                        <i class="bi @GetCaseTypeIcon(selectedCase.Type)"></i>
+                                        @selectedCase.Type.ToString()
+                                        @if (selectedCase.IsCybercrime)
+                                        {
+                                            <span>/ Cybercrime</span>
+                                        }
+                                    </span>
+                                </div>
+                                <div class="case-status-badge-v2 @GetStatusClass(selectedCase.Status)">
+                                    <i class="bi @GetStatusIcon(selectedCase.Status)"></i>
+                                    @GetStatusText(selectedCase.Status)
+                                </div>
+                            </div>
+                            <h2 class="case-title-v2">@selectedCase.Title</h2>
+                            <div class="case-meta-grid-v2">
+                                <div class="case-meta-item-v2">
+                                    <i class="bi bi-calendar3"></i>
+                                    <div>
+                                        <span class="label">Filed On</span>
+                                        <span class="value">@selectedCase.FiledDate.ToString("dd MMM yyyy")</span>
+                                    </div>
+                                </div>
+                                @if (!string.IsNullOrEmpty(selectedCase.FIRNumber))
+                                {
+                                    <div class="case-meta-item-v2">
+                                        <i class="bi bi-file-earmark-text"></i>
+                                        <div>
+                                            <span class="label">FIR Number</span>
+                                            <span class="value">@selectedCase.FIRNumber</span>
+                                        </div>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(selectedCase.PoliceStation))
+                                {
+                                    <div class="case-meta-item-v2">
+                                        <i class="bi bi-building"></i>
+                                        <div>
+                                            <span class="label">Police Station</span>
+                                            <span class="value">@selectedCase.PoliceStation</span>
+                                        </div>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(selectedCase.Court))
+                                {
+                                    <div class="case-meta-item-v2">
+                                        <i class="bi bi-bank"></i>
+                                        <div>
+                                            <span class="label">Court</span>
+                                            <span class="value">@selectedCase.Court</span>
+                                        </div>
+                                    </div>
+                                }
+                                @if (selectedCase.NextHearingDate.HasValue)
+                                {
+                                    <div class="case-meta-item-v2">
+                                        <i class="bi bi-calendar-event"></i>
+                                        <div>
+                                            <span class="label">Next Hearing</span>
+                                            <span class="value">@selectedCase.NextHearingDate.Value.ToString("dd MMM yyyy")</span>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Timeline Section -->
+                        <div class="timeline-section-v2">
+                            <div class="timeline-header-v2">
+                                <h3 class="timeline-title-v2">
+                                    <i class="bi bi-clock-history"></i>
+                                    Case Timeline
+                                </h3>
+                                <div class="timeline-filter-v2">
+                                    <button class="timeline-filter-btn-v2 @(timelineFilter == "all" ? "active" : "")" 
+                                            @onclick='() => SetTimelineFilter("all")'>
+                                        All
+                                    </button>
+                                    <button class="timeline-filter-btn-v2 @(timelineFilter == "milestones" ? "active" : "")" 
+                                            @onclick='() => SetTimelineFilter("milestones")'>
+                                        Milestones
+                                    </button>
+                                    <button class="timeline-filter-btn-v2 @(timelineFilter == "notices" ? "active" : "")" 
+                                            @onclick='() => SetTimelineFilter("notices")'>
+                                        Notices
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="timeline-container-v2">
+                                @foreach (var evt in GetFilteredTimeline())
+                                {
+                                    <div class="timeline-event-v2">
+                                        <div class="timeline-marker-v2 @GetEventMarkerClass(evt)">
+                                            <i class="bi @GetEventIcon(evt.EventType)"></i>
+                                        </div>
+                                        <div class="timeline-content-v2 @(evt.IsMilestone ? "milestone" : "")">
+                                            <div class="timeline-event-header-v2">
+                                                <span class="timeline-event-title-v2">
+                                                    @if (evt.IsMilestone)
+                                                    {
+                                                        <i class="bi bi-star-fill"></i>
+                                                    }
+                                                    @evt.Title
+                                                </span>
+                                                <span class="timeline-event-date-v2">
+                                                    @FormatEventDate(evt.EventDate)
+                                                </span>
+                                            </div>
+                                            <p class="timeline-event-description-v2">@evt.Description</p>
+                                            @if (!string.IsNullOrEmpty(evt.PerformedBy))
+                                            {
+                                                <div class="timeline-event-actor-v2">
+                                                    <i class="bi bi-person"></i>
+                                                    @evt.PerformedBy 
+                                                    @if (!string.IsNullOrEmpty(evt.PerformedByRole))
+                                                    {
+                                                        <span>(@evt.PerformedByRole)</span>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+
+                            <!-- Expected Next Steps -->
+                            @if (expectedNextSteps.Any())
+                            {
+                                <div class="next-steps-section-v2">
+                                    <h4 class="next-steps-title-v2">
+                                        <i class="bi bi-signpost-split"></i>
+                                        Expected Next Steps
+                                    </h4>
+                                    @foreach (var step in expectedNextSteps)
+                                    {
+                                        <div class="next-step-item-v2">
+                                            <i class="bi @step.Icon"></i>
+                                            <span>@step.Title</span>
+                                            @if (!string.IsNullOrEmpty(step.ExpectedDate))
+                                            {
+                                                <span class="expected-date">@step.ExpectedDate</span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Sidebar -->
+                    <div class="tracker-sidebar-v2">
+                        <!-- Latest Update -->
+                        @if (latestEvent != null)
+                        {
+                            <div class="latest-update-card-v2">
+                                <div class="latest-update-header-v2">
+                                    <i class="bi bi-bell-fill"></i>
+                                    Latest Update
+                                </div>
+                                <div class="latest-update-content-v2">
+                                    @latestEvent.Description
+                                </div>
+                                <div class="latest-update-meta-v2">
+                                    <span>@latestEvent.PerformedBy</span>
+                                    <span>@FormatEventDate(latestEvent.EventDate)</span>
+                                </div>
+                            </div>
+                        }
+
+                        <!-- Investigating Officer -->
+                        @if (!string.IsNullOrEmpty(selectedCase.InvestigatingOfficer))
+                        {
+                            <div class="officer-card-v2">
+                                <div class="officer-card-header-v2">
+                                    <i class="bi bi-person-badge"></i>
+                                    Investigating Officer
+                                </div>
+                                <div class="officer-avatar-v2">
+                                    <i class="bi bi-person-fill"></i>
+                                </div>
+                                <div class="officer-name-v2">@selectedCase.InvestigatingOfficer</div>
+                                <div class="officer-designation-v2">@(selectedCase.PoliceStation ?? "Cyber Cell")</div>
+                                <div class="officer-contact-v2">
+                                    <div class="officer-contact-item-v2">
+                                        <i class="bi bi-telephone"></i>
+                                        <span>Contact via Police Station</span>
+                                    </div>
+                                    <div class="officer-contact-item-v2">
+                                        <i class="bi bi-building"></i>
+                                        <span>@(selectedCase.PoliceStation ?? "Cyber Crime Cell")</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        <!-- Case Statistics -->
+                        <div class="stats-card-v2">
+                            <div class="stats-card-header-v2">
+                                <i class="bi bi-graph-up"></i>
+                                Case Statistics
+                            </div>
+                            <div class="stats-grid-v2">
+                                <div class="stat-item-v2">
+                                    <span class="stat-value-v2">@timelineStats.DaysSinceFiling</span>
+                                    <span class="stat-label-v2">Days</span>
+                                </div>
+                                <div class="stat-item-v2">
+                                    <span class="stat-value-v2">@timelineStats.TotalEvents</span>
+                                    <span class="stat-label-v2">Updates</span>
+                                </div>
+                                <div class="stat-item-v2">
+                                    <span class="stat-value-v2">@timelineStats.NoticeSentCount</span>
+                                    <span class="stat-label-v2">Notices</span>
+                                </div>
+                                <div class="stat-item-v2">
+                                    <span class="stat-value-v2">@timelineStats.HearingCount</span>
+                                    <span class="stat-label-v2">Hearings</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Actions -->
+                        <div class="actions-card-v2">
+                            <div class="actions-card-header-v2">
+                                <i class="bi bi-lightning"></i>
+                                Quick Actions
+                            </div>
+                            <div class="action-buttons-v2">
+                                <button class="action-btn-v2 primary" @onclick="DownloadStatusReport">
+                                    <i class="bi bi-file-earmark-pdf"></i>
+                                    Download Status Report
+                                </button>
+                                <a href="/ai-chat" class="action-btn-v2 secondary">
+                                    <i class="bi bi-chat-dots"></i>
+                                    Ask AI About My Case
+                                </a>
+                                <button class="action-btn-v2 secondary" @onclick="ShareStatus">
+                                    <i class="bi bi-share"></i>
+                                    Share Status
+                                </button>
+                                <button class="action-btn-v2 secondary" @onclick="PrintTimeline">
+                                    <i class="bi bi-printer"></i>
+                                    Print Timeline
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int CaseIdParam { get; set; }
+
+    private bool isLoading = true;
+    private User? currentUser;
+    private List<Case> userCases = new();
+    private Case? selectedCase;
+    private List<CaseTimelineEvent> timelineEvents = new();
+    private CaseTimelineEvent? latestEvent;
+    private TimelineStatistics timelineStats = new();
+    private List<ExpectedStep> expectedNextSteps = new();
+    private string timelineFilter = "all";
+
+    protected override async Task OnInitializedAsync()
+    {
+        LangService.OnLanguageChanged += OnLanguageChanged;
+        
+        currentUser = AuthService.GetCurrentUser();
+        await LoadUserCases();
+        isLoading = false;
+    }
+
+    private async Task LoadUserCases()
+    {
+        if (currentUser != null)
+        {
+            // Get cases based on user role
+            if (currentUser.Role == UserRole.Citizen)
+            {
+                // Citizens see only their own cases
+                userCases = await CaseService.GetCasesByUserAsync(currentUser.Email);
+            }
+            else
+            {
+                // Police, Lawyers, Admin see all cases
+                userCases = await CaseService.GetAllCasesAsync();
+            }
+
+            // Select case based on URL parameter or first case
+            if (CaseIdParam > 0)
+            {
+                selectedCase = userCases.FirstOrDefault(c => c.Id == CaseIdParam);
+            }
+            
+            if (selectedCase == null && userCases.Any())
+            {
+                selectedCase = userCases.First();
+            }
+
+            if (selectedCase != null)
+            {
+                await LoadCaseTimeline();
+            }
+        }
+    }
+
+    private async Task LoadCaseTimeline()
+    {
+        if (selectedCase == null) return;
+
+        timelineEvents = TimelineService.GetTimelineForCase(selectedCase.Id);
+        latestEvent = timelineEvents.OrderByDescending(e => e.EventDate).FirstOrDefault();
+        timelineStats = TimelineService.GetTimelineStatistics(selectedCase.Id);
+        expectedNextSteps = GetExpectedNextSteps();
+        await Task.CompletedTask;
+    }
+
+    private async Task OnCaseSelected(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int caseId))
+        {
+            selectedCase = userCases.FirstOrDefault(c => c.Id == caseId);
+            if (selectedCase != null)
+            {
+                await LoadCaseTimeline();
+                Navigation.NavigateTo($"/case-tracker/{caseId}", false);
+            }
+        }
+    }
+
+    private void SetTimelineFilter(string filter)
+    {
+        timelineFilter = filter;
+    }
+
+    private List<CaseTimelineEvent> GetFilteredTimeline()
+    {
+        var events = timelineEvents.OrderByDescending(e => e.EventDate).ToList();
+        
+        return timelineFilter switch
+        {
+            "milestones" => events.Where(e => e.IsMilestone).ToList(),
+            "notices" => events.Where(e => e.EventType == TimelineEventType.LegalNoticeSent || 
+                                           e.EventType == TimelineEventType.NoticeResponseReceived).ToList(),
+            _ => events
+        };
+    }
+
+    private int GetProgressPercentage()
+    {
+        if (selectedCase == null) return 0;
+        
+        return selectedCase.Status switch
+        {
+            CaseStatus.Draft => 5,
+            CaseStatus.Filed => 15,
+            CaseStatus.UnderInvestigation => 35,
+            CaseStatus.ChargesheetFiled => 55,
+            CaseStatus.InProgress => 65,
+            CaseStatus.TrialInProgress => 75,
+            CaseStatus.OnHold => 50,
+            CaseStatus.Judgement => 95,
+            CaseStatus.Closed => 100,
+            CaseStatus.Dismissed => 100,
+            CaseStatus.Appealed => 80,
+            _ => 10
+        };
+    }
+
+    private string GetStageClass(int stageIndex)
+    {
+        if (selectedCase == null) return "";
+        
+        var currentStage = selectedCase.Status switch
+        {
+            CaseStatus.Filed => 0,
+            CaseStatus.UnderInvestigation => 2,
+            CaseStatus.ChargesheetFiled => 3,
+            CaseStatus.TrialInProgress or CaseStatus.InProgress => 4,
+            CaseStatus.Judgement or CaseStatus.Closed => 5,
+            _ => 0
+        };
+
+        // Check if FIR exists for stage 1
+        if (stageIndex == 1 && !string.IsNullOrEmpty(selectedCase.FIRNumber))
+            currentStage = Math.Max(currentStage, 1);
+
+        if (stageIndex < currentStage) return "completed";
+        if (stageIndex == currentStage) return "current";
+        return "";
+    }
+
+    private string GetCaseTypeIcon(CaseType type)
+    {
+        return type switch
+        {
+            CaseType.Criminal => "bi-exclamation-triangle",
+            CaseType.Civil => "bi-file-text",
+            CaseType.Cybercrime => "bi-shield-exclamation",
+            CaseType.Constitutional => "bi-book",
+            _ => "bi-folder"
+        };
+    }
+
+    private string GetStatusClass(CaseStatus status)
+    {
+        return status switch
+        {
+            CaseStatus.Filed or CaseStatus.Draft => "filed",
+            CaseStatus.UnderInvestigation => "investigation",
+            CaseStatus.ChargesheetFiled => "chargesheet",
+            CaseStatus.TrialInProgress or CaseStatus.InProgress => "trial",
+            CaseStatus.Closed or CaseStatus.Judgement => "closed",
+            _ => "filed"
+        };
+    }
+
+    private string GetStatusIcon(CaseStatus status)
+    {
+        return status switch
+        {
+            CaseStatus.Filed => "bi-file-earmark-check",
+            CaseStatus.UnderInvestigation => "bi-search",
+            CaseStatus.ChargesheetFiled => "bi-file-earmark-text",
+            CaseStatus.TrialInProgress => "bi-bank",
+            CaseStatus.Closed => "bi-check-circle",
+            CaseStatus.Judgement => "bi-hammer",
+            _ => "bi-circle"
+        };
+    }
+
+    private string GetStatusText(CaseStatus status)
+    {
+        return status switch
+        {
+            CaseStatus.UnderInvestigation => "Under Investigation",
+            CaseStatus.ChargesheetFiled => "Chargesheet Filed",
+            CaseStatus.TrialInProgress => "Trial in Progress",
+            CaseStatus.InProgress => "In Progress",
+            _ => status.ToString()
+        };
+    }
+
+    private string GetEventMarkerClass(CaseTimelineEvent evt)
+    {
+        var classes = new List<string>();
+        
+        if (evt.IsMilestone) classes.Add("milestone");
+        
+        if (evt.EventDate <= DateTime.Now)
+            classes.Add("completed");
+        else
+            classes.Add("pending");
+            
+        return string.Join(" ", classes);
+    }
+
+    private string GetEventIcon(TimelineEventType eventType)
+    {
+        return eventType switch
+        {
+            TimelineEventType.CaseCreated => "bi-plus-circle",
+            TimelineEventType.FIRFiled => "bi-file-earmark-text",
+            TimelineEventType.InvestigationStarted => "bi-search",
+            TimelineEventType.EvidenceCollected => "bi-collection",
+            TimelineEventType.DigitalEvidenceSecured => "bi-shield-check",
+            TimelineEventType.ChargesheetFiled => "bi-file-earmark-check",
+            TimelineEventType.HearingScheduled => "bi-calendar-event",
+            TimelineEventType.HearingCompleted => "bi-calendar-check",
+            TimelineEventType.LegalNoticeSent => "bi-envelope",
+            TimelineEventType.NoticeResponseReceived => "bi-envelope-open",
+            TimelineEventType.AccountFreezeRequested => "bi-lock",
+            TimelineEventType.AccountFrozen => "bi-lock-fill",
+            TimelineEventType.JudgementPronounced => "bi-hammer",
+            TimelineEventType.CaseClosed => "bi-check-circle",
+            TimelineEventType.LawyerComment => "bi-chat-quote",
+            TimelineEventType.PoliceUpdate => "bi-shield",
+            TimelineEventType.DocumentUploaded => "bi-file-earmark-arrow-up",
+            TimelineEventType.WitnessStatementRecorded => "bi-person-video",
+            TimelineEventType.StatusChanged => "bi-arrow-repeat",
+            _ => "bi-circle"
+        };
+    }
+
+    private string FormatEventDate(DateTime date)
+    {
+        var now = DateTime.Now;
+        var diff = now - date;
+
+        if (diff.TotalMinutes < 60)
+            return $"{(int)diff.TotalMinutes} min ago";
+        if (diff.TotalHours < 24)
+            return $"{(int)diff.TotalHours} hours ago";
+        if (diff.TotalDays < 7)
+            return $"{(int)diff.TotalDays} days ago";
+        
+        return date.ToString("dd MMM yyyy, hh:mm tt");
+    }
+
+    private List<ExpectedStep> GetExpectedNextSteps()
+    {
+        if (selectedCase == null) return new();
+
+        var steps = new List<ExpectedStep>();
+
+        switch (selectedCase.Status)
+        {
+            case CaseStatus.Filed:
+                if (string.IsNullOrEmpty(selectedCase.FIRNumber))
+                    steps.Add(new ExpectedStep("FIR Registration", "bi-file-earmark-text", "Within 24-48 hours"));
+                steps.Add(new ExpectedStep("Officer Assignment", "bi-person-badge", "Within 3 days"));
+                steps.Add(new ExpectedStep("Initial Investigation", "bi-search", "Within 7 days"));
+                break;
+
+            case CaseStatus.UnderInvestigation:
+                steps.Add(new ExpectedStep("Evidence Collection", "bi-collection", "Ongoing"));
+                if (selectedCase.IsCybercrime)
+                {
+                    steps.Add(new ExpectedStep("Bank/Telecom Notices", "bi-envelope", "Within 7 days"));
+                    steps.Add(new ExpectedStep("Digital Forensics", "bi-cpu", "Within 15 days"));
+                }
+                steps.Add(new ExpectedStep("Chargesheet Preparation", "bi-file-earmark-check", "Within 60-90 days"));
+                break;
+
+            case CaseStatus.ChargesheetFiled:
+                steps.Add(new ExpectedStep("Court Cognizance", "bi-bank", "Within 15 days"));
+                steps.Add(new ExpectedStep("First Hearing Date", "bi-calendar-event", "Within 30 days"));
+                break;
+
+            case CaseStatus.TrialInProgress:
+                if (selectedCase.NextHearingDate.HasValue)
+                    steps.Add(new ExpectedStep("Next Hearing", "bi-calendar-event", selectedCase.NextHearingDate.Value.ToString("dd MMM yyyy")));
+                steps.Add(new ExpectedStep("Arguments", "bi-chat-square-text", "As per court schedule"));
+                steps.Add(new ExpectedStep("Judgement", "bi-hammer", "After trial completion"));
+                break;
+        }
+
+        return steps;
+    }
+
+    private async Task DownloadStatusReport()
+    {
+        if (selectedCase == null) return;
+
+        // Generate HTML report
+        var html = GenerateStatusReportHtml();
+        var fileName = $"CaseStatus_{selectedCase.CaseNumber.Replace("/", "-")}_{DateTime.Now:yyyyMMdd}.html";
+        
+        await JSRuntime.InvokeVoidAsync("downloadFile", fileName, html, "text/html");
+    }
+
+    private string GenerateStatusReportHtml()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("<!DOCTYPE html>");
+        sb.AppendLine("<html><head>");
+        sb.AppendLine("<title>Case Status Report</title>");
+        sb.AppendLine("<style>");
+        sb.AppendLine("body { font-family: Arial, sans-serif; padding: 40px; }");
+        sb.AppendLine("h1 { color: #1e3a5f; border-bottom: 2px solid #d4af37; padding-bottom: 10px; }");
+        sb.AppendLine(".header { display: flex; justify-content: space-between; margin-bottom: 30px; }");
+        sb.AppendLine(".meta { margin: 20px 0; }");
+        sb.AppendLine(".meta-item { margin: 5px 0; }");
+        sb.AppendLine(".label { color: #666; font-weight: bold; }");
+        sb.AppendLine(".timeline { margin-top: 30px; }");
+        sb.AppendLine(".event { padding: 15px; margin: 10px 0; background: #f5f5f5; border-left: 4px solid #d4af37; }");
+        sb.AppendLine(".event-title { font-weight: bold; color: #1e3a5f; }");
+        sb.AppendLine(".event-date { color: #888; font-size: 0.9em; }");
+        sb.AppendLine(".milestone { background: #fff9e6; border-left-color: #d4af37; }");
+        sb.AppendLine("</style></head><body>");
+        
+        sb.AppendLine($"<h1>Case Status Report</h1>");
+        sb.AppendLine($"<div class='header'>");
+        sb.AppendLine($"<div><strong>Case Number:</strong> {selectedCase!.CaseNumber}</div>");
+        sb.AppendLine($"<div><strong>Generated:</strong> {DateTime.Now:dd MMM yyyy, hh:mm tt}</div>");
+        sb.AppendLine("</div>");
+        
+        sb.AppendLine("<div class='meta'>");
+        sb.AppendLine($"<div class='meta-item'><span class='label'>Title:</span> {selectedCase.Title}</div>");
+        sb.AppendLine($"<div class='meta-item'><span class='label'>Status:</span> {GetStatusText(selectedCase.Status)}</div>");
+        sb.AppendLine($"<div class='meta-item'><span class='label'>Filed Date:</span> {selectedCase.FiledDate:dd MMM yyyy}</div>");
+        if (!string.IsNullOrEmpty(selectedCase.FIRNumber))
+            sb.AppendLine($"<div class='meta-item'><span class='label'>FIR Number:</span> {selectedCase.FIRNumber}</div>");
+        if (!string.IsNullOrEmpty(selectedCase.InvestigatingOfficer))
+            sb.AppendLine($"<div class='meta-item'><span class='label'>Investigating Officer:</span> {selectedCase.InvestigatingOfficer}</div>");
+        sb.AppendLine("</div>");
+        
+        sb.AppendLine("<div class='timeline'><h2>Timeline</h2>");
+        foreach (var evt in timelineEvents.OrderByDescending(e => e.EventDate))
+        {
+            var milestoneClass = evt.IsMilestone ? "milestone" : "";
+            sb.AppendLine($"<div class='event {milestoneClass}'>");
+            sb.AppendLine($"<div class='event-title'>{evt.Title}</div>");
+            sb.AppendLine($"<div class='event-date'>{evt.EventDate:dd MMM yyyy, hh:mm tt}</div>");
+            sb.AppendLine($"<div>{evt.Description}</div>");
+            if (!string.IsNullOrEmpty(evt.PerformedBy))
+                sb.AppendLine($"<div><em>By: {evt.PerformedBy}</em></div>");
+            sb.AppendLine("</div>");
+        }
+        sb.AppendLine("</div>");
+        
+        sb.AppendLine("</body></html>");
+        return sb.ToString();
+    }
+
+    private async Task ShareStatus()
+    {
+        if (selectedCase == null) return;
+        
+        var shareText = $"Case {selectedCase.CaseNumber} - Status: {GetStatusText(selectedCase.Status)}. " +
+                        $"Last updated: {latestEvent?.EventDate.ToString("dd MMM yyyy") ?? "N/A"}";
+        
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", shareText);
+        // Could show a toast notification here
+    }
+
+    private async Task PrintTimeline()
+    {
+        await JSRuntime.InvokeVoidAsync("window.print");
+    }
+
+    private class ExpectedStep
+    {
+        public string Title { get; set; }
+        public string Icon { get; set; }
+        public string ExpectedDate { get; set; }
+
+        public ExpectedStep(string title, string icon, string expectedDate)
+        {
+            Title = title;
+            Icon = icon;
+            ExpectedDate = expectedDate;
+        }
+    }
+
+    private void OnLanguageChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        LangService.OnLanguageChanged -= OnLanguageChanged;
+    }
+}

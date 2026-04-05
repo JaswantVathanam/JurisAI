@@ -1,0 +1,577 @@
+/* ============================================
+   CONSTITUTION PAGE - PRINT STYLES
+   Optimized A4 legal document printing
+   ============================================ */
+
+@media print {
+    /* Page Setup - A4 Portrait */
+    @page {
+        size: A4 portrait;
+        margin: 2cm;
+        orphans: 3;
+        widows: 3;
+    }
+
+    /* Global Print Styles */
+    html {
+        background: white;
+    }
+
+    body {
+        background: white;
+        color: #000;
+        font-size: 11pt;
+        line-height: 1.6;
+    }
+
+    /* Typography Adjustments */
+    h1 {
+        font-size: 18pt;
+        margin: 12pt 0 6pt 0;
+        page-break-after: avoid;
+        color: #000;
+        border: none;
+    }
+
+    h2 {
+        font-size: 14pt;
+        margin: 10pt 0 5pt 0;
+        page-break-after: avoid;
+        color: #000;
+    }
+
+    h3 {
+        font-size: 12pt;
+        margin: 8pt 0 4pt 0;
+        page-break-after: avoid;
+        color: #000;
+    }
+
+    p {
+        margin: 0 0 8pt 0;
+        widows: 2;
+        orphans: 2;
+    }
+
+    /* Hide Interactive Elements */
+    navbar,
+    .navbar,
+    .topbar,
+    nav,
+    .sidebar,
+    .sidenav,
+    .offcanvas,
+    .breadcrumb,
+    button,
+    .btn,
+    .btn-primary-v2,
+    .btn-secondary-v2,
+    .btn-action-v2,
+    .btn-back-v2,
+    input,
+    textarea,
+    select,
+    .search-panel-v2,
+    .filters-grid-v2,
+    .header-actions-v2,
+    .quick-actions-v2,
+    footer,
+    .footer,
+    .no-print,
+    .d-print-none,
+    [class*="hidden"],
+    .hidden {
+        display: none !important;
+    }
+
+    /* Show Print-Only Elements */
+    .print-only,
+    .d-print-inline,
+    .d-print-block {
+        display: block !important;
+    }
+
+    /* Links for Print */
+    a {
+        color: #000;
+        text-decoration: underline;
+    }
+
+    a[href]::after {
+        content: "";
+    }
+
+    /* Page Breaks */
+    .page-break {
+        page-break-after: always;
+    }
+
+    .page-break-before {
+        page-break-before: always;
+    }
+
+    /* Avoid Breaking Article Content */
+    .article-detail-header-v2,
+    .article-section-v2,
+    .article-info-v2,
+    .keywords-cloud-v2,
+    .applicability-v2,
+    .related-articles-list-v2,
+    .article-card-v2 {
+        page-break-inside: avoid;
+        break-inside: avoid;
+        background: white !important;
+        border: 1px solid #000 !important;
+        page-break-after: avoid;
+    }
+
+    /* Article Detail Header Print */
+    .article-detail-header-v2 {
+        margin-bottom: 12pt;
+        padding-bottom: 8pt;
+        border-bottom: 2pt solid #000;
+    }
+
+    .article-title-info-v2 h1 {
+        background: none;
+        -webkit-background-clip: unset;
+        -webkit-text-fill-color: unset;
+        background-clip: unset;
+        color: #000;
+        font-size: 16pt;
+    }
+
+    .article-title-info-v2 h2 {
+        background: none;
+        -webkit-background-clip: unset;
+        -webkit-text-fill-color: unset;
+        background-clip: unset;
+        color: #333;
+        font-size: 13pt;
+    }
+
+    /* Article Badges */
+    .article-badges-v2 {
+        margin: 8pt 0;
+    }
+
+    .meta-badge-v2,
+    .part-badge,
+    .category-badge,
+    .fundamental-badge,
+    .article-number-badge {
+        background: white !important;
+        border: 1px solid #000 !important;
+        color: #000 !important;
+        margin-right: 4pt;
+        margin-bottom: 4pt;
+        display: inline-block;
+        page-break-inside: avoid;
+    }
+
+    .meta-badge-v2 i,
+    .fundamental-badge i {
+        display: none;
+    }
+
+    /* Article Sections */
+    .article-section-v2 {
+        margin-bottom: 12pt;
+        padding: 8pt;
+        border: 1pt solid #333;
+    }
+
+    .article-section-v2 h3 {
+        font-size: 11pt;
+        font-weight: bold;
+        margin-bottom: 6pt;
+        page-break-after: avoid;
+    }
+
+    .article-section-v2 h3 i {
+        display: none;
+    }
+
+    /* Article Text */
+    .article-text-v2 {
+        font-size: 10.5pt;
+        line-height: 1.6;
+        margin: 0;
+        color: #000;
+    }
+
+    .explanation-text-v2 {
+        background: #f5f5f5 !important;
+        border-left: 3pt solid #666 !important;
+        padding: 8pt;
+        margin: 8pt 0;
+        page-break-inside: avoid;
+    }
+
+    /* Related Cases */
+    .related-cases-list-v2 {
+        margin-top: 12pt;
+    }
+
+    .case-item-v2 {
+        background: white !important;
+        border: 1pt solid #999 !important;
+        padding: 8pt;
+        margin: 6pt 0;
+        page-break-inside: avoid;
+    }
+
+    .case-title-v2 {
+        font-weight: bold;
+        color: #000;
+        font-size: 10.5pt;
+    }
+
+    .case-citation-v2 {
+        color: #000;
+        font-family: monospace;
+        font-size: 9pt;
+        margin: 2pt 0;
+    }
+
+    .case-summary-v2 {
+        font-size: 10pt;
+        color: #000;
+    }
+
+    /* Related Articles */
+    .related-articles-list-v2 {
+        margin-top: 12pt;
+    }
+
+    .related-article-item-v2 {
+        background: white !important;
+        border: 1pt solid #999 !important;
+        padding: 6pt;
+        margin: 4pt 0;
+        page-break-inside: avoid;
+    }
+
+    .related-article-number {
+        color: #000;
+        font-weight: bold;
+        font-size: 9pt;
+    }
+
+    .related-article-title {
+        color: #000;
+        font-weight: bold;
+        font-size: 10.5pt;
+    }
+
+    /* Sidebar Items */
+    .article-info-v2 {
+        background: white !important;
+        border: 1pt solid #999 !important;
+        margin-bottom: 12pt;
+        padding: 8pt;
+        page-break-inside: avoid;
+    }
+
+    .article-info-v2 h3 {
+        font-weight: bold;
+        font-size: 11pt;
+        page-break-after: avoid;
+    }
+
+    .article-info-v2 h3 i {
+        display: none;
+    }
+
+    .info-list-v2 {
+        margin: 0;
+        padding: 0;
+    }
+
+    .info-item-v2 {
+        margin-bottom: 6pt;
+        page-break-inside: avoid;
+    }
+
+    .info-item-v2 label {
+        font-size: 8pt;
+        font-weight: bold;
+        color: #666;
+        text-transform: uppercase;
+    }
+
+    .info-item-v2 span {
+        font-size: 10pt;
+        color: #000;
+        font-weight: normal;
+    }
+
+    /* Applicability */
+    .applicability-v2 {
+        background: white !important;
+        border: 1pt solid #999 !important;
+        margin-bottom: 12pt;
+        padding: 8pt;
+        page-break-inside: avoid;
+    }
+
+    .applicability-v2 h3 {
+        font-weight: bold;
+        font-size: 11pt;
+        page-break-after: avoid;
+        margin-bottom: 6pt;
+    }
+
+    .applicability-v2 h3 i {
+        display: none;
+    }
+
+    .applicability-v2 p {
+        font-size: 10pt;
+        color: #000;
+        margin: 0;
+    }
+
+    /* Keywords Cloud */
+    .keywords-cloud-v2 {
+        background: white !important;
+        border: 1pt solid #999 !important;
+        margin-bottom: 12pt;
+        padding: 8pt;
+        page-break-inside: avoid;
+    }
+
+    .keywords-cloud-v2 h3 {
+        font-weight: bold;
+        font-size: 11pt;
+        page-break-after: avoid;
+        margin-bottom: 6pt;
+    }
+
+    .keywords-cloud-v2 h3 i {
+        display: none;
+    }
+
+    .keywords-list-v2 {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4pt;
+    }
+
+    .keyword-tag-v2 {
+        background: white !important;
+        border: 1pt solid #666 !important;
+        color: #000 !important;
+        padding: 3pt 6pt;
+        font-size: 8pt;
+        display: inline-block;
+        margin-right: 4pt;
+        margin-bottom: 4pt;
+    }
+
+    /* Article Cards Grid */
+    .articles-grid-v2 {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12pt;
+    }
+
+    .article-card-v2 {
+        background: white !important;
+        border: 1pt solid #999 !important;
+        padding: 8pt;
+        margin-bottom: 12pt;
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    .article-card-v2::before {
+        display: none;
+    }
+
+    .article-number-badge {
+        background: white !important;
+        border: 1pt solid #000 !important;
+        color: #000 !important;
+        width: 40pt;
+        height: 40pt;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+    }
+
+    .article-card-v2 h3 {
+        color: #000;
+        font-size: 11pt;
+        font-weight: bold;
+        margin: 6pt 0;
+    }
+
+    .article-summary {
+        font-size: 10pt;
+        color: #333;
+        margin: 6pt 0;
+    }
+
+    .article-footer {
+        border-top: 1pt solid #999;
+        padding-top: 6pt;
+        margin-top: 6pt;
+        color: #000;
+        font-size: 9pt;
+    }
+
+    /* Print Header */
+    .print-header-v2 {
+        page-break-after: avoid;
+        margin-bottom: 12pt;
+        padding-bottom: 8pt;
+        border-bottom: 2pt solid #000;
+        text-align: center;
+    }
+
+    .print-header-v2 h1 {
+        margin: 0;
+        padding: 0;
+        font-size: 18pt;
+        color: #000;
+    }
+
+    .print-header-v2 p {
+        margin: 2pt 0;
+        font-size: 9pt;
+        color: #666;
+    }
+
+    /* Print Footer */
+    .print-footer-v2 {
+        margin-top: 12pt;
+        padding-top: 8pt;
+        border-top: 1pt solid #999;
+        text-align: center;
+        font-size: 9pt;
+        color: #999;
+    }
+
+    .print-page-number::after {
+        content: " " counter(page);
+    }
+
+    /* Print-Specific Visibility */
+    .print-visible {
+        display: block !important;
+    }
+
+    .print-hidden {
+        display: none !important;
+    }
+
+    /* Table Styles */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        page-break-inside: avoid;
+    }
+
+    th {
+        background: #f0f0f0 !important;
+        color: #000;
+        border: 1pt solid #999 !important;
+        padding: 6pt;
+        text-align: left;
+        font-weight: bold;
+        page-break-after: avoid;
+    }
+
+    td {
+        border: 1pt solid #999 !important;
+        padding: 6pt;
+        color: #000;
+    }
+
+    tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    /* Lists */
+    ul,
+    ol {
+        margin-left: 1.5em;
+        page-break-inside: avoid;
+    }
+
+    li {
+        margin-bottom: 4pt;
+        page-break-inside: avoid;
+    }
+
+    /* Code/Monospace */
+    code,
+    pre {
+        background: #f5f5f5;
+        border: 1pt solid #999;
+        padding: 6pt;
+        color: #000;
+        font-family: monospace;
+        font-size: 9pt;
+        page-break-inside: avoid;
+    }
+
+    /* Blockquotes */
+    blockquote {
+        margin: 8pt 0;
+        padding: 8pt;
+        border-left: 3pt solid #666;
+        background: #f9f9f9;
+        page-break-inside: avoid;
+    }
+
+    /* Image Adjustments */
+    img {
+        max-width: 100%;
+        page-break-inside: avoid;
+    }
+
+    /* Color Adjustments for Print */
+    *:not(img) {
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        -webkit-print-color-adjust: exact !important;
+    }
+
+    /* Background Colors */
+    .alert,
+    .badge,
+    .badge-success,
+    .badge-danger,
+    .badge-warning,
+    .badge-info {
+        background-color: #f0f0f0 !important;
+        border: 1pt solid #999 !important;
+        color: #000 !important;
+    }
+}
+
+/* Extra Print Optimizations */
+@media print and (color) {
+    /* Ensure colors print correctly */
+    .fundamental-badge {
+        background: #f5f5f5 !important;
+        border: 1pt solid #000 !important;
+        color: #000 !important;
+    }
+
+    .category-badge {
+        background: #f5f5f5 !important;
+        border: 1pt solid #000 !important;
+        color: #000 !important;
+    }
+
+    .part-badge {
+        background: #f5f5f5 !important;
+        border: 1pt solid #999 !important;
+        color: #000 !important;
+    }
+}

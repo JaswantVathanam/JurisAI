@@ -1,0 +1,77 @@
+@using AILegalAsst.Models
+
+<link rel="stylesheet" href="copilot-suggestion-card.css" />
+
+<div class="suggestion-card glass-card">
+    <div class="suggestion-header">
+        <div class="suggestion-type-badge">
+            <span class="badge @GetTypeBadgeClass()">@Suggestion.Type</span>
+        </div>
+        <div class="suggestion-priority">
+            @for (int i = 0; i < Suggestion.Priority; i++)
+            {
+                <i class="bi bi-star-fill"></i>
+            }
+            @for (int i = Suggestion.Priority; i < 5; i++)
+            {
+                <i class="bi bi-star"></i>
+            }
+        </div>
+    </div>
+
+    <div class="suggestion-content">
+        <p class="suggestion-text">@Suggestion.Content</p>
+        
+        @if (!string.IsNullOrEmpty(Suggestion.Explanation))
+        {
+            <p class="suggestion-explanation">
+                <i class="bi bi-info-circle"></i> @Suggestion.Explanation
+            </p>
+        }
+    </div>
+
+    <div class="suggestion-footer">
+        <div class="suggestion-meta">
+            <span class="meta-item">
+                <i class="bi bi-target"></i> Confidence: @Suggestion.ConfidenceScore%
+            </span>
+            <span class="meta-item">
+                <i class="bi bi-hourglass"></i> Effort: @Suggestion.EstimatedEffort/5
+            </span>
+        </div>
+
+        <div class="suggestion-actions">
+            <button class="btn btn-sm btn-success" @onclick="@((e) => OnAccept.InvokeAsync(Suggestion.Id))">
+                <i class="bi bi-check-circle"></i> Accept
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="@((e) => OnReject.InvokeAsync(Suggestion.Id))">
+                <i class="bi bi-x-circle"></i> Reject
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public CopilotSuggestion Suggestion { get; set; } = null!;
+
+    [Parameter]
+    public EventCallback<int> OnAccept { get; set; }
+
+    [Parameter]
+    public EventCallback<int> OnReject { get; set; }
+
+    private string GetTypeBadgeClass()
+    {
+        return Suggestion.Type switch
+        {
+            "Evidence" => "bg-danger",
+            "QuestionForSuspect" => "bg-info",
+            "Precedent" => "bg-primary",
+            "LegalAdvice" => "bg-warning",
+            "DocumentRequired" => "bg-secondary",
+            "Warning" => "bg-dark",
+            _ => "bg-light"
+        };
+    }
+}

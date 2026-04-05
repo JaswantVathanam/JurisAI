@@ -1,0 +1,71 @@
+{
+  "Notices": [
+    {
+      "Id": 1,
+      "NoticeNumber": "CDR/2025/0001",
+      "Type": 1,
+      "CaseId": 4,
+      "CaseNumber": "CYB/2025/005",
+      "FIRNumber": "Pending",
+      "RecipientName": "Nodal Officer",
+      "RecipientDesignation": "Corporate Security",
+      "RecipientOrganization": "Vodafone Idea (Vi)",
+      "RecipientAddress": "Vi Corporate Office, Mumbai",
+      "Subject": "Request for Call Detail Records (CDR) / IPDR - Case No. CYB/2025/005",
+      "Body": "Sir/Madam,\r\n\r\nSub: Request for Call Detail Records (CDR) and Internet Protocol Detail Records (IPDR)\r\n\r\nRef: FIR No. Pending dated 03-12-2025\r\n\r\nIn connection with the investigation of the above-mentioned Cybercrime case, you are requested to provide the Call Detail Records (CDR) and Internet Protocol Detail Records (IPDR) for the following mobile number(s):\r\n\r\n\u2022 Mobile Number: **9087335179**\r\n\r\n**Period Required:**\r\nFrom: 03-11-2025\r\nTo: 18-12-2025\r\n\r\n**Information Required:**\r\n\r\n1. **CDR Details:**\r\n   - Complete incoming and outgoing call records\r\n   - SMS details (incoming and outgoing)\r\n   - Cell tower location details with lat/long coordinates\r\n   - IMEI number(s) used with the SIM\r\n\r\n2. **Subscriber Details:**\r\n   - Customer Application Form (CAF)\r\n   - KYC documents submitted\r\n   - Activation date and dealer details\r\n   - Alternate contact numbers provided\r\n\r\n3. **IPDR Details (if data services used):**\r\n   - Data usage logs with IP addresses\r\n   - Timestamps of internet sessions\r\n\r\n4. **Recharge Details:**\r\n   - All recharge transactions with mode of payment\r\n   - Retailer details for physical recharges\r\n\r\nThis request is made under Section 91 CrPC (now Section 94 BNSS, 2023) and IT Act, 2000.\r\n\r\n**Additional Information:**\r\nRegarding this case, we need information, respond immediately\r\n\r\nPlease provide the information in **Excel/CSV format** within **7 working days**.\r\n\r\nYour cooperation in this investigation is appreciated.\r\n",
+      "Reference": "",
+      "AccountNumbers": [],
+      "PhoneNumbers": [
+        "9087335179"
+      ],
+      "UPIIds": [],
+      "SocialMediaHandles": [],
+      "IPAddresses": [],
+      "FromDate": "2025-11-03T12:11:59.9306208Z",
+      "ToDate": "2025-12-18T22:36:27.9797322+05:30",
+      "SenderName": "SI Amit Verma",
+      "SenderDesignation": "Police Officer",
+      "SenderStation": "Cyber Crime Police Station",
+      "SenderContact": "police@gov.in",
+      "GeneratedDate": "2025-12-18T22:37:41.8064645+05:30",
+      "GeneratedBy": "SI Amit Verma",
+      "IsSent": false,
+      "SentDate": null,
+      "ResponseReceived": null
+    },
+    {
+      "Id": 2,
+      "NoticeNumber": "CDR/2026/0002",
+      "Type": 1,
+      "CaseId": 1,
+      "CaseNumber": "CYB/2024/001",
+      "FIRNumber": "FIR/2024/CYB/1234",
+      "RecipientName": "Nodal Officer",
+      "RecipientDesignation": "Security \u0026 Law Enforcement",
+      "RecipientOrganization": "Jio (Reliance)",
+      "RecipientAddress": "Reliance Corporate Park, Navi Mumbai",
+      "Subject": "CDRRequest Notice under CrPC and IT Act for Call Data Records (CDR) \u2013 Case CYB/2024/001; FIR 2024/CYB/1234",
+      "Body": "To\nNodal Officer\nReliance Jio Infocomm Limited (Jio)\nSubject: Notice for production of Call Data Records (CDR) \u2013 Number: \u002B91 7010097520 for the period 01-04-2026 to 06-04-2026\n\nDate: [DD-MM-YYYY]\nFIR No.: FIR/2024/CYB/1234\nCase No.: CYB/2024/001\n\nFrom:\nSI Amit Verma\nPolice Officer, Cyber Crime Police Station\n[Address of Cyber Crime Police Station]\n[Contact Phone]\n[Email]\n\nRespected Sir/Madam,\n\n1. This is to inform you that the undersigned, in the capacity of Police Officer duly authorized to investigate cybercrime, is conducting an investigation under FIR No. FIR/2024/CYB/1234 and Case No. CYB/2024/001. The investigation concerns suspicious cybercriminal activity and requires access to Call Data Records (CDR) in respect of the mobile number specified below for the date range specified herein.\n\n2. Pursuant to CrPC Section 91 (Production of documents and other things) and the Information Technology Act, 2000 (as amended), including the relevant rules framed thereunder (Information Technology (Procedure and Safeguards for Interception, Monitoring and Decryption of Information) Rules, 2009) and Sections 69(1) and 69B of the IT Act, you are hereby directed to furnish the Call Data Records (CDR) pertaining to the following subscriber number for the period 01-04-2026 to 06-04-2026:\n\n- Number: \u002B91 7010097520\n- Date Range: 01-04-2026 to 06-04-2026\n\n3. The CDR shall include, to the extent available, the following data fields for each call or session:\n- Call direction (incoming/outgoing/missed)\n- Time and date of the event (timestamp)\n- Duration of the call or session\n- Originating number (caller) and terminating number (callee)\n- Location data or cell site/antenna information associated with the call\n- Type of communication (voice, SMS, data session, etc.)\n- IMSI/IMEI or subscriber-identifying information where available\n- Any data packets, session details, or ancillary records relevant to the communication\n\n4. The data shall be provided in a secure, non-editable format (e.g., PDF/CSV/secure digital medium) with an auditable chain of custody. The data is to be delivered in a manner suitable for admissible use in accordance with applicable law and shall be restricted to personnel directly involved in the investigation.\n\n5. Purpose and scope: The information requested is strictly for the ongoing investigation under FIR/2024/CYB/1234 and Case CYB/2024/001 and shall be used solely for legitimate law enforcement purposes. The data may be disclosed to requisite judicial authorities or in further legal proceedings as permitted by law.\n\n6. Preservation and non-spoliation: Please preserve the requested records in their original form and ensure no alteration, deletion, or destruction until such time as the records are produced or a court/competent authority orders otherwise. If any portion of the data is unavailable, furnish a detailed statement explaining the unavailability and a reasonable timeline for production of the remaining records.\n\n7. Compliance timeline: Kindly furnish the requested CDR on or before seven (7) days from the date of receipt of this notice, or within such extended period as may be permissible under the applicable law and as may be directed by a competent authority. If you require a formal extension, please communicate the same with justification through proper channels.\n\n8. Validation and contact: Upon compliance or if there are any queries or clarifications required, please contact the undersigned at the address and contact details provided above. All data provided shall be handled in strict confidence and in accordance with applicable legal protections.\n\n9. This notice is issued in exercise of the statutory powers vested in the undersigned under CrPC and the Information Technology Act, 2000 (as amended), for the purpose of a legitimate criminal investigation. Non-compliance or any attempt to mislead or obstruct the investigation shall be liable to prosecution in accordance with law.\n\nPlace: [City]\nDate: [DD-MM-YYYY]\n\nYours faithfully,\n\nSI Amit Verma\nCyber Crime Police Station\n[Address]\n[City, State]\nPhone: [Phone]\nEmail: [Email]",
+      "Reference": "",
+      "AccountNumbers": [],
+      "PhoneNumbers": [
+        "\u002B91 7010097520"
+      ],
+      "UPIIds": [],
+      "SocialMediaHandles": [],
+      "IPAddresses": [],
+      "FromDate": "2026-04-01T00:00:00",
+      "ToDate": "2026-04-06T00:40:56.0650268+05:30",
+      "SenderName": "SI Amit Verma",
+      "SenderDesignation": "Police Officer",
+      "SenderStation": "Cyber Crime Police Station",
+      "SenderContact": "police@gov.in",
+      "GeneratedDate": "2026-04-06T00:41:51.8990801+05:30",
+      "GeneratedBy": "SI Amit Verma",
+      "IsSent": false,
+      "SentDate": null,
+      "ResponseReceived": null
+    }
+  ],
+  "NextNoticeNumber": 3
+}

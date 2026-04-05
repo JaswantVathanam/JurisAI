@@ -1,0 +1,811 @@
+@page "/deadline-tracker"
+@rendermode InteractiveServer
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@inject DeadlineTrackerService DeadlineService
+@inject IJSRuntime JS
+
+<PageTitle>BNSS Deadline Tracker - JurisAI</PageTitle>
+
+<link href="deadline-tracker.css" rel="stylesheet" />
+
+<div class="deadline-container">
+    <!-- Header Section -->
+    <div class="page-header">
+        <div class="header-content">
+            <div class="header-icon">
+                <i class="bi bi-calendar-check"></i>
+            </div>
+            <div class="header-text">
+                <h1>BNSS Deadline Tracker</h1>
+                <p>Statutory Deadline Management under Bharatiya Nagarik Suraksha Sanhita</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="btn-glass btn-primary" @onclick="ShowCreateDeadlineModal">
+                <i class="bi bi-plus-circle"></i> Add Deadline
+            </button>
+            <button class="btn-glass" @onclick="ShowBNSSRulesModal">
+                <i class="bi bi-book"></i> BNSS Rules
+            </button>
+            <button class="btn-glass" @onclick="RefreshData">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Alert Banner for Critical Deadlines -->
+    @if (dashboard.CriticalAlerts > 0)
+    {
+        <div class="alert-banner critical">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <span>@dashboard.CriticalAlerts critical deadline(s) require immediate attention!</span>
+            <button class="btn-view" @onclick="@(() => SetFilter("critical"))">View All</button>
+        </div>
+    }
+    @if (dashboard.OverdueDeadlines > 0)
+    {
+        <div class="alert-banner overdue">
+            <i class="bi bi-alarm-fill"></i>
+            <span>@dashboard.OverdueDeadlines deadline(s) are overdue - Default bail provisions may apply!</span>
+            <button class="btn-view" @onclick="@(() => SetFilter("overdue"))">View All</button>
+        </div>
+    }
+
+    <!-- Statistics Dashboard -->
+    <div class="stats-grid">
+        <div class="stat-card clickable" @onclick="@(() => SetFilter("all"))">
+            <div class="stat-icon blue">
+                <i class="bi bi-calendar3"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value">@dashboard.TotalDeadlines</span>
+                <span class="stat-label">Total Deadlines</span>
+            </div>
+        </div>
+        <div class="stat-card clickable" @onclick="@(() => SetFilter("pending"))">
+            <div class="stat-icon orange">
+                <i class="bi bi-hourglass-split"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value">@dashboard.PendingDeadlines</span>
+                <span class="stat-label">Pending</span>
+            </div>
+        </div>
+        <div class="stat-card clickable @(dashboard.OverdueDeadlines > 0 ? "alert" : "")" @onclick="@(() => SetFilter("overdue"))">
+            <div class="stat-icon red">
+                <i class="bi bi-exclamation-octagon"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value">@dashboard.OverdueDeadlines</span>
+                <span class="stat-label">Overdue</span>
+            </div>
+        </div>
+        <div class="stat-card clickable" @onclick="@(() => SetFilter("completed"))">
+            <div class="stat-icon green">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value">@dashboard.CompletedDeadlines</span>
+                <span class="stat-label">Completed</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon purple">
+                <i class="bi bi-calendar-event"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value">@dashboard.DueTodayCount</span>
+                <span class="stat-label">Due Today</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon cyan">
+                <i class="bi bi-calendar-week"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value">@dashboard.DueThisWeekCount</span>
+                <span class="stat-label">Due This Week</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Compliance Rate -->
+    <div class="compliance-section">
+        <div class="compliance-card">
+            <div class="compliance-header">
+                <h4><i class="bi bi-graph-up"></i> Compliance Rate</h4>
+                <span class="compliance-value @GetComplianceClass(dashboard.ComplianceRate)">@dashboard.ComplianceRate.ToString("F1")%</span>
+            </div>
+            <div class="compliance-bar">
+                <div class="compliance-fill @GetComplianceClass(dashboard.ComplianceRate)" style="width: @dashboard.ComplianceRate%"></div>
+            </div>
+            <p class="compliance-note">Based on completed vs. total due deadlines</p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content-grid">
+        <!-- Deadlines List -->
+        <div class="glass-panel deadlines-list">
+            <div class="panel-header">
+                <h3><i class="bi bi-list-task"></i> Deadlines</h3>
+                <div class="filter-controls">
+                    <select @bind="statusFilter" class="filter-select">
+                        <option value="all">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="overdue">Overdue</option>
+                        <option value="completed">Completed</option>
+                        <option value="extended">Extended</option>
+                        <option value="critical">Critical (≤7 days)</option>
+                    </select>
+                    <div class="search-box">
+                        <i class="bi bi-search"></i>
+                        <input type="text" placeholder="Search..." @bind="searchQuery" @bind:event="oninput" />
+                    </div>
+                </div>
+            </div>
+            <div class="panel-content">
+                @if (filteredDeadlines.Any())
+                {
+                    @foreach (var deadline in filteredDeadlines)
+                    {
+                        <div class="deadline-card @GetDeadlineCardClass(deadline) @(selectedDeadline?.Id == deadline.Id ? "selected" : "")"
+                             @onclick="() => SelectDeadline(deadline)">
+                            <div class="deadline-header">
+                                <div class="deadline-type">
+                                    <i class="bi @GetDeadlineTypeIcon(deadline.DeadlineType)"></i>
+                                    <span>@deadline.DeadlineType.ToString().Replace("_", " ")</span>
+                                </div>
+                                <span class="priority-badge @GetPriorityClass(deadline.Priority)">@deadline.Priority</span>
+                            </div>
+                            <div class="deadline-case">
+                                <span class="case-id">@deadline.CaseId</span>
+                                <span class="case-title">@deadline.CaseTitle</span>
+                            </div>
+                            <div class="deadline-info">
+                                <div class="due-date">
+                                    <i class="bi bi-calendar3"></i>
+                                    <span>@deadline.DueDate.ToString("dd MMM yyyy")</span>
+                                </div>
+                                <div class="days-indicator @GetDaysClass(deadline.DaysRemaining)">
+                                    @if (deadline.IsOverdue)
+                                    {
+                                        <span class="days-overdue">@Math.Abs(deadline.DaysRemaining) days overdue</span>
+                                    }
+                                    else if (deadline.Status == DeadlineStatus.Completed)
+                                    {
+                                        <span class="days-completed">Completed</span>
+                                    }
+                                    else
+                                    {
+                                        <span>@deadline.DaysRemaining days left</span>
+                                    }
+                                </div>
+                            </div>
+                            <div class="deadline-footer">
+                                <span class="officer"><i class="bi bi-person"></i> @deadline.AssignedOfficer</span>
+                                <span class="status-badge @GetStatusClass(deadline.Status)">@deadline.Status</span>
+                            </div>
+                            @if (deadline.ExtensionCount > 0)
+                            {
+                                <div class="extension-note">
+                                    <i class="bi bi-arrow-clockwise"></i> Extended @deadline.ExtensionCount time(s)
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <i class="bi bi-calendar-check"></i>
+                        <p>No deadlines found</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Deadline Details / Alerts -->
+        <div class="glass-panel details-panel">
+            @if (selectedDeadline != null)
+            {
+                <div class="panel-header">
+                    <h3><i class="bi bi-info-circle"></i> Deadline Details</h3>
+                    <div class="header-actions">
+                        @if (selectedDeadline.Status == DeadlineStatus.Pending || selectedDeadline.Status == DeadlineStatus.Overdue)
+                        {
+                            <button class="btn-icon btn-success" title="Mark Complete" @onclick="ShowCompleteModal">
+                                <i class="bi bi-check-lg"></i>
+                            </button>
+                            <button class="btn-icon" title="Request Extension" @onclick="ShowExtensionModal">
+                                <i class="bi bi-clock-history"></i>
+                            </button>
+                        }
+                    </div>
+                </div>
+                <div class="panel-content">
+                    <!-- Deadline Info Card -->
+                    <div class="detail-card @GetDeadlineCardClass(selectedDeadline)">
+                        <div class="detail-header">
+                            <div class="deadline-type-large">
+                                <i class="bi @GetDeadlineTypeIcon(selectedDeadline.DeadlineType)"></i>
+                                <span>@selectedDeadline.DeadlineType.ToString().Replace("_", " ")</span>
+                            </div>
+                            <div class="countdown @GetDaysClass(selectedDeadline.DaysRemaining)">
+                                @if (selectedDeadline.IsOverdue)
+                                {
+                                    <span class="count">@Math.Abs(selectedDeadline.DaysRemaining)</span>
+                                    <span class="label">Days Overdue</span>
+                                }
+                                else if (selectedDeadline.Status == DeadlineStatus.Completed)
+                                {
+                                    <i class="bi bi-check-circle-fill"></i>
+                                    <span class="label">Completed</span>
+                                }
+                                else
+                                {
+                                    <span class="count">@selectedDeadline.DaysRemaining</span>
+                                    <span class="label">Days Left</span>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="case-info">
+                            <h4>@selectedDeadline.CaseTitle</h4>
+                            <span class="case-id">@selectedDeadline.CaseId</span>
+                        </div>
+
+                        <p class="description">@selectedDeadline.Description</p>
+
+                        <div class="legal-provision">
+                            <i class="bi bi-book"></i>
+                            <span>@selectedDeadline.LegalProvision</span>
+                        </div>
+
+                        <div class="details-grid">
+                            <div class="detail-item">
+                                <span class="label">FIR Date</span>
+                                <span class="value">@selectedDeadline.FIRDate.ToString("dd MMM yyyy")</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Due Date</span>
+                                <span class="value @(selectedDeadline.IsOverdue ? "text-danger" : "")">@selectedDeadline.DueDate.ToString("dd MMM yyyy")</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Assigned Officer</span>
+                                <span class="value">@selectedDeadline.AssignedOfficer</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Unit</span>
+                                <span class="value">@selectedDeadline.AssignedUnit</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Priority</span>
+                                <span class="value priority-badge @GetPriorityClass(selectedDeadline.Priority)">@selectedDeadline.Priority</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Status</span>
+                                <span class="value status-badge @GetStatusClass(selectedDeadline.Status)">@selectedDeadline.Status</span>
+                            </div>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(selectedDeadline.Notes))
+                        {
+                            <div class="notes-section">
+                                <h5><i class="bi bi-sticky"></i> Notes</h5>
+                                <p>@selectedDeadline.Notes</p>
+                            </div>
+                        }
+
+                        @if (selectedDeadline.Status == DeadlineStatus.Completed && selectedDeadline.CompletedAt.HasValue)
+                        {
+                            <div class="completion-section">
+                                <h5><i class="bi bi-check-circle"></i> Completion Details</h5>
+                                <p><strong>Completed:</strong> @selectedDeadline.CompletedAt.Value.ToString("dd MMM yyyy HH:mm")</p>
+                                @if (!string.IsNullOrEmpty(selectedDeadline.CompletionNotes))
+                                {
+                                    <p>@selectedDeadline.CompletionNotes</p>
+                                }
+                            </div>
+                        }
+
+                        @if (selectedDeadline.ExtensionCount > 0)
+                        {
+                            <div class="extension-section">
+                                <h5><i class="bi bi-clock-history"></i> Extension History</h5>
+                                <p><strong>Extensions:</strong> @selectedDeadline.ExtensionCount</p>
+                                @if (!string.IsNullOrEmpty(selectedDeadline.ExtensionReason))
+                                {
+                                    <p><strong>Reason:</strong> @selectedDeadline.ExtensionReason</p>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Reminder Schedule -->
+                    @if (selectedDeadline.ReminderDays?.Any() == true && selectedDeadline.Status == DeadlineStatus.Pending)
+                    {
+                        <div class="reminder-section">
+                            <h5><i class="bi bi-bell"></i> Reminder Schedule</h5>
+                            <div class="reminder-list">
+                                @foreach (var days in selectedDeadline.ReminderDays.OrderByDescending(d => d))
+                                {
+                                    var reminderDate = selectedDeadline.DueDate.AddDays(-days);
+                                    var isPast = reminderDate.Date <= DateTime.Now.Date;
+                                    <div class="reminder-item @(isPast ? "past" : "")">
+                                        <i class="bi @(isPast ? "bi-check-circle-fill" : "bi-circle")"></i>
+                                        <span>@days days before - @reminderDate.ToString("dd MMM yyyy")</span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <!-- Recent Alerts -->
+                <div class="panel-header" style="display: flex; align-items: center; justify-content: space-between;">
+                    <h3><i class="bi bi-bell"></i> Recent Alerts</h3>
+                    <button @onclick="EnhanceAlertsWithAI" disabled="@isEnhancingAlerts" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; border-radius: 8px; border: none; background: linear-gradient(135deg, #667eea, #764ba2); color: white; cursor: pointer; display: flex; align-items: center; gap: 0.4rem;">
+                        @if (isEnhancingAlerts)
+                        {
+                            <i class="bi bi-hourglass-split"></i> <span>Enhancing...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-stars"></i> <span>Enhance with AI</span>
+                        }
+                    </button>
+                </div>
+                <div class="panel-content">
+                    @if (dashboard.RecentAlerts?.Any() == true)
+                    {
+                        <div class="alerts-list">
+                            @foreach (var alert in dashboard.RecentAlerts)
+                            {
+                                <div class="alert-card @GetSeverityClass(alert.Severity)">
+                                    <div class="alert-icon">
+                                        <i class="bi @GetSeverityIcon(alert.Severity)"></i>
+                                    </div>
+                                    <div class="alert-content">
+                                        <div class="alert-header">
+                                            <span class="alert-type">@alert.DeadlineType</span>
+                                            <span class="alert-date">Due: @alert.DueDate.ToString("dd MMM")</span>
+                                        </div>
+                                        <p class="alert-case">@alert.CaseTitle</p>
+                                        <p class="alert-message">@alert.Message</p>
+                                        <span class="alert-officer"><i class="bi bi-person"></i> @alert.AssignedOfficer</span>
+                                    </div>
+                                    @if (!alert.IsAcknowledged)
+                                    {
+                                        <button class="btn-acknowledge" @onclick="() => AcknowledgeAlert(alert.Id)" title="Acknowledge">
+                                            <i class="bi bi-check-lg"></i>
+                                        </button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="empty-state small">
+                            <i class="bi bi-bell-slash"></i>
+                            <p>No recent alerts</p>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Complete Deadline Modal -->
+@if (showCompleteModal)
+{
+    <div class="modal-overlay" @onclick="CloseCompleteModal">
+        <div class="modal-content" @onclick:stopPropagation>
+            <div class="modal-header">
+                <h3><i class="bi bi-check-circle"></i> Complete Deadline</h3>
+                <button class="btn-close" @onclick="CloseCompleteModal">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="confirm-text">Mark this deadline as completed?</p>
+                <div class="deadline-summary">
+                    <strong>@selectedDeadline?.DeadlineType.ToString().Replace("_", " ")</strong>
+                    <span>@selectedDeadline?.CaseId</span>
+                </div>
+                <div class="form-group">
+                    <label>Completion Notes *</label>
+                    <textarea @bind="completionNotes" rows="3" placeholder="Enter completion details..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-glass" @onclick="CloseCompleteModal">Cancel</button>
+                <button class="btn-glass btn-success" @onclick="CompleteDeadline">
+                    <i class="bi bi-check-lg"></i> Mark Complete
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Extension Modal -->
+@if (showExtensionModal)
+{
+    <div class="modal-overlay" @onclick="CloseExtensionModal">
+        <div class="modal-content" @onclick:stopPropagation>
+            <div class="modal-header">
+                <h3><i class="bi bi-clock-history"></i> Request Extension</h3>
+                <button class="btn-close" @onclick="CloseExtensionModal">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="deadline-summary">
+                    <strong>@selectedDeadline?.DeadlineType.ToString().Replace("_", " ")</strong>
+                    <span>Current Due: @selectedDeadline?.DueDate.ToString("dd MMM yyyy")</span>
+                </div>
+                <div class="form-group">
+                    <label>Extension Days *</label>
+                    <input type="number" @bind="extensionDays" min="1" max="90" />
+                </div>
+                <div class="form-group">
+                    <label>Reason for Extension *</label>
+                    <textarea @bind="extensionReason" rows="3" placeholder="Provide justification for extension..."></textarea>
+                </div>
+                <div class="new-date-preview">
+                    <i class="bi bi-calendar-plus"></i>
+                    <span>New Due Date: @selectedDeadline?.DueDate.AddDays(extensionDays).ToString("dd MMM yyyy")</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-glass" @onclick="CloseExtensionModal">Cancel</button>
+                <button class="btn-glass btn-primary" @onclick="RequestExtension">
+                    <i class="bi bi-clock-history"></i> Request Extension
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- BNSS Rules Modal -->
+@if (showBNSSRulesModal)
+{
+    <div class="modal-overlay" @onclick="CloseBNSSRulesModal">
+        <div class="modal-content large" @onclick:stopPropagation>
+            <div class="modal-header">
+                <h3><i class="bi bi-book"></i> BNSS Deadline Rules Reference</h3>
+                <button class="btn-close" @onclick="CloseBNSSRulesModal">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="rules-list">
+                    @foreach (var rule in bnssRules)
+                    {
+                        <div class="rule-card">
+                            <div class="rule-header">
+                                <span class="rule-type">@rule.Value.Type.ToString().Replace("_", " ")</span>
+                                <span class="rule-days">@rule.Value.DaysFromFIR days</span>
+                            </div>
+                            <p class="rule-description">@rule.Value.Description</p>
+                            <div class="rule-provision">
+                                <i class="bi bi-book"></i> @rule.Value.LegalProvision
+                            </div>
+                            <div class="rule-consequences">
+                                <strong>Consequences if missed:</strong> @rule.Value.ConsequenceIfMissed
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-glass btn-primary" @onclick="CloseBNSSRulesModal">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Create Deadline Modal -->
+@if (showCreateModal)
+{
+    <div class="modal-overlay" @onclick="CloseCreateModal">
+        <div class="modal-content large" @onclick:stopPropagation>
+            <div class="modal-header">
+                <h3><i class="bi bi-plus-circle"></i> Add New Deadline</h3>
+                <button class="btn-close" @onclick="CloseCreateModal">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Case ID *</label>
+                        <input type="text" @bind="newCaseId" placeholder="FIR-2024-XXXX" />
+                    </div>
+                    <div class="form-group">
+                        <label>Case Title *</label>
+                        <input type="text" @bind="newCaseTitle" placeholder="Case description" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>FIR Date *</label>
+                        <input type="date" @bind="newFIRDate" />
+                    </div>
+                    <div class="form-group">
+                        <label>Offense Category *</label>
+                        <select @bind="newOffenseCategory">
+                            <option value="cognizable">Cognizable Offense</option>
+                            <option value="heinous">Heinous Offense (Death/Life)</option>
+                            <option value="cyber">Cyber Crime</option>
+                            <option value="fraud">Economic Offense/Fraud</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Assigned Officer *</label>
+                        <input type="text" @bind="newOfficer" placeholder="Officer name" />
+                    </div>
+                    <div class="form-group">
+                        <label>Unit *</label>
+                        <input type="text" @bind="newUnit" placeholder="Police station/unit" />
+                    </div>
+                </div>
+                <div class="auto-deadlines-note">
+                    <i class="bi bi-info-circle"></i>
+                    <span>Statutory deadlines will be automatically created based on BNSS rules for the selected offense category.</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-glass" @onclick="CloseCreateModal">Cancel</button>
+                <button class="btn-glass btn-primary" @onclick="CreateDeadlines">
+                    <i class="bi bi-calendar-plus"></i> Create Deadlines
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<CaseDeadline> allDeadlines = new();
+    private DeadlineDashboard dashboard = new();
+    private bool isEnhancingAlerts = false;
+    private Dictionary<BNSSDeadlineType, DeadlineRule> bnssRules = new();
+    private CaseDeadline? selectedDeadline;
+    private string searchQuery = "";
+    private string statusFilter = "all";
+
+    // Modals
+    private bool showCompleteModal = false;
+    private bool showExtensionModal = false;
+    private bool showBNSSRulesModal = false;
+    private bool showCreateModal = false;
+
+    // Form fields
+    private string completionNotes = "";
+    private int extensionDays = 7;
+    private string extensionReason = "";
+    private string newCaseId = "";
+    private string newCaseTitle = "";
+    private DateTime newFIRDate = DateTime.Now;
+    private string newOffenseCategory = "cognizable";
+    private string newOfficer = "";
+    private string newUnit = "";
+
+    private IEnumerable<CaseDeadline> filteredDeadlines
+    {
+        get
+        {
+            var filtered = allDeadlines.AsEnumerable();
+            var today = DateTime.Now.Date;
+
+            filtered = statusFilter switch
+            {
+                "pending" => filtered.Where(d => d.Status == DeadlineStatus.Pending),
+                "overdue" => filtered.Where(d => d.Status == DeadlineStatus.Overdue || (d.Status == DeadlineStatus.Pending && d.DueDate.Date < today)),
+                "completed" => filtered.Where(d => d.Status == DeadlineStatus.Completed),
+                "extended" => filtered.Where(d => d.Status == DeadlineStatus.Extended),
+                "critical" => filtered.Where(d => d.Status == DeadlineStatus.Pending && d.DueDate.Date <= today.AddDays(7)),
+                _ => filtered
+            };
+
+            if (!string.IsNullOrWhiteSpace(searchQuery))
+                filtered = filtered.Where(d =>
+                    d.CaseId.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                    d.CaseTitle.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                    d.AssignedOfficer.Contains(searchQuery, StringComparison.OrdinalIgnoreCase));
+
+            return filtered.OrderBy(d => d.DueDate);
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshData();
+        bnssRules = await DeadlineService.GetBNSSRulesAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+    }
+
+    private async Task EnhanceAlertsWithAI()
+    {
+        isEnhancingAlerts = true;
+        try
+        {
+            await DeadlineService.EnhanceAlertsWithAIAsync();
+            dashboard = await DeadlineService.GetDashboardAsync();
+        }
+        catch { /* AI enhancement failed */ }
+        finally
+        {
+            isEnhancingAlerts = false;
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        allDeadlines = await DeadlineService.GetAllDeadlinesAsync();
+        dashboard = await DeadlineService.GetDashboardAsync();
+    }
+
+    private void SelectDeadline(CaseDeadline deadline)
+    {
+        selectedDeadline = deadline;
+    }
+
+    private void SetFilter(string filter)
+    {
+        statusFilter = filter;
+        selectedDeadline = null;
+    }
+
+    private void ShowCompleteModal()
+    {
+        completionNotes = "";
+        showCompleteModal = true;
+    }
+
+    private void CloseCompleteModal() => showCompleteModal = false;
+
+    private async Task CompleteDeadline()
+    {
+        if (selectedDeadline != null && !string.IsNullOrWhiteSpace(completionNotes))
+        {
+            await DeadlineService.CompleteDeadlineAsync(selectedDeadline.Id, completionNotes, "Current User");
+            await RefreshData();
+            selectedDeadline = allDeadlines.FirstOrDefault(d => d.Id == selectedDeadline.Id);
+        }
+        CloseCompleteModal();
+    }
+
+    private void ShowExtensionModal()
+    {
+        extensionDays = 7;
+        extensionReason = "";
+        showExtensionModal = true;
+    }
+
+    private void CloseExtensionModal() => showExtensionModal = false;
+
+    private async Task RequestExtension()
+    {
+        if (selectedDeadline != null && !string.IsNullOrWhiteSpace(extensionReason))
+        {
+            await DeadlineService.RequestExtensionAsync(selectedDeadline.Id, extensionDays, extensionReason, "Current User");
+            await RefreshData();
+            selectedDeadline = allDeadlines.FirstOrDefault(d => d.Id == selectedDeadline.Id);
+        }
+        CloseExtensionModal();
+    }
+
+    private void ShowBNSSRulesModal() => showBNSSRulesModal = true;
+    private void CloseBNSSRulesModal() => showBNSSRulesModal = false;
+
+    private void ShowCreateDeadlineModal()
+    {
+        newCaseId = "";
+        newCaseTitle = "";
+        newFIRDate = DateTime.Now;
+        newOffenseCategory = "cognizable";
+        newOfficer = "";
+        newUnit = "";
+        showCreateModal = true;
+    }
+
+    private void CloseCreateModal() => showCreateModal = false;
+
+    private async Task CreateDeadlines()
+    {
+        if (!string.IsNullOrWhiteSpace(newCaseId) && !string.IsNullOrWhiteSpace(newCaseTitle))
+        {
+            await DeadlineService.CreateDeadlinesForCaseAsync(newCaseId, newCaseTitle, newFIRDate, newOffenseCategory, newOfficer, newUnit);
+            await RefreshData();
+        }
+        CloseCreateModal();
+    }
+
+    private async Task AcknowledgeAlert(string alertId)
+    {
+        await DeadlineService.AcknowledgeAlertAsync(alertId, "Current User");
+        await RefreshData();
+    }
+
+    private string GetStatusClass(DeadlineStatus status) => status switch
+    {
+        DeadlineStatus.Completed => "status-completed",
+        DeadlineStatus.Pending => "status-pending",
+        DeadlineStatus.Overdue => "status-overdue",
+        DeadlineStatus.Extended => "status-extended",
+        DeadlineStatus.Waived => "status-waived",
+        _ => "status-default"
+    };
+
+    private string GetPriorityClass(DeadlinePriority priority) => priority switch
+    {
+        DeadlinePriority.Critical => "priority-critical",
+        DeadlinePriority.High => "priority-high",
+        DeadlinePriority.Medium => "priority-medium",
+        DeadlinePriority.Low => "priority-low",
+        _ => "priority-default"
+    };
+
+    private string GetDaysClass(int days)
+    {
+        if (days < 0) return "days-overdue";
+        if (days == 0) return "days-today";
+        if (days <= 3) return "days-critical";
+        if (days <= 7) return "days-warning";
+        return "days-ok";
+    }
+
+    private string GetDeadlineCardClass(CaseDeadline deadline)
+    {
+        if (deadline.Status == DeadlineStatus.Overdue || deadline.IsOverdue) return "card-overdue";
+        if (deadline.Status == DeadlineStatus.Completed) return "card-completed";
+        if (deadline.IsCritical) return "card-critical";
+        return "";
+    }
+
+    private string GetComplianceClass(double rate) => rate switch
+    {
+        >= 90 => "compliance-excellent",
+        >= 70 => "compliance-good",
+        >= 50 => "compliance-warning",
+        _ => "compliance-poor"
+    };
+
+    private string GetSeverityClass(AlertSeverity severity) => severity switch
+    {
+        AlertSeverity.Critical => "severity-critical",
+        AlertSeverity.High => "severity-high",
+        AlertSeverity.Medium => "severity-medium",
+        _ => "severity-low"
+    };
+
+    private string GetSeverityIcon(AlertSeverity severity) => severity switch
+    {
+        AlertSeverity.Critical => "bi-exclamation-octagon-fill",
+        AlertSeverity.High => "bi-exclamation-triangle-fill",
+        AlertSeverity.Medium => "bi-exclamation-circle-fill",
+        _ => "bi-info-circle-fill"
+    };
+
+    private string GetDeadlineTypeIcon(BNSSDeadlineType type) => type switch
+    {
+        BNSSDeadlineType.Chargesheet_90Days or BNSSDeadlineType.Chargesheet_60Days => "bi-file-earmark-text",
+        BNSSDeadlineType.PoliceRemand_15Days => "bi-shield-exclamation",
+        BNSSDeadlineType.JudicialRemand_60Days or BNSSDeadlineType.JudicialRemand_90Days => "bi-bank",
+        BNSSDeadlineType.FIR_Registration => "bi-journal-text",
+        BNSSDeadlineType.CDR_Request => "bi-phone",
+        BNSSDeadlineType.BankFreeze_Extension => "bi-bank2",
+        _ => "bi-calendar-check"
+    };
+}

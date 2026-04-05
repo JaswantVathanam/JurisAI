@@ -1,0 +1,589 @@
+@page "/settings"
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@using Microsoft.JSInterop
+@inject AuthenticationService AuthService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject LanguageService LangService
+@inject ThemeService ThemeService
+@rendermode InteractiveServer
+@implements IDisposable
+
+<PageTitle>System Settings - JurisAI</PageTitle>
+
+<link rel="stylesheet" href="settings.css" />
+
+@if (currentUser?.Role != UserRole.Admin)
+{
+    <div class="error-container error-container-v2">
+        <h1>Access Denied</h1>
+        <p>You do not have permission to access this page.</p>
+        <button class="btn btn-primary btn-home-v2" @onclick="GoToHome">Go to Home</button>
+    </div>
+}
+else
+{
+    <div class="settings-page settings-page-v2">
+        <!-- Header -->
+        <div class="page-header page-header-v2">
+            <div class="header-content header-content-v2">
+                <h1><i class="bi bi-gear-fill"></i> System Settings</h1>
+                <p class="header-subtitle header-subtitle-v2">Configure application settings and preferences</p>
+            </div>
+            <div class="header-actions header-actions-v2">
+                <button class="btn-save btn-save-v2" @onclick="SaveSettings">
+                    <i class="bi bi-check-circle-fill"></i> Save Changes
+                </button>
+            </div>
+        </div>
+
+        <!-- Settings Sections -->
+        <div class="settings-container settings-container-v2">
+            <!-- General Settings -->
+            <div class="settings-section settings-section-v2">
+                <h2><i class="bi bi-sliders"></i> General Settings</h2>
+                <div class="setting-card setting-card-v2">
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Application Name</div>
+                            <div class="setting-desc setting-desc-v2">The name displayed throughout the application</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <input type="text" class="form-input form-input-v2" @bind="appName" placeholder="JurisAI" />
+                        </div>
+                    </div>
+
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Maintenance Mode</div>
+                            <div class="setting-desc setting-desc-v2">Temporarily disable user access for maintenance</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <label class="toggle-switch toggle-switch-v2">
+                                <input type="checkbox" @bind="maintenanceMode" />
+                                <span class="toggle-slider toggle-slider-v2"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">User Registration</div>
+                            <div class="setting-desc setting-desc-v2">Allow new users to register accounts</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <label class="toggle-switch toggle-switch-v2">
+                                <input type="checkbox" @bind="registrationEnabled" />
+                                <span class="toggle-slider toggle-slider-v2"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Auto-Verification</div>
+                            <div class="setting-desc setting-desc-v2">Automatically verify users (not recommended)</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <label class="toggle-switch toggle-switch-v2">
+                                <input type="checkbox" @bind="autoVerification" />
+                                <span class="toggle-slider toggle-slider-v2"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Appearance Settings -->
+            <div class="settings-section settings-section-v2">
+                <h2><i class="bi bi-palette-fill"></i> Appearance Settings</h2>
+                <div class="setting-card setting-card-v2">
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Theme Mode</div>
+                            <div class="setting-desc setting-desc-v2">Choose your preferred color theme</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <div class="theme-selector theme-selector-v2">
+                                <button class="theme-option theme-option-v2 @(selectedTheme == "dark" ? "active" : "")" 
+                                        @onclick="@(() => SetTheme("dark"))">
+                                    <i class="bi bi-moon-stars-fill"></i>
+                                    <span>Dark</span>
+                                </button>
+                                <button class="theme-option theme-option-v2 @(selectedTheme == "light" ? "active" : "")" 
+                                        @onclick="@(() => SetTheme("light"))">
+                                    <i class="bi bi-sun-fill"></i>
+                                    <span>Light</span>
+                                </button>
+                                <button class="theme-option theme-option-v2 @(selectedTheme == "system" ? "active" : "")" 
+                                        @onclick="@(() => SetTheme("system"))">
+                                    <i class="bi bi-laptop-fill"></i>
+                                    <span>System</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">High Contrast</div>
+                            <div class="setting-desc setting-desc-v2">Increase contrast for better readability</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <label class="toggle-switch toggle-switch-v2">
+                                <input type="checkbox" @bind="highContrast" @bind:after="ApplyHighContrast" />
+                                <span class="toggle-slider toggle-slider-v2"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Glassmorphic Effects</div>
+                            <div class="setting-desc setting-desc-v2">Enable glass-like transparent card effects</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <label class="toggle-switch toggle-switch-v2">
+                                <input type="checkbox" @bind="glassmorphicEffects" @bind:after="ApplyGlassmorphic" />
+                                <span class="toggle-slider toggle-slider-v2"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Verification Settings -->
+            <div class="settings-section settings-section-v2">
+                <h2><i class="bi bi-shield-check"></i> Verification Settings</h2>
+                <div class="setting-card setting-card-v2">
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Require Aadhaar for Citizens</div>
+                            <div class="setting-desc setting-desc-v2">Mandate Aadhaar number for citizen accounts</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <label class="toggle-switch toggle-switch-v2">
+                                <input type="checkbox" @bind="requireAadhaar" />
+                                <span class="toggle-slider toggle-slider-v2"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Require Bar Number for Lawyers</div>
+                            <div class="setting-desc setting-desc-v2">Mandate bar council number for lawyer accounts</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <label class="toggle-switch toggle-switch-v2">
+                                <input type="checkbox" @bind="requireBarNumber" />
+                                <span class="toggle-slider toggle-slider-v2"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Require Badge Number for Police</div>
+                            <div class="setting-desc setting-desc-v2">Mandate badge number for police accounts</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <label class="toggle-switch toggle-switch-v2">
+                                <input type="checkbox" @bind="requireBadgeNumber" />
+                                <span class="toggle-slider toggle-slider-v2"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Verification Timeout (Days)</div>
+                            <div class="setting-desc setting-desc-v2">Days before verification requests expire</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <input type="number" class="form-input-small form-input-small-v2" @bind="verificationTimeout" min="1" max="30" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notification Settings -->
+            <div class="settings-section settings-section-v2">
+                <h2><i class="bi bi-bell-fill"></i> Notification Settings</h2>
+                <div class="setting-card setting-card-v2">
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Email Notifications</div>
+                            <div class="setting-desc setting-desc-v2">Send email notifications to users</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <label class="toggle-switch toggle-switch-v2">
+                                <input type="checkbox" @bind="emailNotifications" />
+                                <span class="toggle-slider toggle-slider-v2"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Notify on Registration</div>
+                            <div class="setting-desc setting-desc-v2">Send welcome email to new users</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <label class="toggle-switch toggle-switch-v2">
+                                <input type="checkbox" @bind="notifyOnRegistration" disabled="@(!emailNotifications)" />
+                                <span class="toggle-slider toggle-slider-v2"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Notify on Verification</div>
+                            <div class="setting-desc setting-desc-v2">Send email when verification status changes</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <label class="toggle-switch toggle-switch-v2">
+                                <input type="checkbox" @bind="notifyOnVerification" disabled="@(!emailNotifications)" />
+                                <span class="toggle-slider toggle-slider-v2"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Admin Email Address</div>
+                            <div class="setting-desc setting-desc-v2">Email address for admin notifications</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <input type="email" class="form-input form-input-v2" @bind="adminEmail" placeholder="admin@ailegal.com" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security Settings -->
+            <div class="settings-section settings-section-v2">
+                <h2><i class="bi bi-lock-fill"></i> Security Settings</h2>
+                <div class="setting-card setting-card-v2">
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Two-Factor Authentication</div>
+                            <div class="setting-desc setting-desc-v2">Require 2FA for admin accounts</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <label class="toggle-switch toggle-switch-v2">
+                                <input type="checkbox" @bind="require2FA" />
+                                <span class="toggle-slider toggle-slider-v2"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Password Expiry (Days)</div>
+                            <div class="setting-desc setting-desc-v2">Days before passwords must be changed (0 = never)</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <input type="number" class="form-input-small form-input-small-v2" @bind="passwordExpiry" min="0" max="365" />
+                        </div>
+                    </div>
+
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Session Timeout (Minutes)</div>
+                            <div class="setting-desc setting-desc-v2">Minutes of inactivity before auto-logout</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <input type="number" class="form-input-small form-input-small-v2" @bind="sessionTimeout" min="5" max="1440" />
+                        </div>
+                    </div>
+
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Max Login Attempts</div>
+                            <div class="setting-desc setting-desc-v2">Number of failed logins before account lock</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <input type="number" class="form-input-small form-input-small-v2" @bind="maxLoginAttempts" min="3" max="10" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Chat Settings -->
+            <div class="settings-section settings-section-v2">
+                <h2><i class="bi bi-robot"></i> AI Assistant Settings</h2>
+                <div class="setting-card setting-card-v2">
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Enable AI Assistant</div>
+                            <div class="setting-desc setting-desc-v2">Allow users to access AI legal chat</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <label class="toggle-switch toggle-switch-v2">
+                                <input type="checkbox" @bind="aiEnabled" />
+                                <span class="toggle-slider toggle-slider-v2"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">AI Response Limit per User</div>
+                            <div class="setting-desc setting-desc-v2">Maximum AI responses per user per day (0 = unlimited)</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <input type="number" class="form-input-small form-input-small-v2" @bind="aiResponseLimit" min="0" max="100" />
+                        </div>
+                    </div>
+
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Save Chat History</div>
+                            <div class="setting-desc setting-desc-v2">Store user chat conversations for analysis</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <label class="toggle-switch toggle-switch-v2">
+                                <input type="checkbox" @bind="saveChatHistory" />
+                                <span class="toggle-slider toggle-slider-v2"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Database Settings -->
+            <div class="settings-section settings-section-v2">
+                <h2><i class="bi bi-database-fill"></i> Database Settings</h2>
+                <div class="setting-card setting-card-v2">
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Laws Database</div>
+                            <div class="setting-desc setting-desc-v2">Total laws in database</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <span class="setting-value setting-value-v2">@lawsCount laws</span>
+                        </div>
+                    </div>
+
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Precedents Database</div>
+                            <div class="setting-desc setting-desc-v2">Total precedents in database</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <span class="setting-value setting-value-v2">@precedentsCount cases</span>
+                        </div>
+                    </div>
+
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Last Backup</div>
+                            <div class="setting-desc setting-desc-v2">Most recent database backup</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <span class="setting-value setting-value-v2">@lastBackup</span>
+                        </div>
+                    </div>
+
+                    <div class="setting-row setting-row-v2">
+                        <div class="setting-info setting-info-v2">
+                            <div class="setting-title setting-title-v2">Database Actions</div>
+                            <div class="setting-desc setting-desc-v2">Backup and restore operations</div>
+                        </div>
+                        <div class="setting-control setting-control-v2">
+                            <button class="btn-action btn-action-v2" @onclick="BackupDatabase">
+                                <i class="bi bi-cloud-arrow-up"></i> Backup Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notification -->
+        @if (showToast)
+        {
+            <div class="toast toast-v2 @toastType">
+                <i class="bi @toastIcon"></i>
+                <span>@toastMessage</span>
+                <button class="toast-close toast-close-v2" @onclick="HideToast">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private User? currentUser;
+
+    // General Settings
+    private string appName = "JurisAI";
+    private bool maintenanceMode = false;
+    private bool registrationEnabled = true;
+    private bool autoVerification = false;
+
+    // Verification Settings
+    private bool requireAadhaar = true;
+    private bool requireBarNumber = true;
+    private bool requireBadgeNumber = true;
+    private int verificationTimeout = 7;
+
+    // Notification Settings
+    private bool emailNotifications = true;
+    private bool notifyOnRegistration = true;
+    private bool notifyOnVerification = true;
+    private string adminEmail = "admin@ailegal.com";
+
+    // Security Settings
+    private bool require2FA = false;
+    private int passwordExpiry = 90;
+    private int sessionTimeout = 30;
+    private int maxLoginAttempts = 5;
+
+    // Appearance Settings
+    private string selectedTheme = "dark";
+    private bool highContrast = false;
+    private bool glassmorphicEffects = true;
+
+    // AI Settings
+    private bool aiEnabled = true;
+    private int aiResponseLimit = 50;
+    private bool saveChatHistory = true;
+
+    // Database Info
+    private int lawsCount = 573;
+    private int precedentsCount = 1247;
+    private string lastBackup = "2 days ago";
+
+    // Toast
+    private bool showToast = false;
+    private string toastMessage = "";
+    private string toastType = "success";
+    private string toastIcon = "bi-check-circle-fill";
+    private System.Threading.Timer? toastTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (LangService != null)
+        {
+            LangService.OnLanguageChanged += OnLanguageChanged;
+        }
+        
+        currentUser = AuthService.GetCurrentUser();
+        
+        if (currentUser != null && ThemeService != null)
+        {
+            await ThemeService.InitializeThemeAsync(currentUser.Id);
+            selectedTheme = ThemeService.CurrentTheme;
+            highContrast = ThemeService.HighContrast;
+        }
+        else
+        {
+            selectedTheme = "dark";
+            highContrast = false;
+        }
+        
+        glassmorphicEffects = true;
+    }
+
+    private async Task SetTheme(string theme)
+    {
+        selectedTheme = theme;
+        
+        if (ThemeService != null)
+        {
+            await ThemeService.SetThemeAsync(theme);
+            ShowToast($"Theme changed to {theme} mode", "success");
+        }
+    }
+
+    private async Task ApplyHighContrast()
+    {
+        if (ThemeService != null)
+        {
+            await ThemeService.SetHighContrastAsync(highContrast);
+            ShowToast(highContrast ? "High contrast enabled" : "High contrast disabled", "success");
+        }
+    }
+
+    private void ApplyGlassmorphic()
+    {
+        try
+        {
+            JSRuntime.InvokeVoidAsync("eval", $"document.documentElement.classList.{(glassmorphicEffects ? "add" : "remove")}('glassmorphic')");
+            ShowToast(glassmorphicEffects ? "Glassmorphic effects enabled" : "Glassmorphic effects disabled", "success");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error toggling glassmorphic: {ex.Message}");
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        // TODO: Implement actual settings save
+        ShowToast("Settings saved successfully!", "success");
+    }
+
+    private async Task BackupDatabase()
+    {
+        // TODO: Implement actual backup
+        ShowToast("Database backup started...", "info");
+        await Task.Delay(2000);
+        lastBackup = "Just now";
+        ShowToast("Database backup completed!", "success");
+    }
+
+    private void ShowToast(string message, string type)
+    {
+        toastMessage = message;
+        toastType = type;
+        toastIcon = type == "success" ? "bi-check-circle-fill" : 
+                    type == "info" ? "bi-info-circle-fill" :
+                    type == "warning" ? "bi-exclamation-triangle-fill" :
+                    "bi-x-circle-fill";
+        showToast = true;
+        StateHasChanged();
+
+        // Auto-hide after 5 seconds
+        toastTimer?.Dispose();
+        toastTimer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                HideToast();
+            });
+        }, null, 5000, System.Threading.Timeout.Infinite);
+    }
+
+    private void HideToast()
+    {
+        toastTimer?.Dispose();
+        showToast = false;
+        StateHasChanged();
+    }
+
+    private void GoToHome()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    public void Dispose()
+    {
+        toastTimer?.Dispose();
+        
+        if (LangService != null)
+        {
+            LangService.OnLanguageChanged -= OnLanguageChanged;
+        }
+    }
+
+    private void OnLanguageChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+}

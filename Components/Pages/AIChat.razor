@@ -1,0 +1,2894 @@
+@page "/ai-chat"
+@page "/chat"
+@using System.Threading
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@using static AILegalAsst.Services.ChatStateService
+@inject AuthenticationService AuthService
+@inject NavigationManager Navigation
+@inject ChatStateService ChatState
+@inject AzureAgentService AgentService
+@inject AgentCaseFilingService FilingService
+@inject AgentCaseManagementService CaseManagementService
+@inject CaseService CaseService
+@inject LanguageService LangService
+@inject IJSRuntime JSRuntime
+@inject SessionSecurityService SessionSecurity
+@inject LawService LawSvc
+@inject LegalDatabaseService LegalDbSvc
+@inject PrecedentService PrecedentSvc
+@inject LegalWebSearchService WebSearchSvc
+@inject DeadlineTrackerService DeadlineSvc
+@inject CybercrimeService CybercrimeSvc
+@inject ScamPatternService ScamPatternSvc
+@inject ScamRadarService ScamRadarSvc
+@inject EmergencySOSService EmergencySvc
+@inject FIRDraftService FIRDraftSvc
+@inject EvidenceCustodyService EvidenceSvc
+@inject LegalNoticeService LegalNoticeSvc
+@inject CaseIQService CaseIQSvc
+@inject PhoneIntelligenceService PhoneIntelSvc
+@inject InvestigationWorkflowService WorkflowSvc
+@inject CDRAnalysisService CDRSvc
+@inject IntelligenceGatheringService IntelSvc
+@inject DataSourceIntegrationService DataSourceSvc
+@inject GeoIntelligenceService GeoIntelSvc
+@inject SuspectNetworkService SuspectNetSvc
+@inject AgentOrchestrationService OrchestratorSvc
+@rendermode InteractiveServer
+@implements IDisposable
+
+<PageTitle>JurisAI - Chat</PageTitle>
+<link href="ai-chat.css" rel="stylesheet" />
+
+<div class="ai-chat-page ai-chat-page-v2">
+    <!-- Compact Action Bar -->
+    <div class="chat-action-bar chat-action-bar-v2">
+        <div class="action-bar-left action-bar-left-v2">
+            <button class="btn-action btn-action-v2" @onclick="StartNewChat" title="New Chat">
+                <i class="bi bi-plus-circle"></i> <span>New Chat</span>
+            </button>
+            <button class="btn-action btn-action-v2" @onclick="ToggleSidebar" title="Chat History">
+                <i class="bi bi-clock-history"></i> <span>History</span>
+            </button>
+        </div>
+        <div class="action-bar-right action-bar-right-v2">
+            @if (isFilingMode)
+            {
+                <span class="filing-badge filing-badge-v2">
+                    <i class="bi bi-file-earmark-text"></i> Filing Complaint
+                </span>
+            }
+        </div>
+    </div>
+
+    <div class="chat-container chat-container-v2">
+        <!-- Chat History Sidebar -->
+        @if (showSidebar)
+        {
+            <div class="chat-sidebar chat-sidebar-v2">
+                <div class="sidebar-header sidebar-header-v2">
+                    <h3><i class="bi bi-chat-dots"></i> Chat History</h3>
+                </div>
+                <div class="chat-sessions chat-sessions-v2">
+                    @foreach (var session in chatSessions)
+                    {
+                        <div class="session-card session-card-v2 @(session.Id == currentSessionId ? "active" : "")" 
+                             @onclick="() => LoadSession(session.Id)">
+                            <div class="session-content session-content-v2">
+                                @if (editingSessionId == session.Id)
+                                {
+                                    <input type="text" class="session-title-edit session-title-edit-v2" 
+                                           @bind="editingTitle" 
+                                           @onblur="() => SaveSessionTitle(session.Id)"
+                                           @onkeypress="(e) => HandleTitleKeyPress(e, session.Id)" />
+                                }
+                                else
+                                {
+                                    <div class="session-title session-title-v2">@session.Title</div>
+                                }
+                                <div class="session-date session-date-v2">@session.CreatedAt.ToString("MMM dd, yyyy")</div>
+                            </div>
+                            <div class="session-actions session-actions-v2" @onclick:stopPropagation="true">
+                                <button class="btn-session-action btn-session-action-v2" @onclick="() => EditSessionTitle(session.Id, session.Title)" title="Edit Title">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn-session-action btn-session-action-v2 btn-delete btn-delete-v2" @onclick="() => DeleteSession(session.Id)" title="Delete Chat">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Main Chat Area -->
+        <div class="chat-main chat-main-v2">
+            <!-- Messages Container -->
+            <div class="messages-container messages-container-v2" @ref="messagesContainer">
+                @if (messages.Count == 0)
+                {
+                    <!-- Welcome Screen -->
+                    <div class="welcome-screen welcome-screen-v2">
+                        <div class="welcome-icon welcome-icon-v2">
+                            <i class="bi bi-stars"></i>
+                        </div>
+                        <h2>Welcome, @(currentUser?.Name ?? "User")!</h2>
+                        <p class="welcome-message-v2">@GetWelcomeMessage()</p>
+                        
+                        <!-- Quick Action Cards - Role Based -->
+                        <div class="quick-actions-grid quick-actions-grid-v2">
+                            @if (IsPoliceUser())
+                            {
+                                <!-- Police-specific Quick Actions -->
+                                <div class="quick-action-card quick-action-card-v2" @onclick='() => SendSuggestedQuestion("Show my pending cases")'>
+                                    <div class="action-icon action-icon-v2 police-cases">
+                                        <i class="bi bi-folder2-open"></i>
+                                    </div>
+                                    <div class="action-content action-content-v2">
+                                        <h4>Pending Cases</h4>
+                                        <p>View complaints awaiting FIR registration</p>
+                                    </div>
+                                </div>
+                                <div class="quick-action-card quick-action-card-v2" @onclick='() => SendSuggestedQuestion("Register FIR for a case")'>
+                                    <div class="action-icon action-icon-v2 fir-action">
+                                        <i class="bi bi-file-earmark-medical"></i>
+                                    </div>
+                                    <div class="action-content action-content-v2">
+                                        <h4>Register FIR</h4>
+                                        <p>Register First Information Report</p>
+                                    </div>
+                                </div>
+                                <div class="quick-action-card quick-action-card-v2" @onclick='() => SendSuggestedQuestion("Update investigation status")'>
+                                    <div class="action-icon action-icon-v2 investigation">
+                                        <i class="bi bi-search"></i>
+                                    </div>
+                                    <div class="action-content action-content-v2">
+                                        <h4>Update Investigation</h4>
+                                        <p>Add investigation notes and findings</p>
+                                    </div>
+                                </div>
+                                <div class="quick-action-card quick-action-card-v2" @onclick='() => SendSuggestedQuestion("Add evidence to a case")'>
+                                    <div class="action-icon action-icon-v2 evidence">
+                                        <i class="bi bi-camera"></i>
+                                    </div>
+                                    <div class="action-content action-content-v2">
+                                        <h4>Collect Evidence</h4>
+                                        <p>Upload and document case evidence</p>
+                                    </div>
+                                </div>
+                            }
+                            else if (IsLawyerUser())
+                            {
+                                <!-- Lawyer-specific Quick Actions -->
+                                <div class="quick-action-card quick-action-card-v2" @onclick='() => SendSuggestedQuestion("Show my assigned cases")'>
+                                    <div class="action-icon action-icon-v2 lawyer-cases">
+                                        <i class="bi bi-briefcase"></i>
+                                    </div>
+                                    <div class="action-content action-content-v2">
+                                        <h4>My Cases</h4>
+                                        <p>View your assigned case portfolio</p>
+                                    </div>
+                                </div>
+                                <div class="quick-action-card quick-action-card-v2" @onclick='() => SendSuggestedQuestion("Show cases available for assignment")'>
+                                    <div class="action-icon action-icon-v2 available-cases">
+                                        <i class="bi bi-clipboard-check"></i>
+                                    </div>
+                                    <div class="action-content action-content-v2">
+                                        <h4>Available Cases</h4>
+                                        <p>Cases ready for lawyer assignment</p>
+                                    </div>
+                                </div>
+                                <div class="quick-action-card quick-action-card-v2" @onclick='() => SendSuggestedQuestion("Schedule a court hearing")'>
+                                    <div class="action-icon action-icon-v2 hearing">
+                                        <i class="bi bi-calendar-event"></i>
+                                    </div>
+                                    <div class="action-content action-content-v2">
+                                        <h4>Schedule Hearing</h4>
+                                        <p>Schedule court hearing dates</p>
+                                    </div>
+                                </div>
+                                <div class="quick-action-card quick-action-card-v2" @onclick='() => SendSuggestedQuestion("Analyze case for legal strategy")'>
+                                    <div class="action-icon action-icon-v2 legal-analysis">
+                                        <i class="bi bi-journal-text"></i>
+                                    </div>
+                                    <div class="action-content action-content-v2">
+                                        <h4>Case Analysis</h4>
+                                        <p>Get AI-powered legal analysis</p>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <!-- Citizen Quick Actions (default) -->
+                                <div class="quick-action-card quick-action-card-v2" @onclick="StartCaseFiling">
+                                    <div class="action-icon action-icon-v2 file-complaint">
+                                        <i class="bi bi-file-earmark-plus"></i>
+                                    </div>
+                                    <div class="action-content action-content-v2">
+                                        <h4>File a Complaint</h4>
+                                        <p>I'll guide you step-by-step to file your complaint</p>
+                                    </div>
+                                </div>
+                                <div class="quick-action-card quick-action-card-v2" @onclick='() => SendSuggestedQuestion("Show my cases")'>
+                                    <div class="action-icon action-icon-v2 my-cases">
+                                        <i class="bi bi-folder2-open"></i>
+                                    </div>
+                                    <div class="action-content action-content-v2">
+                                        <h4>My Cases</h4>
+                                        <p>View all your filed complaints and their status</p>
+                                    </div>
+                                </div>
+                                <div class="quick-action-card quick-action-card-v2" @onclick='() => SendSuggestedQuestion("Track my case progress")'>
+                                    <div class="action-icon action-icon-v2 track-case">
+                                        <i class="bi bi-graph-up-arrow"></i>
+                                    </div>
+                                    <div class="action-content action-content-v2">
+                                        <h4>Track Progress</h4>
+                                        <p>See timeline and workflow of your cases</p>
+                                    </div>
+                                </div>
+                                <div class="quick-action-card quick-action-card-v2" @onclick='() => SendSuggestedQuestion("Show my cybercrime cases")'>
+                                    <div class="action-icon action-icon-v2 cybercrime">
+                                        <i class="bi bi-shield-exclamation"></i>
+                                    </div>
+                                    <div class="action-content action-content-v2">
+                                        <h4>Cybercrime Cases</h4>
+                                        <p>View cases categorized as cybercrime</p>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <!-- Message List -->
+                    @foreach (var message in messages)
+                    {
+                        <div class="message message-v2 @(message.IsUser ? "user-message user-message-v2" : "ai-message ai-message-v2") @(message.IsSystem ? "system-message system-message-v2" : "")">
+                            <div class="message-avatar message-avatar-v2">
+                                @if (message.IsUser)
+                                {
+                                    <i class="bi bi-person-circle"></i>
+                                }
+                                else if (message.IsSystem)
+                                {
+                                    <i class="bi bi-info-circle"></i>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-robot"></i>
+                                }
+                            </div>
+                            <div class="message-content message-content-v2">
+                                <div class="message-header message-header-v2">
+                                    <span class="sender-name sender-name-v2">@(message.IsUser ? currentUser?.Name ?? "You" : message.IsSystem ? "System" : "JurisAI")</span>
+                                    <span class="message-time message-time-v2">@message.Timestamp.ToString("hh:mm tt")</span>
+                                </div>
+                                <div class="message-text message-text-v2">
+                                    @((MarkupString)FormatMessage(message.Text))
+                                </div>
+                                @if (message.IsOrchestrated && message.AgentActivities?.Any() == true)
+                                {
+                                    <div class="agent-activity-panel">
+                                        <button class="agent-activity-toggle" @onclick="() => ToggleAgentPanel(message)">
+                                            <svg class="agent-panel-icon" viewBox="0 0 24 24" width="16" height="16">
+                                                <rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="var(--gold-400, #ffa500)" stroke-width="1.8">
+                                                    <animate attributeName="stroke-opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite"/>
+                                                </rect>
+                                                <circle cx="9" cy="10" r="1.5" fill="var(--gold-400, #ffa500)">
+                                                    <animate attributeName="opacity" values="0.4;1;0.4" dur="1.5s" repeatCount="indefinite"/>
+                                                </circle>
+                                                <circle cx="15" cy="10" r="1.5" fill="var(--gold-400, #ffa500)">
+                                                    <animate attributeName="opacity" values="0.4;1;0.4" dur="1.5s" begin="0.3s" repeatCount="indefinite"/>
+                                                </circle>
+                                                <path d="M9 15 Q12 17 15 15" fill="none" stroke="var(--gold-400, #ffa500)" stroke-width="1.5" stroke-linecap="round">
+                                                    <animate attributeName="d" values="M9 15 Q12 17 15 15;M9 14 Q12 16 15 14;M9 15 Q12 17 15 15" dur="2s" repeatCount="indefinite"/>
+                                                </path>
+                                            </svg>
+                                            <span>@message.AgentActivities.Count(a => a.Status == ChatStateService.AgentStatus.Completed) of @message.AgentActivities.Count agents completed</span>
+                                            <span class="agent-activity-time">
+                                                @{
+                                                    var totalMs = message.AgentActivities
+                                                        .Where(a => a.StartTime.HasValue && a.EndTime.HasValue)
+                                                        .Sum(a => (a.EndTime!.Value - a.StartTime!.Value).TotalMilliseconds);
+                                                }
+                                                @($"{totalMs / 1000.0:F1}s total")
+                                            </span>
+                                            <i class="bi @(IsAgentPanelExpanded(message) ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                                        </button>
+                                        @if (IsAgentPanelExpanded(message))
+                                        {
+                                            <div class="agent-activity-list">
+                                                @foreach (var activity in message.AgentActivities)
+                                                {
+                                                    <div class="agent-activity-item @activity.Status.ToString().ToLower()">
+                                                        <div class="agent-activity-header" @onclick="() => activity.IsExpanded = !activity.IsExpanded">
+                                                            <span class="agent-status-icon">
+                                                                @switch (activity.Status)
+                                                                {
+                                                                    case ChatStateService.AgentStatus.Completed:
+                                                                        <i class="bi bi-check-circle-fill text-success"></i>
+                                                                        break;
+                                                                    case ChatStateService.AgentStatus.Failed:
+                                                                        <i class="bi bi-x-circle-fill text-danger"></i>
+                                                                        break;
+                                                                    case ChatStateService.AgentStatus.Running:
+                                                                        <i class="bi bi-arrow-repeat spinning"></i>
+                                                                        break;
+                                                                    case ChatStateService.AgentStatus.Skipped:
+                                                                        <i class="bi bi-dash-circle text-muted"></i>
+                                                                        break;
+                                                                    default:
+                                                                        <i class="bi bi-circle text-muted"></i>
+                                                                        break;
+                                                                }
+                                                            </span>
+                                                            <span class="agent-name">@GetAgentDisplayName(activity.AgentName)</span>
+                                                            <span class="agent-elapsed">@activity.ElapsedDisplay</span>
+                                                            @if (!string.IsNullOrEmpty(activity.DataSummary) || !string.IsNullOrEmpty(activity.ErrorMessage))
+                                                            {
+                                                                <i class="bi @(activity.IsExpanded ? "bi-chevron-up" : "bi-chevron-down") agent-expand-icon"></i>
+                                                            }
+                                                        </div>
+                                                        @if (activity.IsExpanded)
+                                                        {
+                                                            <div class="agent-activity-detail">
+                                                                @if (!string.IsNullOrEmpty(activity.ErrorMessage))
+                                                                {
+                                                                    <span class="agent-error">Error: @activity.ErrorMessage</span>
+                                                                }
+                                                                else if (!string.IsNullOrEmpty(activity.DataSummary))
+                                                                {
+                                                                    <span class="agent-summary">@activity.DataSummary</span>
+                                                                }
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                @if (message.AwaitingConfirmation && !string.IsNullOrEmpty(message.ConfirmationPrompt))
+                                {
+                                    <div class="agent-confirmation-panel">
+                                        <div class="confirmation-prompt">
+                                            <svg class="confirmation-shield-icon" viewBox="0 0 24 24" width="20" height="20">
+                                                <path d="M12 2 L3 7 V12 C3 17.5 7 21.5 12 23 C17 21.5 21 17.5 21 12 V7 Z" fill="none" stroke="var(--gold-400, #ffa500)" stroke-width="1.8">
+                                                    <animate attributeName="stroke-opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/>
+                                                </path>
+                                                <line x1="12" y1="9" x2="12" y2="14" stroke="var(--gold-400, #ffa500)" stroke-width="2" stroke-linecap="round"/>
+                                                <circle cx="12" cy="17" r="1" fill="var(--gold-400, #ffa500)"/>
+                                            </svg>
+                                            @message.ConfirmationPrompt
+                                        </div>
+                                        <div class="confirmation-actions">
+                                            <button class="btn-confirm" @onclick="() => HandleConfirmation(message, true)">
+                                                <svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 8 L7 12 L13 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                                Proceed
+                                            </button>
+                                            <button class="btn-deny" @onclick="() => HandleConfirmation(message, false)">
+                                                <svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 4 L12 12 M12 4 L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+                                }
+                                @if (message.RelatedLaws?.Any() == true)
+                                {
+                                    <div class="related-laws related-laws-v2">
+                                        <h4><i class="bi bi-link-45deg"></i> Related Laws:</h4>
+                                        @foreach (var law in message.RelatedLaws)
+                                        {
+                                            <span class="law-chip law-chip-v2">@law</span>
+                                        }
+                                    </div>
+                                }
+                                @if (message.Options?.Any() == true)
+                                {
+                                    <div class="message-options message-options-v2">
+                                        @foreach (var option in message.Options)
+                                        {
+                                            <button class="option-btn option-btn-v2" @onclick="() => SelectOption(option)">
+                                                @option
+                                            </button>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Typing Indicator -->
+                    @if (isTyping)
+                    {
+                        <div class="message message-v2 ai-message ai-message-v2 typing">
+                            <div class="message-avatar message-avatar-v2">
+                                <svg class="avatar-spinner" viewBox="0 0 36 36" width="28" height="28">
+                                    <circle cx="18" cy="18" r="15" fill="none" stroke="var(--gold-500)" stroke-width="2.5" stroke-dasharray="70 30" stroke-linecap="round">
+                                        <animateTransform attributeName="transform" type="rotate" from="0 18 18" to="360 18 18" dur="1.2s" repeatCount="indefinite"/>
+                                    </circle>
+                                    <circle cx="18" cy="18" r="6" fill="var(--gold-400)" opacity="0.7">
+                                        <animate attributeName="r" values="5;7;5" dur="1.5s" repeatCount="indefinite"/>
+                                        <animate attributeName="opacity" values="0.5;1;0.5" dur="1.5s" repeatCount="indefinite"/>
+                                    </circle>
+                                </svg>
+                            </div>
+                            <div class="typing-indicator-wrapper typing-indicator-wrapper-v2">
+                                <div class="typing-indicator typing-indicator-v2">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </div>
+                                <span class="typing-status-text typing-status-text-v2">
+                                    @((MarkupString)GetTypingStatusIcon()) @typingStatusText
+                                </span>
+                            </div>
+                            <button class="btn-stop-generation" @onclick="StopGeneration" title="Stop generating">
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                    <rect x="8" y="8" width="8" height="8" rx="1" fill="currentColor"/>
+                                </svg>
+                            </button>
+                        </div>
+                    }
+                }
+            </div>
+
+            <!-- Suggested Questions (shown when not filing) -->
+            @if (!isFilingMode && messages.Count > 0 && !showSuggestionsCollapsed)
+            {
+                <div class="suggestions-container suggestions-container-v2">
+                    <div class="suggestions-header suggestions-header-v2">
+                        <span class="suggestions-label suggestions-label-v2">
+                            <i class="bi bi-lightning-fill"></i> Suggested
+                        </span>
+                        <button class="suggestions-toggle suggestions-toggle-v2" @onclick="() => showSuggestionsCollapsed = true">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                    <div class="suggestions-grid suggestions-grid-v2">
+                        @foreach (var suggestion in suggestedQuestions.Take(4))
+                        {
+                            <button class="suggestion-chip suggestion-chip-v2" @onclick="() => SendSuggestedQuestion(suggestion)">
+                                @suggestion
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Input Area -->
+            <div class="chat-input-area chat-input-area-v2">
+                @if (!isAgentReady && !AgentService.IsReady)
+                {
+                    <div class="agent-connecting-bar" style="padding: 4px 12px; font-size: 0.75rem; color: var(--gold-400); display: flex; align-items: center; gap: 6px;">
+                        <span class="spinner-border spinner-border-sm" style="width: 12px; height: 12px;"></span>
+                        <span>Connecting to AI Agent...</span>
+                    </div>
+                }
+                @if (isFilingMode)
+                {
+                    <div class="filing-progress filing-progress-v2">
+                        <div class="progress-bar progress-bar-v2">
+                            <div class="progress-fill progress-fill-v2" style="width: @GetFilingProgress()%"></div>
+                        </div>
+                        <span class="progress-text progress-text-v2">@GetFilingStepText()</span>
+                    </div>
+                }
+                <div class="input-container input-container-v2">
+                    <textarea @bind="userInput" 
+                              @bind:event="oninput"
+                              @onkeydown="HandleKeyPress"
+                              placeholder="@GetInputPlaceholder()"
+                              rows="1"
+                              class="chat-input chat-input-v2"></textarea>
+                    @if (isTyping && !string.IsNullOrWhiteSpace(userInput))
+                    {
+                        <button class="btn-queue btn-queue-v2" @onclick="QueueFollowUp" title="Queue this message for after current response">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+                                <path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                <circle cx="19" cy="18" r="3" fill="var(--gold-400)">
+                                    <animate attributeName="opacity" values="0.5;1;0.5" dur="1.5s" repeatCount="indefinite"/>
+                                </circle>
+                                <text x="17.5" y="20" fill="var(--navy-950)" font-size="5" font-weight="bold">+</text>
+                            </svg>
+                        </button>
+                    }
+                    <button class="btn-send btn-send-v2" @onclick="SendMessage" disabled="@(string.IsNullOrWhiteSpace(userInput) || isTyping)">
+                        <i class="bi bi-send-fill"></i>
+                    </button>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(queuedMessage))
+                {
+                    <div class="queued-message-bar">
+                        <svg class="queued-icon" viewBox="0 0 24 24" width="16" height="16" fill="none">
+                            <path d="M4 6h16M4 12h16M4 18h10" stroke="var(--gold-400)" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <span class="queued-text">Queued: @(queuedMessage.Length > 60 ? queuedMessage[..60] + "..." : queuedMessage)</span>
+                        <button class="queued-clear" @onclick="ClearQueuedMessage" title="Remove queued message">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                }
+                <div class="input-footer input-footer-v2">
+                    @if (IsPoliceUser())
+                    {
+                        <button class="btn-role-action btn-role-action-v2 police" @onclick='() => SendSuggestedQuestion("Show my pending cases")'>
+                            <i class="bi bi-folder2-open"></i> View Cases
+                        </button>
+                    }
+                    else if (IsLawyerUser())
+                    {
+                        <button class="btn-role-action btn-role-action-v2 lawyer" @onclick='() => SendSuggestedQuestion("Show my assigned cases")'>
+                            <i class="bi bi-briefcase"></i> My Cases
+                        </button>
+                    }
+                    else if (isFilingMode)
+                    {
+                        <button class="btn-cancel-filing btn-cancel-filing-v2" @onclick="CancelFiling">
+                            <i class="bi bi-x-circle"></i> Cancel Filing
+                        </button>
+                    }
+                    else
+                    {
+                        <!-- Citizen buttons -->
+                        <button class="btn-role-action btn-role-action-v2 citizen" @onclick='() => SendSuggestedQuestion("Show my cases")'>
+                            <i class="bi bi-folder2-open"></i> My Cases
+                        </button>
+                        <button class="btn-file-complaint btn-file-complaint-v2" @onclick="StartCaseFiling">
+                            <i class="bi bi-file-earmark-plus"></i> File Complaint
+                        </button>
+                    }
+                    <span class="input-hint input-hint-v2">
+                        Press Enter to send
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* Identity Verification Modal — Platform-Aware *@
+@if (showVerificationModal)
+{
+    <div class="verification-overlay" @onclick="CloseVerificationModal">
+        <div class="verification-modal" @onclick:stopPropagation="true">
+            <div class="verification-header">
+                <i class="bi bi-shield-lock-fill"></i>
+                <h3>Identity Verification Required</h3>
+                @if (!string.IsNullOrEmpty(verificationChallenge?.PlatformLabel))
+                {
+                    <span class="platform-badge">
+                        <i class="bi @GetPlatformIcon(verificationChallenge.PlatformLabel)"></i>
+                        @verificationChallenge.PlatformLabel
+                    </span>
+                }
+            </div>
+            <div class="verification-body">
+                <p>@(verificationChallenge?.Message ?? "Please verify your identity to continue.")</p>
+                <div class="verification-user-info">
+                    <i class="bi bi-person-circle"></i>
+                    <span>@currentUser?.Email</span>
+                </div>
+
+                @* Verification method selector — show only if multiple methods available *@
+                @if (verificationChallenge?.AvailableMethods?.Count > 1)
+                {
+                    <div class="verification-method-selector">
+                        <label>Verification Method</label>
+                        <div class="method-options">
+                            @foreach (var method in verificationChallenge.AvailableMethods)
+                            {
+                                <button class="method-option @(selectedVerificationMethod == method ? "active" : "")" 
+                                        @onclick="() => SelectVerificationMethod(method)" disabled="@isVerifying">
+                                    <i class="bi @GetMethodIcon(method)"></i>
+                                    <span>@GetMethodLabel(method)</span>
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @* Input field — changes based on selected method *@
+                <div class="verification-input-group">
+                    <label>@GetMethodInputLabel(selectedVerificationMethod)</label>
+                    @if (selectedVerificationMethod == IdentityVerificationMethod.BiometricConfirmation)
+                    {
+                        <button class="btn-biometric" @onclick="TriggerBiometric" disabled="@isVerifying">
+                            <i class="bi bi-fingerprint"></i>
+                            <span>Authenticate with @(verificationChallenge?.BiometricLabel ?? "Biometric")</span>
+                        </button>
+                    }
+                    else
+                    {
+                        <input type="@(selectedVerificationMethod == IdentityVerificationMethod.TwoFactorOTP ? "text" : "password")"
+                               @bind="verificationPassword" @bind:event="oninput"
+                               @onkeypress="HandleVerificationKeyPress"
+                               placeholder="@GetMethodPlaceholder(selectedVerificationMethod)"
+                               maxlength="@(selectedVerificationMethod == IdentityVerificationMethod.TwoFactorOTP ? 6 : 100)"
+                               class="verification-input" disabled="@isVerifying" />
+                    }
+                </div>
+
+                @if (!string.IsNullOrEmpty(verificationError))
+                {
+                    <div class="verification-error">
+                        <i class="bi bi-exclamation-triangle-fill"></i> @verificationError
+                    </div>
+                }
+                @if (verificationAttemptsRemaining > 0 && verificationAttemptsRemaining < 3)
+                {
+                    <div class="verification-warning">
+                        <i class="bi bi-exclamation-circle"></i> @verificationAttemptsRemaining attempt(s) remaining
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(verificationChallenge?.SecurityNotes))
+                {
+                    <div class="verification-platform-note">
+                        <i class="bi bi-info-circle"></i> @verificationChallenge.SecurityNotes
+                    </div>
+                }
+            </div>
+            <div class="verification-footer">
+                <button class="btn-verify-cancel" @onclick="CloseVerificationModal" disabled="@isVerifying">Cancel</button>
+                <button class="btn-verify-confirm" @onclick="SubmitVerification" 
+                        disabled="@(isVerifying || (selectedVerificationMethod != IdentityVerificationMethod.BiometricConfirmation && string.IsNullOrWhiteSpace(verificationPassword)))">
+                    @if (isVerifying)
+                    {
+                        <span class="spinner-border spinner-border-sm"></span> <span>Verifying...</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-shield-check"></i> <span>Verify & File</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private User? currentUser;
+    private ElementReference messagesContainer;
+    private string userInput = string.Empty;
+    private bool showSidebar = false;
+    private bool showSuggestions = true;
+    private bool showSuggestionsCollapsed = false;
+
+    // Filing mode state
+    private bool isFilingMode = false;
+    private FilingSession? currentFilingSession;
+
+    // Follow-up intent: when a specialized handler asks for more input,
+    // the next message routes back to that handler
+    private SpecializedIntent? pendingFollowUpIntent = null;
+
+    // Identity verification modal state
+    private bool showVerificationModal = false;
+    private string verificationPassword = string.Empty;
+    private string verificationError = string.Empty;
+    private bool isVerifying = false;
+    private int verificationAttemptsRemaining = 3;
+    private string deviceFingerprint = "web-default";
+    private VerificationChallenge? verificationChallenge;
+    private IdentityVerificationMethod selectedVerificationMethod = IdentityVerificationMethod.PasswordReEntry;
+
+    // Use shared state from ChatStateService
+    private List<ChatStateService.ChatMessage> messages => ChatState.Messages;
+    private List<ChatStateService.ChatSession> chatSessions => ChatState.ChatSessions;
+    private int currentSessionId => ChatState.CurrentSessionId;
+    private bool isTyping => ChatState.IsTyping;
+    private string typingStatusText = "Thinking...";
+    private CancellationTokenSource? _currentCts;
+    private string? queuedMessage;
+
+    // Role-specific suggested questions
+    private List<string> suggestedQuestions => GetRoleSuggestedQuestions();
+
+    private int editingSessionId = -1;
+    private string editingTitle = string.Empty;
+    private bool isAgentReady = false;
+
+    protected override void OnInitialized()
+    {
+        LangService.OnLanguageChanged += OnLanguageChanged;
+        
+        currentUser = AuthService.GetCurrentUser();
+        
+        if (currentUser == null)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        ChatState.OnChange += StateHasChanged;
+        ChatState.InitializeSessions();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                // Get full device profile with platform detection
+                var profile = await JSRuntime.InvokeAsync<DeviceProfile>("deviceFingerprint.getDeviceProfile");
+                if (profile != null && !string.IsNullOrEmpty(profile.Fingerprint))
+                {
+                    deviceFingerprint = profile.Fingerprint;
+                    if (currentUser != null)
+                    {
+                        SessionSecurity.UpdateDeviceProfile(currentUser.Id, profile);
+                        AuthService.UpdateDeviceFingerprint(deviceFingerprint);
+                    }
+                }
+            }
+            catch
+            {
+                try
+                {
+                    // Fallback to basic fingerprint
+                    deviceFingerprint = await JSRuntime.InvokeAsync<string>("deviceFingerprint.generate");
+                    if (currentUser != null)
+                    {
+                        AuthService.UpdateDeviceFingerprint(deviceFingerprint);
+                    }
+                }
+                catch
+                {
+                    deviceFingerprint = "web-default";
+                }
+            }
+
+            // Initialize the AI agent in background after page has rendered
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var ready = await AgentService.InitializeAsync();
+                    isAgentReady = ready;
+                    await InvokeAsync(StateHasChanged);
+                }
+                catch
+                {
+                    // Agent init failed — will retry on first use
+                }
+            });
+        }
+    }
+
+    public void Dispose()
+    {
+        ChatState.OnChange -= StateHasChanged;
+        LangService.OnLanguageChanged -= OnLanguageChanged;
+    }
+
+    private void OnLanguageChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    // Role detection helpers
+    private bool IsPoliceUser() => currentUser?.Role == UserRole.Police;
+    private bool IsLawyerUser() => currentUser?.Role == UserRole.Lawyer;
+    private bool IsCitizenUser() => currentUser?.Role == UserRole.Citizen || 
+                                    (!IsPoliceUser() && !IsLawyerUser() && currentUser?.Role != UserRole.Admin);
+
+    private string GetWelcomeMessage()
+    {
+        if (IsPoliceUser())
+            return "I'm your JurisAI AI assistant for case management. I can help you register FIRs, update investigations, and manage evidence.";
+        if (IsLawyerUser())
+            return "I'm your JurisAI AI assistant for legal case management. I can help you manage cases, schedule hearings, and provide legal analysis.";
+        return "I'm your JurisAI AI assistant. How can I help you today?";
+    }
+
+    private List<string> GetRoleSuggestedQuestions()
+    {
+        if (IsPoliceUser())
+        {
+            return new List<string>
+            {
+                "Show my pending cases",
+                "Register FIR for case",
+                "Analyze CDR for 9876543210",
+                "Show suspect network for case",
+                "Show deadline dashboard",
+                "Draft FIR for incident",
+                "Evidence chain of custody",
+                "Cybercrime statistics"
+            };
+        }
+        else if (IsLawyerUser())
+        {
+            return new List<string>
+            {
+                "Show my assigned cases",
+                "Search precedent for bail",
+                "Search IPC section 420",
+                "Show deadline dashboard",
+                "Draft a legal notice",
+                "Analyze case for strategy",
+                "Show upcoming hearings",
+                "Explain BNS provisions"
+            };
+        }
+        else
+        {
+            // Citizen suggestions
+            return new List<string>
+            {
+                "Show my cases",
+                "Is this a scam?",
+                "Emergency helplines",
+                "Search law about property dispute",
+                "Track my case progress",
+                "My legal rights",
+                "Report cybercrime",
+                "File a complaint"
+            };
+        }
+    }
+
+    private string FormatMessage(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return text;
+        
+        // Convert markdown formatting to HTML for rich rendering
+        // Headers
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"^### (.+?)$", "<h4 class=\"chat-h4\">$1</h4>", System.Text.RegularExpressions.RegexOptions.Multiline);
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"^## (.+?)$", "<h3 class=\"chat-h3\">$1</h3>", System.Text.RegularExpressions.RegexOptions.Multiline);
+        // Bold and italic
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\*\*\*(.+?)\*\*\*", "<strong><em>$1</em></strong>");
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\*\*(.+?)\*\*", "<strong>$1</strong>");
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", "<em>$1</em>");
+        // Inline code
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"`(.+?)`", "<code class=\"chat-code\">$1</code>");
+        // Unordered lists (- items)
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"^- (.+?)$", "<li>$1</li>", System.Text.RegularExpressions.RegexOptions.Multiline);
+        // Ordered lists (1. items)
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"^(\d+)\. (.+?)$", "<li>$2</li>", System.Text.RegularExpressions.RegexOptions.Multiline);
+        // Wrap consecutive <li> in <ul>
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"((?:<li>.+?</li>\n?)+)", "<ul class=\"chat-list\">$1</ul>");
+        // Horizontal rules
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"^---+$", "<hr class=\"chat-hr\"/>", System.Text.RegularExpressions.RegexOptions.Multiline);
+        // Bullets
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"•\s*", "• ");
+        // Line breaks (remaining newlines)
+        text = text.Replace("\n", "<br/>");
+        // Clean up extra <br/> around block elements
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"<br/>\s*(<h[34]|<ul|<hr)", "$1");
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"(</h[34]>|</ul>|<hr[^>]*/>)\s*<br/>", "$1");
+        
+        return text;
+    }
+
+    private static bool IsAgentRefusal(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message)) return true;
+        var lower = message.ToLowerInvariant();
+        return lower.Contains("i'm sorry, but i cannot") ||
+               lower.Contains("i cannot assist with that") ||
+               lower.Contains("i can't assist with that") ||
+               lower.Contains("i'm not able to help with") ||
+               lower.Contains("i'm unable to") ||
+               lower.Contains("as an ai, i cannot");
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(userInput) || isTyping) return;
+
+        var query = userInput.Trim();
+        userInput = string.Empty;
+
+        // Handle confirmed actions (from permission flow)
+        bool isConfirmedAction = query.StartsWith("[CONFIRMED] ");
+        if (isConfirmedAction)
+        {
+            query = query["[CONFIRMED] ".Length..];
+        }
+
+        // Add user message
+        ChatState.AddMessage(new ChatStateService.ChatMessage
+        {
+            Text = isConfirmedAction ? $"Confirmed: {query}" : query,
+            IsUser = true,
+            Timestamp = DateTime.Now
+        });
+
+        _currentCts = new CancellationTokenSource();
+        ChatState.SetTyping(true);
+        typingStatusText = "Thinking...";
+        await Task.Delay(50);
+        StateHasChanged();
+
+        try
+        {
+            if (isFilingMode && currentFilingSession != null)
+            {
+                // Process through filing service (citizen only)
+                await ProcessFilingResponseAsync(query);
+            }
+            else if (IsFilingIntent(query) && IsCitizenUser())
+            {
+                // Start complaint filing for citizens
+                await StartCaseFilingAsync();
+            }
+            else if (pendingFollowUpIntent.HasValue)
+            {
+                // Route follow-up to the handler that requested more input
+                var followUpIntent = pendingFollowUpIntent.Value;
+                pendingFollowUpIntent = null;
+                await ProcessSpecializedQueryAsync(query, followUpIntent);
+            }
+            else
+            {
+                // Always-on orchestration: detect all relevant agent domains
+                var relevantDomains = OrchestratorSvc.DetectRelevantDomains(query);
+
+                if (relevantDomains.Count > 0)
+                {
+                    // Check if this action requires user confirmation before proceeding
+                    if (!isConfirmedAction && IsActionRequiringConfirmation(query))
+                    {
+                        ChatState.AddMessage(new ChatStateService.ChatMessage
+                        {
+                            Text = $"This action involves **{string.Join(", ", relevantDomains.Select(d => GetAgentDisplayName(d)))}** and may modify records.",
+                            IsUser = false,
+                            Timestamp = DateTime.Now,
+                            AwaitingConfirmation = true,
+                            ConfirmationPrompt = $"Do you want to proceed with: \"{query}\"?",
+                            PendingAction = $"[CONFIRMED] {query}"
+                        });
+                    }
+                    else
+                    {
+                        await ProcessOrchestratedQueryAsync(query, relevantDomains);
+                    }
+                }
+                else if (IsCaseTrackingIntent(query) || IsPoliceUser() || IsLawyerUser())
+                {
+                    await ProcessRoleBasedQueryAsync(query);
+                }
+                else
+                {
+                    await GetRegularResponseAsync(query);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            ChatState.AddMessage(new ChatStateService.ChatMessage
+            {
+                Text = "⏹ Response generation was stopped.",
+                IsUser = false,
+                IsSystem = true,
+                Timestamp = DateTime.Now
+            });
+        }
+        finally
+        {
+            _currentCts?.Dispose();
+            _currentCts = null;
+            ChatState.SetTyping(false);
+            StateHasChanged();
+
+            // Process queued follow-up if any
+            if (!string.IsNullOrWhiteSpace(queuedMessage))
+            {
+                var nextQuery = queuedMessage;
+                queuedMessage = null;
+                await Task.Delay(300);
+                userInput = nextQuery;
+                StateHasChanged();
+                await SendMessage();
+            }
+        }
+    }
+
+    private void StopGeneration()
+    {
+        _currentCts?.Cancel();
+    }
+
+    private void QueueFollowUp()
+    {
+        if (!string.IsNullOrWhiteSpace(userInput))
+        {
+            queuedMessage = userInput.Trim();
+            userInput = string.Empty;
+            StateHasChanged();
+        }
+    }
+
+    private void ClearQueuedMessage()
+    {
+        queuedMessage = null;
+        StateHasChanged();
+    }
+
+    private string GetInputPlaceholder()
+    {
+        if (isFilingMode) return "Type your response...";
+        if (isTyping && string.IsNullOrWhiteSpace(queuedMessage)) return "Type a follow-up to queue...";
+        if (!string.IsNullOrWhiteSpace(queuedMessage)) return "Follow-up already queued";
+        return "Ask about laws, file complaints, or get legal help...";
+    }
+
+    private string GetTypingStatusIcon()
+    {
+        return typingStatusText switch
+        {
+            var s when s.Contains("online") || s.Contains("Online") => "<i class='bi bi-globe2'></i>",
+            var s when s.Contains("local") || s.Contains("Local") || s.Contains("database") => "<i class='bi bi-database'></i>",
+            var s when s.Contains("Analyzing") || s.Contains("provisions") || s.Contains("precedents") => "<i class='bi bi-search'></i>",
+            var s when s.Contains("Drafting") => "<i class='bi bi-pencil-square'></i>",
+            var s when s.Contains("emergency") || s.Contains("Emergency") => "<i class='bi bi-exclamation-triangle-fill'></i>",
+            var s when s.Contains("intelligence") || s.Contains("Intelligence") || s.Contains("Mapping") => "<i class='bi bi-incognito'></i>",
+            var s when s.Contains("evidence") || s.Contains("Evidence") => "<i class='bi bi-box-seam'></i>",
+            var s when s.Contains("deadline") || s.Contains("Deadline") || s.Contains("Checking") => "<i class='bi bi-clock-history'></i>",
+            var s when s.Contains("location") || s.Contains("Location") => "<i class='bi bi-geo-alt-fill'></i>",
+            var s when s.Contains("Consulting") || s.Contains("Coordinating") || s.Contains("agents") => "<i class='bi bi-cpu'></i>",
+            var s when s.Contains("Synthesizing") => "<i class='bi bi-stars'></i>",
+            var s when s.Contains("intel") || s.Contains("Received") => "<i class='bi bi-arrow-down-circle'></i>",
+            _ => "<i class='bi bi-lightning-charge-fill'></i>"
+        };
+    }
+
+    // ── Agent Activity Panel Helpers ────────────────────────────────────
+
+    private HashSet<int> expandedAgentPanels = new();
+
+    private void ToggleAgentPanel(ChatStateService.ChatMessage message)
+    {
+        var hash = message.GetHashCode();
+        if (!expandedAgentPanels.Add(hash))
+            expandedAgentPanels.Remove(hash);
+    }
+
+    private bool IsAgentPanelExpanded(ChatStateService.ChatMessage message)
+    {
+        return expandedAgentPanels.Contains(message.GetHashCode());
+    }
+
+    private string GetAgentDisplayName(string agentName) => agentName switch
+    {
+        "CaseData" => "Case Database",
+        "LawSearch" => "Law Search",
+        "Precedent" => "Precedent Lookup",
+        "Cybercrime" => "Cybercrime Intel",
+        "ScamAnalysis" => "Scam Analysis",
+        "Deadline" => "Deadline Tracker",
+        "Evidence" => "Evidence Custody",
+        "CDR" => "CDR Analysis",
+        "Timeline" => "Case Timeline",
+        "FIR" => "FIR Records",
+        "LegalNotice" => "Legal Notices",
+        _ => agentName
+    };
+
+    private async Task HandleConfirmation(ChatStateService.ChatMessage message, bool confirmed)
+    {
+        message.AwaitingConfirmation = false;
+        if (confirmed && !string.IsNullOrEmpty(message.PendingAction))
+        {
+            // Send the confirmed action as a new user message
+            userInput = message.PendingAction;
+            StateHasChanged();
+            await SendMessage();
+        }
+        else
+        {
+            ChatState.AddMessage(new ChatStateService.ChatMessage
+            {
+                Text = "Action cancelled by user.",
+                IsUser = false,
+                IsSystem = true,
+                Timestamp = DateTime.Now
+            });
+            StateHasChanged();
+        }
+    }
+
+    private bool IsActionRequiringConfirmation(string query)
+    {
+        var confirmationKeywords = new[] {
+            "file fir", "register fir", "lodge fir",
+            "send notice", "issue notice", "draft notice",
+            "submit complaint", "file complaint",
+            "delete case", "close case",
+            "transfer case", "reassign"
+        };
+        return confirmationKeywords.Any(k => query.ToLowerInvariant().Contains(k));
+    }
+
+    private bool IsFilingIntent(string query)
+    {
+        var filingKeywords = new[] { "file a", "file new", "new complaint", "lodge complaint", "register complaint", "file complaint" };
+        query = query.ToLower();
+        return filingKeywords.Any(k => query.Contains(k));
+    }
+
+    private bool IsCaseTrackingIntent(string query)
+    {
+        var trackingKeywords = new[] { 
+            "my cases", "my case", "filed cases", "show case", "list case", "track", "status", 
+            "progress", "pending", "what happened", "update on", "how is my", "case details",
+            "categorize", "category", "cybercrime cases", "all cases", "closed cases",
+            "investigation", "fir status", "hearing", "court date", "lawyer", "timeline"
+        };
+        query = query.ToLower();
+        return trackingKeywords.Any(k => query.Contains(k));
+    }
+
+    private async Task ProcessRoleBasedQueryAsync(string query)
+    {
+        if (currentUser == null) return;
+
+        try
+        {
+            typingStatusText = "Consulting AI agent...";
+            StateHasChanged();
+
+            var response = await CaseManagementService.ProcessQueryAsync(query, currentUser);
+            
+            var message = new ChatStateService.ChatMessage
+            {
+                Text = response.Message,
+                IsUser = false,
+                Timestamp = DateTime.Now,
+                Options = response.Actions?.Count > 0 ? response.Actions : null,
+                RelatedLaws = response.RelatedLaws?.Count > 0 ? response.RelatedLaws : null
+            };
+            ChatState.AddMessage(message);
+
+            // If case was updated, add system confirmation
+            if (response.CaseUpdated && response.UpdatedCase != null)
+            {
+                ChatState.AddMessage(new ChatStateService.ChatMessage
+                {
+                    Text = $"✅ Case **{response.UpdatedCase.CaseNumber}** has been updated successfully.",
+                    IsUser = false,
+                    IsSystem = true,
+                    Timestamp = DateTime.Now
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            ChatState.AddMessage(new ChatStateService.ChatMessage
+            {
+                Text = $"I encountered an issue processing your request. Please try again or rephrase your query.\n\nError: {ex.Message}",
+                IsUser = false,
+                Timestamp = DateTime.Now
+            });
+        }
+    }
+
+    private async Task ProcessFilingResponseAsync(string userResponse)
+    {
+        if (currentFilingSession == null) return;
+
+        var response = await FilingService.ProcessUserResponseAsync(currentFilingSession.SessionId, userResponse);
+
+        var message = new ChatStateService.ChatMessage
+        {
+            Text = response.Message,
+            IsUser = false,
+            Timestamp = DateTime.Now,
+            Options = response.Options?.ToList()
+        };
+        ChatState.AddMessage(message);
+
+        // Check if identity verification is required before filing
+        if (response.RequiresIdentityVerification)
+        {
+            verificationChallenge = FilingService.RequestIdentityVerification(currentFilingSession.SessionId);
+            selectedVerificationMethod = verificationChallenge?.RequiredMethod ?? IdentityVerificationMethod.PasswordReEntry;
+            showVerificationModal = true;
+            verificationPassword = string.Empty;
+            verificationError = string.Empty;
+            verificationAttemptsRemaining = 3;
+            StateHasChanged();
+            return;
+        }
+
+        if (response.IsComplete)
+        {
+            isFilingMode = false;
+            currentFilingSession = null;
+
+            // Add system message about the filed case
+            if (!string.IsNullOrEmpty(response.CreatedCaseNumber))
+            {
+                ChatState.AddMessage(new ChatStateService.ChatMessage
+                {
+                    Text = $"Your case **{response.CreatedCaseNumber}** has been filed. You can track it in the Cases section.",
+                    IsUser = false,
+                    IsSystem = true,
+                    Timestamp = DateTime.Now
+                });
+            }
+        }
+    }
+
+    private async Task GetRegularResponseAsync(string query)
+    {
+        try
+        {
+            typingStatusText = "Consulting AI agent...";
+            StateHasChanged();
+
+            var userContext = currentUser != null 
+                ? $"User Role: {currentUser.Role}, User Name: {currentUser.Name}" 
+                : null;
+
+            var history = messages
+                .Select(m => new ConversationMessage
+                {
+                    Message = m.Text,
+                    IsUser = m.IsUser,
+                    Timestamp = m.Timestamp
+                })
+                .ToList();
+
+            var agentResponse = await AgentService.SendMessageWithHistoryAsync(query, history, userContext, _currentCts?.Token ?? CancellationToken.None);
+
+            ChatState.AddMessage(new ChatStateService.ChatMessage
+            {
+                Text = (agentResponse.Success && !IsAgentRefusal(agentResponse.Message)) ? agentResponse.Message : GenerateOfflineResponseText(query),
+                IsUser = false,
+                Timestamp = DateTime.Now,
+                RelatedLaws = agentResponse.RelatedLaws
+            });
+        }
+        catch
+        {
+            ChatState.AddMessage(new ChatStateService.ChatMessage
+            {
+                Text = GenerateOfflineResponseText(query),
+                IsUser = false,
+                Timestamp = DateTime.Now
+            });
+        }
+    }
+
+    private string GenerateOfflineResponseText(string query)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("## Offline Mode\n");
+        sb.AppendLine("The AI service is currently unavailable, but you can still use the system's local features:\n");
+
+        // Try to give useful direction based on what the user asked
+        var lower = query.ToLowerInvariant();
+        if (lower.Contains("case") || lower.Contains("fir") || lower.Contains("complaint"))
+        {
+            sb.AppendLine("**Your query appears to be about cases.** Navigate to the **Cases** page from the sidebar to view, search, and manage cases directly.\n");
+        }
+        else if (lower.Contains("law") || lower.Contains("section") || lower.Contains("act") || lower.Contains("bns") || lower.Contains("ipc"))
+        {
+            sb.AppendLine("**Your query appears to be about laws.** You can search Indian laws (BNS, BNSS, BSA, IT Act) using the sidebar. The local database is fully available offline.\n");
+        }
+        else if (lower.Contains("evidence") || lower.Contains("proof") || lower.Contains("forensic"))
+        {
+            sb.AppendLine("**Your query appears to be about evidence.** Navigate to the **Evidence** page to view chain of custody and evidence details.\n");
+        }
+        else if (lower.Contains("scam") || lower.Contains("fraud") || lower.Contains("cyber"))
+        {
+            sb.AppendLine("**Your query appears to be about cybercrimes.** The **Cybercrime** and **Scam Patterns** pages provide threat intelligence and analysis without requiring internet.\n");
+        }
+
+        sb.AppendLine("### Available Offline Features\n");
+        sb.AppendLine("| Feature | Access |");
+        sb.AppendLine("|---------|--------|");
+        sb.AppendLine("| Case Management | Sidebar → Cases |");
+        sb.AppendLine("| Law Database | Sidebar → Laws |");
+        sb.AppendLine("| Evidence Custody | Sidebar → Evidence |");
+        sb.AppendLine("| Legal Notices | Sidebar → Notices |");
+        sb.AppendLine("| Cybercrime Analysis | Sidebar → Cybercrime |");
+        sb.AppendLine("| Case Timelines | Sidebar → Timeline |");
+        sb.AppendLine("| FIR Drafting | Sidebar → FIR |");
+        sb.AppendLine("| Deadline Tracker | Sidebar → Deadlines |\n");
+
+        sb.AppendLine("_The AI service will automatically reconnect when your internet is restored._");
+
+        return sb.ToString();
+    }
+
+    private void StartCaseFiling()
+    {
+        _ = StartCaseFilingAsync();
+    }
+
+    private async Task StartCaseFilingAsync()
+    {
+        if (currentUser == null) return;
+
+        isFilingMode = true;
+        currentFilingSession = FilingService.StartFilingSession(
+            currentUser.Id.ToString(),
+            currentUser.Name,
+            currentUser.Email,
+            currentUser.Id,
+            currentUser.Role,
+            deviceFingerprint
+        );
+
+        // Get initial welcome message
+        var response = await FilingService.ProcessUserResponseAsync(currentFilingSession.SessionId, "");
+
+        ChatState.AddMessage(new ChatStateService.ChatMessage
+        {
+            Text = response.Message,
+            IsUser = false,
+            Timestamp = DateTime.Now,
+            Options = response.Options?.ToList()
+        });
+
+        ChatState.SetTyping(false);
+        StateHasChanged();
+    }
+
+    private void CancelFiling()
+    {
+        isFilingMode = false;
+        currentFilingSession = null;
+
+        ChatState.AddMessage(new ChatStateService.ChatMessage
+        {
+            Text = "Complaint filing cancelled. How else can I help you?",
+            IsUser = false,
+            IsSystem = true,
+            Timestamp = DateTime.Now
+        });
+
+        StateHasChanged();
+    }
+
+    private async Task SelectOption(string option)
+    {
+        userInput = option;
+        await SendMessage();
+    }
+
+    private async Task SendSuggestedQuestion(string question)
+    {
+        userInput = question;
+        await SendMessage();
+    }
+
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await SendMessage();
+        }
+    }
+
+    private string GetFilingProgress()
+    {
+        if (currentFilingSession == null) return "0";
+        var progress = (int)currentFilingSession.CurrentStep * 100 / 9;
+        return progress.ToString();
+    }
+
+    private string GetFilingStepText()
+    {
+        if (currentFilingSession == null) return "";
+        return currentFilingSession.CurrentStep switch
+        {
+            FilingStep.Welcome => "Starting...",
+            FilingStep.IncidentType => "Step 1: Incident Type",
+            FilingStep.CybercrimeCategory => "Step 2: Category",
+            FilingStep.IncidentTitle => "Step 3: Title",
+            FilingStep.IncidentDescription => "Step 4: Description",
+            FilingStep.AccusedInfo => "Step 5: Accused Details",
+            FilingStep.EvidenceInfo => "Step 6: Evidence",
+            FilingStep.FinancialLoss => "Step 7: Financial Loss",
+            FilingStep.Confirmation => "Step 8: Review & Submit",
+            _ => "Processing..."
+        };
+    }
+
+    private void ToggleSidebar()
+    {
+        showSidebar = !showSidebar;
+    }
+
+    private void StartNewChat()
+    {
+        ChatState.ClearMessages();
+        isFilingMode = false;
+        currentFilingSession = null;
+        showSuggestions = true;
+        showSuggestionsCollapsed = false;
+        
+        var newSessionId = ChatState.GetNextSessionId();
+        ChatState.AddSession(new ChatStateService.ChatSession
+        {
+            Id = newSessionId,
+            Title = $"Chat {newSessionId}",
+            CreatedAt = DateTime.Now
+        });
+        ChatState.SetCurrentSession(newSessionId);
+        StateHasChanged();
+    }
+
+    private void LoadSession(int sessionId)
+    {
+        ChatState.SetCurrentSession(sessionId);
+        isFilingMode = false;
+        currentFilingSession = null;
+        StateHasChanged();
+    }
+
+    private void EditSessionTitle(int sessionId, string currentTitle)
+    {
+        editingSessionId = sessionId;
+        editingTitle = currentTitle;
+    }
+
+    private void SaveSessionTitle(int sessionId)
+    {
+        if (!string.IsNullOrWhiteSpace(editingTitle))
+        {
+            ChatState.UpdateSessionTitle(sessionId, editingTitle);
+        }
+        editingSessionId = -1;
+        editingTitle = string.Empty;
+    }
+
+    private void HandleTitleKeyPress(KeyboardEventArgs e, int sessionId)
+    {
+        if (e.Key == "Enter") SaveSessionTitle(sessionId);
+        else if (e.Key == "Escape") { editingSessionId = -1; editingTitle = string.Empty; }
+    }
+
+    private void DeleteSession(int sessionId)
+    {
+        ChatState.RemoveSession(sessionId);
+        if (currentSessionId == sessionId) StartNewChat();
+    }
+
+    // --- Identity Verification Methods ---
+
+    private void CloseVerificationModal()
+    {
+        showVerificationModal = false;
+        verificationPassword = string.Empty;
+        verificationError = string.Empty;
+    }
+
+    private async Task HandleVerificationKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(verificationPassword))
+        {
+            await SubmitVerification();
+        }
+    }
+
+    private async Task SubmitVerification()
+    {
+        if (currentFilingSession == null) return;
+        if (selectedVerificationMethod != IdentityVerificationMethod.BiometricConfirmation 
+            && string.IsNullOrWhiteSpace(verificationPassword)) return;
+
+        isVerifying = true;
+        verificationError = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var credential = selectedVerificationMethod switch
+            {
+                IdentityVerificationMethod.BiometricConfirmation => "biometric-verified",
+                _ => verificationPassword
+            };
+
+            var result = await FilingService.ConfirmIdentityAsync(
+                currentFilingSession.SessionId, credential, selectedVerificationMethod);
+
+            if (result.IsVerified)
+            {
+                showVerificationModal = false;
+                verificationPassword = string.Empty;
+                verificationChallenge = null;
+
+                ChatState.AddMessage(new ChatStateService.ChatMessage
+                {
+                    Text = "Identity verified successfully. Filing your case now...",
+                    IsUser = false,
+                    IsSystem = true,
+                    Timestamp = DateTime.Now
+                });
+                StateHasChanged();
+
+                // Now re-submit — identity is verified, so it will go through
+                await ProcessFilingResponseAsync("Yes, Submit");
+            }
+            else
+            {
+                verificationError = result.Reason ?? "Verification failed. Please try again.";
+                verificationAttemptsRemaining = result.AttemptsRemaining;
+
+                if (verificationAttemptsRemaining <= 0)
+                {
+                    showVerificationModal = false;
+                    isFilingMode = false;
+                    currentFilingSession = null;
+                    verificationChallenge = null;
+
+                    ChatState.AddMessage(new ChatStateService.ChatMessage
+                    {
+                        Text = "## Session Terminated\n\nToo many failed verification attempts. Your filing session has been terminated for security. Please log in again to continue.",
+                        IsUser = false,
+                        IsSystem = true,
+                        Timestamp = DateTime.Now
+                    });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            verificationError = $"Verification error: {ex.Message}";
+        }
+        finally
+        {
+            isVerifying = false;
+            verificationPassword = string.Empty;
+            StateHasChanged();
+        }
+    }
+
+    private void SelectVerificationMethod(IdentityVerificationMethod method)
+    {
+        selectedVerificationMethod = method;
+        verificationPassword = string.Empty;
+        verificationError = string.Empty;
+    }
+
+    private async Task TriggerBiometric()
+    {
+        isVerifying = true;
+        verificationError = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var success = await JSRuntime.InvokeAsync<bool>("deviceFingerprint.requestBiometric");
+            if (success)
+            {
+                verificationPassword = "biometric-verified";
+                await SubmitVerification();
+            }
+            else
+            {
+                verificationError = "Biometric authentication was not completed. Try another method.";
+            }
+        }
+        catch
+        {
+            verificationError = "Biometric authentication is not available on this device.";
+        }
+        finally
+        {
+            isVerifying = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetPlatformIcon(string platformLabel) => platformLabel switch
+    {
+        "Windows" => "bi-windows",
+        "macOS" => "bi-apple",
+        "iOS" => "bi-phone",
+        "Android" => "bi-android2",
+        "Linux" => "bi-ubuntu",
+        _ => "bi-display"
+    };
+
+    private string GetMethodIcon(IdentityVerificationMethod method) => method switch
+    {
+        IdentityVerificationMethod.PasswordReEntry => "bi-key-fill",
+        IdentityVerificationMethod.SessionPIN => "bi-grid-3x3-gap-fill",
+        IdentityVerificationMethod.BiometricConfirmation => "bi-fingerprint",
+        IdentityVerificationMethod.TwoFactorOTP => "bi-phone-vibrate",
+        _ => "bi-shield-check"
+    };
+
+    private string GetMethodLabel(IdentityVerificationMethod method) => method switch
+    {
+        IdentityVerificationMethod.PasswordReEntry => "Password",
+        IdentityVerificationMethod.SessionPIN => "Session PIN",
+        IdentityVerificationMethod.BiometricConfirmation => verificationChallenge?.BiometricLabel ?? "Biometric",
+        IdentityVerificationMethod.TwoFactorOTP => "OTP Code",
+        _ => "Verify"
+    };
+
+    private string GetMethodInputLabel(IdentityVerificationMethod method) => method switch
+    {
+        IdentityVerificationMethod.PasswordReEntry => "Password",
+        IdentityVerificationMethod.SessionPIN => "Session PIN",
+        IdentityVerificationMethod.TwoFactorOTP => "One-Time Code",
+        IdentityVerificationMethod.BiometricConfirmation => verificationChallenge?.BiometricLabel ?? "Biometric",
+        _ => "Credential"
+    };
+
+    private string GetMethodPlaceholder(IdentityVerificationMethod method) => method switch
+    {
+        IdentityVerificationMethod.PasswordReEntry => "Re-enter your password",
+        IdentityVerificationMethod.SessionPIN => "Enter your 4-digit PIN",
+        IdentityVerificationMethod.TwoFactorOTP => "Enter 6-digit code",
+        _ => "Enter credential"
+    };
+
+    // ── Specialized Intent Routing ──────────────────────────────────────
+
+    private enum SpecializedIntent
+    {
+        None,
+        LawSearch,
+        PrecedentSearch,
+        DeadlineInfo,
+        CybercrimeInfo,
+        ScamAnalysis,
+        EmergencyHelp,
+        FIRDraft,
+        EvidenceInfo,
+        LegalNotice,
+        PhoneIntelligence,
+        InvestigationHelp,
+        CDRAnalysis,
+        IntelligenceGathering,
+        SuspectNetwork,
+        GeoIntelligence,
+        DataSourceQuery
+    }
+
+    private bool ContainsSpecialized(string q, params string[] keywords)
+        => keywords.Any(k => q.Contains(k, StringComparison.OrdinalIgnoreCase));
+
+    private SpecializedIntent DetectSpecializedIntent(string query)
+    {
+        var q = query.ToLower();
+
+        if (ContainsSpecialized(q, "ipc", "crpc", "bns", "bnss", "section", "act ", "law ", "legal provision", "what law", "which section", "indian penal", "bharatiya nyaya"))
+            return SpecializedIntent.LawSearch;
+
+        if (ContainsSpecialized(q, "precedent", "landmark case", "supreme court", "high court", "court ruling", "case law", "judgment", "judgement"))
+            return SpecializedIntent.PrecedentSearch;
+
+        if (ContainsSpecialized(q, "deadline", "due date", "compliance", "overdue", "upcoming deadline", "deadline dashboard", "filing deadline"))
+            return SpecializedIntent.DeadlineInfo;
+
+        if (ContainsSpecialized(q, "cybercrime", "cyber crime", "online fraud", "hacking", "phishing", "cyber attack", "ransomware", "data breach", "cyber complaint"))
+            return SpecializedIntent.CybercrimeInfo;
+
+        if (ContainsSpecialized(q, "scam", "fraud analysis", "analyze scam", "is this a scam", "scam pattern", "scam radar", "community scam", "scam trend"))
+            return SpecializedIntent.ScamAnalysis;
+
+        if (ContainsSpecialized(q, "emergency", "sos", "urgent help", "helpline", "immediate danger", "wrongful detention", "police harassment", "domestic violence"))
+            return SpecializedIntent.EmergencyHelp;
+
+        if (ContainsSpecialized(q, "fir draft", "draft fir", "generate fir", "fir template", "first information report", "write fir", "register fir", "registerfir", "file fir"))
+            return SpecializedIntent.FIRDraft;
+
+        if (ContainsSpecialized(q, "evidence", "chain of custody", "evidence log", "forensic", "evidence integrity", "tamper", "custody chain"))
+            return SpecializedIntent.EvidenceInfo;
+
+        if (ContainsSpecialized(q, "legal notice", "send notice", "draft notice", "notice template", "cease and desist", "demand notice"))
+            return SpecializedIntent.LegalNotice;
+
+        if (ContainsSpecialized(q, "phone intel", "phone number", "mobile number", "caller id", "phone lookup", "number trace", "phone intelligence"))
+            return SpecializedIntent.PhoneIntelligence;
+
+        if (ContainsSpecialized(q, "investigation workflow", "investigation step", "next step", "investigation plan", "sop", "standard operating"))
+            return SpecializedIntent.InvestigationHelp;
+
+        if (ContainsSpecialized(q, "cdr", "call detail", "call record", "cdr analysis", "call data"))
+            return SpecializedIntent.CDRAnalysis;
+
+        if (ContainsSpecialized(q, "intelligence gather", "osint", "open source intelligence", "intel report", "surveillance", "gather intelligence"))
+            return SpecializedIntent.IntelligenceGathering;
+
+        if (ContainsSpecialized(q, "suspect network", "network analysis", "criminal network", "link analysis", "associate", "connection map"))
+            return SpecializedIntent.SuspectNetwork;
+
+        if (ContainsSpecialized(q, "geo intel", "geolocation", "location track", "geo intelligence", "map location", "location analysis"))
+            return SpecializedIntent.GeoIntelligence;
+
+        if (ContainsSpecialized(q, "data source", "external data", "api integration", "third party", "data feed", "integrate data"))
+            return SpecializedIntent.DataSourceQuery;
+
+        return SpecializedIntent.None;
+    }
+
+    private async Task ProcessSpecializedQueryAsync(string query, SpecializedIntent intent)
+    {
+        try
+        {
+            typingStatusText = intent switch
+            {
+                SpecializedIntent.LawSearch => "Searching local legal database...",
+                SpecializedIntent.PrecedentSearch => "Searching local case precedents...",
+                SpecializedIntent.DeadlineInfo => "Checking deadlines...",
+                SpecializedIntent.CybercrimeInfo => "Analyzing cybercrime data...",
+                SpecializedIntent.ScamAnalysis => "Analyzing scam patterns...",
+                SpecializedIntent.EmergencyHelp => "Getting emergency assistance...",
+                SpecializedIntent.FIRDraft => "Drafting FIR...",
+                SpecializedIntent.EvidenceInfo => "Reviewing evidence chain...",
+                SpecializedIntent.LegalNotice => "Preparing legal notice...",
+                SpecializedIntent.PhoneIntelligence => "Analyzing phone intelligence...",
+                SpecializedIntent.InvestigationHelp => "Planning investigation...",
+                SpecializedIntent.CDRAnalysis => "Analyzing call records...",
+                SpecializedIntent.IntelligenceGathering => "Gathering intelligence...",
+                SpecializedIntent.SuspectNetwork => "Mapping suspect network...",
+                SpecializedIntent.GeoIntelligence => "Analyzing location data...",
+                SpecializedIntent.DataSourceQuery => "Querying data sources...",
+                _ => "Processing..."
+            };
+            StateHasChanged();
+
+            string response = intent switch
+            {
+                SpecializedIntent.LawSearch => await HandleLawSearchAsync(query),
+                SpecializedIntent.PrecedentSearch => await HandlePrecedentSearchAsync(query),
+                SpecializedIntent.DeadlineInfo => await HandleDeadlineInfoAsync(query),
+                SpecializedIntent.CybercrimeInfo => await HandleCybercrimeInfoAsync(query),
+                SpecializedIntent.ScamAnalysis => await HandleScamAnalysisAsync(query),
+                SpecializedIntent.EmergencyHelp => await HandleEmergencyHelpAsync(query),
+                SpecializedIntent.FIRDraft => await HandleFIRDraftAsync(query),
+                SpecializedIntent.EvidenceInfo => await HandleEvidenceInfoAsync(query),
+                SpecializedIntent.LegalNotice => await HandleLegalNoticeAsync(query),
+                SpecializedIntent.PhoneIntelligence => await HandlePhoneIntelligenceAsync(query),
+                SpecializedIntent.InvestigationHelp => await HandleInvestigationHelpAsync(query),
+                SpecializedIntent.CDRAnalysis => await HandleCDRAnalysisAsync(query),
+                SpecializedIntent.IntelligenceGathering => await HandleIntelligenceGatheringAsync(query),
+                SpecializedIntent.SuspectNetwork => await HandleSuspectNetworkAsync(query),
+                SpecializedIntent.GeoIntelligence => await HandleGeoIntelligenceAsync(query),
+                SpecializedIntent.DataSourceQuery => await HandleDataSourceQueryAsync(query),
+                _ => "I couldn't process that specialized query. Please try rephrasing."
+            };
+
+            ChatState.AddMessage(new ChatStateService.ChatMessage
+            {
+                Text = response,
+                IsUser = false,
+                Timestamp = DateTime.Now
+            });
+        }
+        catch (Exception ex)
+        {
+            ChatState.AddMessage(new ChatStateService.ChatMessage
+            {
+                Text = $"⚠️ Error processing your query: {ex.Message}. Please try again.",
+                IsUser = false,
+                Timestamp = DateTime.Now
+            });
+        }
+    }
+
+    // ── Multi-Agent Orchestration ───────────────────────────────────────
+
+    private async Task ProcessOrchestratedQueryAsync(string query, List<string> domains)
+    {
+        try
+        {
+            typingStatusText = $"Coordinating {domains.Count} agents: {string.Join(", ", domains)}...";
+            StateHasChanged();
+
+            var result = await OrchestratorSvc.OrchestrateAsync(
+                query,
+                domains,
+                status =>
+                {
+                    typingStatusText = status;
+                    InvokeAsync(StateHasChanged);
+                },
+                _currentCts?.Token ?? CancellationToken.None
+            );
+
+            if (result.Success && !string.IsNullOrWhiteSpace(result.SynthesizedResponse) && !IsAgentRefusal(result.SynthesizedResponse))
+            {
+                ChatState.AddMessage(new ChatStateService.ChatMessage
+                {
+                    Text = result.SynthesizedResponse,
+                    IsUser = false,
+                    Timestamp = DateTime.Now,
+                    IsOrchestrated = true,
+                    AgentActivities = result.Activities
+                });
+            }
+            else
+            {
+                var fallback = OrchestratorSvc.FormatFallbackResponse(result);
+                ChatState.AddMessage(new ChatStateService.ChatMessage
+                {
+                    Text = fallback,
+                    IsUser = false,
+                    Timestamp = DateTime.Now,
+                    IsOrchestrated = true,
+                    AgentActivities = result.Activities
+                });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // On orchestration failure, try the relevant specialized handler directly
+            Console.WriteLine($"Orchestration failed, attempting direct handler fallback: {ex.Message}");
+            try
+            {
+                string fallbackResponse = "";
+                var primaryDomain = domains.FirstOrDefault();
+                if (primaryDomain != null)
+                {
+                    fallbackResponse = primaryDomain switch
+                    {
+                        "LawSearch" => await HandleLawSearchAsync(query),
+                        "CaseData" => "",  // Case data is handled by local services in orchestrator
+                        "Precedent" => await HandlePrecedentSearchAsync(query),
+                        "Cybercrime" => await HandleCybercrimeInfoAsync(query),
+                        "ScamAnalysis" => await HandleScamAnalysisAsync(query),
+                        "Deadline" => await HandleDeadlineInfoAsync(query),
+                        "Evidence" => await HandleEvidenceInfoAsync(query),
+                        "CDR" => await HandleCDRAnalysisAsync(query),
+                        "FIR" => await HandleFIRDraftAsync(query),
+                        "LegalNotice" => await HandleLegalNoticeAsync(query),
+                        _ => ""
+                    };
+                }
+
+                if (!string.IsNullOrWhiteSpace(fallbackResponse))
+                {
+                    ChatState.AddMessage(new ChatStateService.ChatMessage
+                    {
+                        Text = fallbackResponse,
+                        IsUser = false,
+                        Timestamp = DateTime.Now
+                    });
+                }
+                else
+                {
+                    ChatState.AddMessage(new ChatStateService.ChatMessage
+                    {
+                        Text = GenerateOfflineResponseText(query),
+                        IsUser = false,
+                        Timestamp = DateTime.Now
+                    });
+                }
+            }
+            catch
+            {
+                ChatState.AddMessage(new ChatStateService.ChatMessage
+                {
+                    Text = GenerateOfflineResponseText(query),
+                    IsUser = false,
+                    Timestamp = DateTime.Now
+                });
+            }
+        }
+    }
+
+    // ── Specialized Handlers ────────────────────────────────────────────
+
+    private async Task<string> HandleLawSearchAsync(string query)
+    {
+        var keywords = query.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => w.Length > 2)
+            .Take(5)
+            .ToArray();
+        var searchTerm = string.Join(" ", keywords);
+        var laws = LawSvc.SearchLaws(searchTerm);
+
+        // Build context from local data
+        var context = new System.Text.StringBuilder();
+        if (laws?.Any() == true)
+        {
+            context.AppendLine("Matching laws from local database:");
+            foreach (var law in laws.Take(5))
+            {
+                context.AppendLine($"- {law.Title} ({law.Type}, {law.ActNumber})");
+                if (law.Sections?.Any() == true)
+                    foreach (var sec in law.Sections.Take(3))
+                        context.AppendLine($"  Section {sec.SectionNumber}: {sec.Title}");
+            }
+            if (laws.Count > 5) context.AppendLine($"...and {laws.Count - 5} more results.");
+        }
+
+        // Search online legal resources with timeout to avoid long waits
+        typingStatusText = "Searching online legal resources...";
+        StateHasChanged();
+
+        List<OnlineLegalResult>? onlineResults = null;
+        try
+        {
+            using var searchTimeoutCts = CancellationTokenSource.CreateLinkedTokenSource(_currentCts?.Token ?? CancellationToken.None);
+            searchTimeoutCts.CancelAfter(TimeSpan.FromSeconds(8));
+            onlineResults = await WebSearchSvc.SearchIndianKanoonAsync(query, 5, searchTimeoutCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Online search timed out — continue with local data + AI knowledge
+        }
+        if (onlineResults?.Any() == true)
+        {
+            context.AppendLine("\nOnline search results from Indian Kanoon:");
+            foreach (var result in onlineResults.Take(5))
+            {
+                context.AppendLine($"- {result.Title}");
+                if (!string.IsNullOrWhiteSpace(result.Snippet))
+                    context.AppendLine($"  {result.Snippet}");
+                context.AppendLine($"  Source: {result.SourceUrl}");
+            }
+        }
+
+        typingStatusText = "Analyzing legal provisions...";
+        StateHasChanged();
+
+        var onlineNote = onlineResults?.Any() == true
+            ? "Online legal databases (Indian Kanoon) were also searched. Include relevant online findings and cite sources where possible."
+            : "Online search returned no additional results.";
+
+        var prompt = $@"You are an Indian legal expert AI assistant with deep knowledge of Indian law.
+
+User query: ""{query}""
+
+{(context.Length > 0 ? $"Relevant laws and sources found:\n{context}" : "No matching laws found in the local database.")}
+
+{onlineNote}
+
+IMPORTANT: In addition to the data above, use your OWN knowledge of Indian laws, statutes, IPC/BNS sections, CrPC/BNSS provisions, constitutional articles, and legal principles to provide a thorough answer. Do NOT limit yourself to only the data provided — supplement with your expertise.
+
+Provide a comprehensive legal analysis including:
+1. Relevant laws and sections applicable to the query (from data AND your own knowledge)
+2. Key provisions and their implications
+3. How these laws apply to the user's situation
+4. Any recent amendments or important interpretations
+5. Practical guidance
+6. Source references (cite Indian Kanoon links if available)
+
+Format with proper markdown.";
+
+        var aiResult = await AgentService.SendMessageAsync(prompt, "Indian legal law search and analysis", _currentCts?.Token ?? CancellationToken.None);
+        if (aiResult?.Success == true && !IsAgentRefusal(aiResult.Message))
+            return aiResult.Message;
+
+        // Fallback
+        var sb = new System.Text.StringBuilder();
+        if (laws?.Any() == true)
+        {
+            sb.AppendLine("## 📜 Relevant Laws Found\n");
+            foreach (var law in laws.Take(5))
+            {
+                sb.AppendLine($"**{law.Title}** ({law.Type}, {law.ActNumber})");
+                if (law.Sections?.Any() == true)
+                    foreach (var sec in law.Sections.Take(3))
+                        sb.AppendLine($"  Section {sec.SectionNumber}: {sec.Title}");
+                sb.AppendLine($"Type: {law.Type}\n");
+            }
+            if (laws.Count > 5) sb.AppendLine($"_...and {laws.Count - 5} more results._");
+        }
+        if (onlineResults?.Any() == true)
+        {
+            sb.AppendLine("\n## 🌐 Online Results (Indian Kanoon)\n");
+            foreach (var r in onlineResults.Take(5))
+            {
+                sb.AppendLine($"**{r.Title}**");
+                if (!string.IsNullOrWhiteSpace(r.Snippet))
+                    sb.AppendLine($"{r.Snippet}");
+                sb.AppendLine($"[View on Indian Kanoon]({r.SourceUrl})\n");
+            }
+        }
+        if (sb.Length > 0) return sb.ToString();
+        return "No matching laws found. Try different keywords.";
+    }
+
+    private async Task<string> HandlePrecedentSearchAsync(string query)
+    {
+        var precedents = await PrecedentSvc.SearchPrecedentsAsync(query);
+
+        var context = new System.Text.StringBuilder();
+        if (precedents?.Any() == true)
+        {
+            context.AppendLine("Matching precedents from local database:");
+            foreach (var p in precedents.Take(5))
+                context.AppendLine($"- {p.CaseTitle} ({p.JudgementDate.Year}), Court: {p.Court}, Citation: {p.Citation}, Summary: {p.Summary}");
+        }
+
+        // Search online for case law
+        typingStatusText = "Searching online case law databases...";
+        StateHasChanged();
+
+        var onlineResults = await WebSearchSvc.SearchIndianKanoonAsync(query + " case law judgment", 5, _currentCts?.Token ?? CancellationToken.None);
+        if (onlineResults?.Any() == true)
+        {
+            context.AppendLine("\nOnline case law results from Indian Kanoon:");
+            foreach (var result in onlineResults.Take(5))
+            {
+                context.AppendLine($"- {result.Title}");
+                if (!string.IsNullOrWhiteSpace(result.Snippet))
+                    context.AppendLine($"  {result.Snippet}");
+                context.AppendLine($"  Source: {result.SourceUrl}");
+            }
+        }
+
+        typingStatusText = "Analyzing case precedents...";
+        StateHasChanged();
+
+        var onlineNote = onlineResults?.Any() == true
+            ? "Online legal databases (Indian Kanoon) were also searched for case law. Include relevant online findings and cite sources with links."
+            : "Online search returned no additional case law.";
+
+        var prompt = $@"You are an Indian legal expert specializing in case law and judicial precedents.
+
+User query: ""{query}""
+
+{(context.Length > 0 ? $"Relevant precedents found:\n{context}" : "No matching precedents found in the local database.")}
+
+{onlineNote}
+
+Provide a comprehensive precedent analysis including:
+1. Key precedents relevant to the query
+2. The legal principles established
+3. How these precedents apply to the user's situation
+4. Any distinguishing factors to consider
+5. Practical implications for the case
+6. Source references (cite Indian Kanoon links if available)
+
+Format with proper markdown.";
+
+        var aiResult = await AgentService.SendMessageAsync(prompt, "Indian legal precedent search and analysis", _currentCts?.Token ?? CancellationToken.None);
+        if (aiResult?.Success == true && !IsAgentRefusal(aiResult.Message))
+            return aiResult.Message;
+
+        // Fallback
+        var sb = new System.Text.StringBuilder();
+        if (precedents?.Any() == true)
+        {
+            sb.AppendLine("## ⚖️ Relevant Precedents\n");
+            foreach (var p in precedents.Take(5))
+            {
+                sb.AppendLine($"**{p.CaseTitle}** ({p.JudgementDate.Year})");
+                sb.AppendLine($"Court: {p.Court}");
+                sb.AppendLine($"Citation: {p.Citation}");
+                sb.AppendLine($"Summary: {p.Summary}\n");
+            }
+        }
+        if (onlineResults?.Any() == true)
+        {
+            sb.AppendLine("\n## 🌐 Online Case Law (Indian Kanoon)\n");
+            foreach (var r in onlineResults.Take(5))
+            {
+                sb.AppendLine($"**{r.Title}**");
+                if (!string.IsNullOrWhiteSpace(r.Snippet))
+                    sb.AppendLine($"{r.Snippet}");
+                sb.AppendLine($"[View on Indian Kanoon]({r.SourceUrl})\n");
+            }
+        }
+        if (sb.Length > 0) return sb.ToString();
+        return "No matching precedents found.";
+    }
+
+    private async Task<string> HandleDeadlineInfoAsync(string query)
+    {
+        var dashboard = await DeadlineSvc.GetDashboardAsync();
+
+        var context = new System.Text.StringBuilder();
+        if (dashboard != null)
+        {
+            context.AppendLine($"Total Deadlines: {dashboard.TotalDeadlines}, Pending: {dashboard.PendingDeadlines}");
+            context.AppendLine($"Completed: {dashboard.CompletedDeadlines}, Overdue: {dashboard.OverdueDeadlines}");
+            context.AppendLine($"Due Today: {dashboard.DueTodayCount}, Due This Week: {dashboard.DueThisWeekCount}");
+            context.AppendLine($"Compliance Rate: {dashboard.ComplianceRate:P0}");
+            if (dashboard.RecentAlerts?.Any() == true)
+            {
+                context.AppendLine("Recent alerts:");
+                foreach (var alert in dashboard.RecentAlerts.Take(5))
+                    context.AppendLine($"- [{alert.Severity}] {alert.Message} (Case: {alert.CaseTitle}, Due: {alert.DueDate:MMM dd})");
+            }
+        }
+
+        var prompt = $@"You are an Indian legal assistant helping track case deadlines and compliance.
+
+User query: ""{query}""
+
+{(context.Length > 0 ? $"Current deadline data:\n{context}" : "No deadline data available.")}
+
+Provide a helpful deadline analysis including:
+1. Summary of current deadline status
+2. Priority items that need immediate attention
+3. Compliance assessment
+4. Recommendations for managing upcoming deadlines
+5. Any overdue items that need urgent action
+
+Format with proper markdown. Be actionable and prioritize urgency.";
+
+        var aiResult = await AgentService.SendMessageAsync(prompt, "Legal deadline tracking and compliance analysis", _currentCts?.Token ?? CancellationToken.None);
+        if (aiResult?.Success == true && !IsAgentRefusal(aiResult.Message))
+            return aiResult.Message;
+
+        // Fallback
+        if (dashboard == null)
+            return "Unable to fetch deadline information at this time.";
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("## ⏰ Deadline Dashboard\n");
+        sb.AppendLine($"| Metric | Count |");
+        sb.AppendLine($"|--------|-------|");
+        sb.AppendLine($"| Total Deadlines | {dashboard.TotalDeadlines} |");
+        sb.AppendLine($"| Pending | {dashboard.PendingDeadlines} |");
+        sb.AppendLine($"| Completed | {dashboard.CompletedDeadlines} |");
+        sb.AppendLine($"| Overdue | {dashboard.OverdueDeadlines} |");
+        sb.AppendLine($"| Due Today | {dashboard.DueTodayCount} |");
+        sb.AppendLine($"| Due This Week | {dashboard.DueThisWeekCount} |");
+        sb.AppendLine($"| Compliance Rate | {dashboard.ComplianceRate:P0} |\n");
+        if (dashboard.RecentAlerts?.Any() == true)
+        {
+            sb.AppendLine("### 🚨 Recent Alerts");
+            foreach (var alert in dashboard.RecentAlerts.Take(3))
+            {
+                sb.AppendLine($"- **[{alert.Severity}]** {alert.Message} (Case: {alert.CaseTitle}, Due: {alert.DueDate:MMM dd})");
+            }
+        }
+        return sb.ToString();
+    }
+
+    private async Task<string> HandleCybercrimeInfoAsync(string query)
+    {
+        var stats = CybercrimeSvc.GetStatistics();
+        var resources = CybercrimeSvc.GetResources();
+        var emergencyResources = CybercrimeSvc.GetEmergencyResources();
+
+        var context = new System.Text.StringBuilder();
+        if (stats != null)
+        {
+            context.AppendLine($"Active Investigations: {stats.ActiveInvestigations}, FIRs Filed: {stats.FIRsFiled}");
+            context.AppendLine($"Cases Closed: {stats.CasesClosed}, Total Financial Loss: ₹{stats.TotalFinancialLoss:N0}");
+        }
+        if (emergencyResources?.Any() == true)
+        {
+            context.AppendLine("Emergency helplines:");
+            foreach (var r in emergencyResources.Take(5))
+                context.AppendLine($"- {r.Title}: {r.PhoneNumber} — {r.Description}");
+        }
+
+        var prompt = $@"You are an Indian cybercrime expert AI assistant.
+
+User query: ""{query}""
+
+{(context.Length > 0 ? $"Current cybercrime statistics and resources:\n{context}" : "No cybercrime statistics available.")}
+
+Provide a comprehensive cybercrime analysis including:
+1. Answer the user's specific query about cybercrime
+2. Relevant statistics and trends
+3. Applicable laws (IT Act, IPC sections)
+4. Steps to report and investigate
+5. Emergency contacts and resources if relevant
+6. Prevention tips
+
+Format with proper markdown. Be professional and actionable.";
+
+        var aiResult = await AgentService.SendMessageAsync(prompt, "Cybercrime analysis and advice for Indian law enforcement", _currentCts?.Token ?? CancellationToken.None);
+        if (aiResult?.Success == true && !IsAgentRefusal(aiResult.Message))
+            return aiResult.Message;
+
+        // Fallback
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("## 🛡️ Cybercrime Information\n");
+        if (stats != null)
+        {
+            sb.AppendLine("### Statistics");
+            sb.AppendLine($"- Active Investigations: **{stats.ActiveInvestigations}**");
+            sb.AppendLine($"- FIRs Filed: **{stats.FIRsFiled}**");
+            sb.AppendLine($"- Cases Closed: **{stats.CasesClosed}**");
+            sb.AppendLine($"- Total Financial Loss: **₹{stats.TotalFinancialLoss:N0}**\n");
+        }
+        if (emergencyResources?.Any() == true)
+        {
+            sb.AppendLine("### 📞 Helplines & Resources");
+            foreach (var r in emergencyResources.Take(5))
+                sb.AppendLine($"- **{r.Title}**: {r.PhoneNumber} — {r.Description}");
+        }
+        return sb.ToString();
+    }
+
+    private async Task<string> HandleScamAnalysisAsync(string query)
+    {
+        // Gather context from local services
+        var report = new ScamReport { Description = query };
+        var analysis = await ScamPatternSvc.AnalyzeComplaintAsync(query, report);
+        var trends = ScamRadarSvc.GetTrends();
+
+        var context = new System.Text.StringBuilder();
+        if (analysis != null)
+        {
+            context.AppendLine($"Overall Confidence: {analysis.OverallConfidence:P0}");
+            if (analysis.AIAnalysis != null)
+            {
+                context.AppendLine($"Scam Type: {analysis.AIAnalysis.ScamType}");
+                context.AppendLine($"Summary: {analysis.AIAnalysis.Summary}");
+                context.AppendLine($"Complexity: {analysis.AIAnalysis.ScamComplexityScore}/10");
+                context.AppendLine($"Urgent: {analysis.AIAnalysis.NeedsUrgentAction}");
+                context.AppendLine($"Most Likely Scenario: {analysis.AIAnalysis.MostLikelyScenario}");
+                if (analysis.AIAnalysis.ImmediateSteps?.Any() == true)
+                    context.AppendLine($"Immediate Steps: {string.Join("; ", analysis.AIAnalysis.ImmediateSteps)}");
+                if (analysis.AIAnalysis.ApplicableLaws?.Any() == true)
+                    context.AppendLine($"Applicable Laws: {string.Join("; ", analysis.AIAnalysis.ApplicableLaws)}");
+            }
+            if (analysis.Warnings?.Any() == true)
+                context.AppendLine($"Warnings: {string.Join("; ", analysis.Warnings)}");
+            if (analysis.RecommendedActions?.Any() == true)
+                context.AppendLine($"Recommended Actions: {string.Join("; ", analysis.RecommendedActions)}");
+        }
+        if (trends?.Any() == true)
+        {
+            context.AppendLine("Community scam trends:");
+            foreach (var t in trends.Take(5))
+                context.AppendLine($"- {t.Type}: {t.Count} reports — {t.AiInsight}");
+        }
+
+        var prompt = $@"You are an Indian cybercrime and scam analysis expert AI.
+
+User query: ""{query}""
+
+{(context.Length > 0 ? $"Analysis results from local pattern matching:\n{context}" : "No local pattern data available.")}
+
+Provide a comprehensive scam analysis report including:
+1. Scam type identification and confidence
+2. Detailed risk assessment
+3. Immediate steps the victim should take
+4. Applicable Indian laws (IPC, IT Act sections)
+5. How to report and seek recovery
+6. Prevention tips for similar scams
+7. Community trend insights if available
+
+Format with proper markdown. Be urgent if action is needed.";
+
+        var aiResult = await AgentService.SendMessageAsync(prompt, "Scam pattern analysis and victim guidance", _currentCts?.Token ?? CancellationToken.None);
+        if (aiResult?.Success == true && !IsAgentRefusal(aiResult.Message))
+            return aiResult.Message;
+
+        // Fallback
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("## 🔍 Scam Analysis Report\n");
+        if (analysis != null)
+        {
+            sb.AppendLine($"**Confidence:** {analysis.OverallConfidence:P0}");
+            if (analysis.AIAnalysis != null)
+            {
+                sb.AppendLine($"**Type:** {analysis.AIAnalysis.ScamType}");
+                sb.AppendLine($"**Summary:** {analysis.AIAnalysis.Summary}");
+                if (analysis.AIAnalysis.NeedsUrgentAction)
+                    sb.AppendLine("⚠️ **URGENT ACTION NEEDED**");
+            }
+            if (analysis.RecommendedActions?.Any() == true)
+            {
+                sb.AppendLine("\n### Recommended Actions");
+                foreach (var a in analysis.RecommendedActions)
+                    sb.AppendLine($"- {a}");
+            }
+        }
+        else
+            sb.AppendLine("No scam patterns detected. Stay vigilant!");
+        return sb.ToString();
+    }
+
+    private async Task<string> HandleEmergencyHelpAsync(string query)
+    {
+        var helplines = EmergencySvc.GetHelplines();
+        var rights = EmergencySvc.GetLegalRights(EmergencyType.Other);
+
+        var context = new System.Text.StringBuilder();
+        if (helplines?.Any() == true)
+        {
+            context.AppendLine("Emergency helplines:");
+            foreach (var h in helplines.Where(h => h.IsNational).Take(8))
+                context.AppendLine($"- {h.Name}: {h.Number} — {h.Description}");
+        }
+        if (rights?.Any() == true)
+        {
+            context.AppendLine("Legal rights:");
+            foreach (var r in rights.Take(5))
+                context.AppendLine($"- {r.Title} (Art. {r.Article}): {r.Description}");
+        }
+
+        var prompt = $@"You are an Indian legal emergency assistance AI.
+
+User query: ""{query}""
+
+{(context.Length > 0 ? $"Available emergency resources:\n{context}" : "")}
+
+Provide immediate, actionable emergency legal guidance including:
+1. Immediate steps the person should take
+2. Relevant emergency helpline numbers
+3. Their legal rights in this situation
+4. What to do if police refuse to help
+5. How to ensure their safety
+
+Format with proper markdown. Be urgent, clear, and reassuring.";
+
+        var aiResult = await AgentService.SendMessageAsync(prompt, "Emergency legal assistance and advice", _currentCts?.Token ?? CancellationToken.None);
+        if (aiResult?.Success == true && !IsAgentRefusal(aiResult.Message))
+            return aiResult.Message;
+
+        // Fallback
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("## 🆘 Emergency Legal Help\n");
+        if (helplines?.Any() == true)
+        {
+            sb.AppendLine("### 📞 Emergency Helplines");
+            foreach (var h in helplines.Where(h => h.IsNational).Take(8))
+                sb.AppendLine($"- **{h.Name}**: {h.Number} — {h.Description}");
+        }
+        if (rights?.Any() == true)
+        {
+            sb.AppendLine("\n### 📋 Your Legal Rights");
+            foreach (var r in rights.Take(5))
+                sb.AppendLine($"- **{r.Title}** (Art. {r.Article}): {r.Description}");
+        }
+        return sb.ToString();
+    }
+
+    private async Task<string> HandleFIRDraftAsync(string query)
+    {
+        // Try to extract a case number from the query (e.g., CYB/2025/008, CRM/2024/012)
+        var caseNumberMatch = System.Text.RegularExpressions.Regex.Match(
+            query, @"\b(CYB|CRM|CVL|CON)[\/\-]\d{4}[\/\-]\d{2,4}\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        Case? matchedCase = null;
+        if (caseNumberMatch.Success)
+        {
+            var caseNumber = caseNumberMatch.Value.Replace("-", "/").ToUpper();
+            var searchResults = await CaseService.SearchCasesAsync(caseNumber);
+            matchedCase = searchResults.FirstOrDefault();
+        }
+        else
+        {
+            // No case number found — try to search by keyword in case it's a plain description
+            var searchResults = await CaseService.SearchCasesAsync(query);
+            if (searchResults.Count == 1)
+                matchedCase = searchResults.First();
+            else if (searchResults.Count == 0)
+            {
+                // Ask user for case number and set follow-up intent so next message routes back here
+                pendingFollowUpIntent = SpecializedIntent.FIRDraft;
+                return "🛡️ To register an FIR, please specify the case number.\n\nExample: `Register FIR for CYB/2025/001`";
+            }
+        }
+
+        // Build the FIR input draft from case data if available
+        var inputDraft = new FIRDraft { IncidentDescription = query };
+        if (matchedCase != null)
+        {
+            inputDraft.IncidentDescription = matchedCase.Description;
+            inputDraft.IncidentDate = matchedCase.FiledDate;
+            inputDraft.IncidentLocation = matchedCase.PoliceStation ?? "";
+            inputDraft.PoliceStation = matchedCase.PoliceStation ?? "";
+            inputDraft.ComplainantName = matchedCase.Complainant;
+            inputDraft.AccusedName = matchedCase.Accused;
+            if (matchedCase.CybercrimeCategory != null)
+                inputDraft.CrimeType = FIRCrimeType.CyberCrime;
+        }
+        var draft = await FIRDraftSvc.GenerateFIRDraftAsync(inputDraft);
+
+        var context = new System.Text.StringBuilder();
+
+        // Add case database context if matched
+        if (matchedCase != null)
+        {
+            context.AppendLine("=== CASE DATA FROM INTERNAL DATABASE ===");
+            context.AppendLine($"Case Number: {matchedCase.CaseNumber}");
+            context.AppendLine($"Title: {matchedCase.Title}");
+            context.AppendLine($"Description: {matchedCase.Description}");
+            context.AppendLine($"Type: {matchedCase.Type}");
+            context.AppendLine($"Status: {matchedCase.Status}");
+            context.AppendLine($"Filed Date: {matchedCase.FiledDate:dd MMM yyyy}");
+            context.AppendLine($"Complainant: {matchedCase.Complainant}");
+            context.AppendLine($"Accused: {matchedCase.Accused}");
+            if (!string.IsNullOrEmpty(matchedCase.PoliceStation))
+                context.AppendLine($"Police Station: {matchedCase.PoliceStation}");
+            if (!string.IsNullOrEmpty(matchedCase.InvestigatingOfficer))
+                context.AppendLine($"Investigating Officer: {matchedCase.InvestigatingOfficer}");
+            if (!string.IsNullOrEmpty(matchedCase.FIRNumber))
+                context.AppendLine($"Existing FIR Number: {matchedCase.FIRNumber}");
+            if (matchedCase.IsCybercrime)
+                context.AppendLine($"Cybercrime Category: {matchedCase.CybercrimeCategory}");
+            if (!string.IsNullOrEmpty(matchedCase.DigitalEvidence))
+                context.AppendLine($"Digital Evidence: {matchedCase.DigitalEvidence}");
+            if (matchedCase.ApplicableLaws?.Count > 0)
+                context.AppendLine($"Applicable Laws: {string.Join(", ", matchedCase.ApplicableLaws)}");
+            if (matchedCase.Sections?.Count > 0)
+                context.AppendLine($"Sections: {string.Join(", ", matchedCase.Sections)}");
+            if (matchedCase.ApplicableSections?.Count > 0)
+                context.AppendLine($"Applicable Sections: {string.Join(", ", matchedCase.ApplicableSections)}");
+            if (!string.IsNullOrEmpty(matchedCase.AIAnalysis))
+                context.AppendLine($"AI Analysis: {matchedCase.AIAnalysis}");
+            if (matchedCase.TimelineEvents?.Count > 0)
+            {
+                context.AppendLine("\nTimeline Events:");
+                foreach (var evt in matchedCase.TimelineEvents.OrderBy(e => e.EventDate))
+                    context.AppendLine($"  - {evt.EventDate:dd MMM yyyy}: {evt.Title} - {evt.Description}");
+            }
+            context.AppendLine();
+        }
+
+        if (draft != null)
+        {
+            context.AppendLine("=== FIR DRAFT SERVICE OUTPUT ===");
+            context.AppendLine($"Draft ID: {draft.Id}");
+            context.AppendLine($"Incident Date: {draft.IncidentDate:dd MMM yyyy}");
+            context.AppendLine($"Crime Type: {draft.CrimeType}");
+            context.AppendLine($"Applicable Sections: {string.Join(", ", draft.ApplicableSections ?? new List<string>())}");
+            context.AppendLine($"Description: {draft.IncidentDescription}");
+            if (!string.IsNullOrEmpty(draft.LegalAnalysis))
+                context.AppendLine($"Legal Analysis: {draft.LegalAnalysis}");
+            if (!string.IsNullOrEmpty(draft.AIDraftedFIR))
+                context.AppendLine($"AI Drafted FIR: {draft.AIDraftedFIR}");
+        }
+
+        var prompt = $@"You are an Indian law enforcement FIR drafting expert AI agent.
+
+User query: ""{query}""
+
+{(context.Length > 0 ? $"All available data from the internal case database and draft service:\n{context}" : "No case data was found in the database.")}
+
+IMPORTANT: You are an AI agent with access to the internal case database. Use ALL the data provided above to generate the FIR.
+Do NOT ask the user for information that is already available in the case data above.
+Automatically populate every field you can from the database.
+
+Generate a comprehensive FIR draft including:
+1. A properly formatted FIR following Indian police format (with all fields auto-filled from case data)
+2. Complainant details (from case data)
+3. Accused details (from case data)
+4. Incident description (detailed, from case data)
+5. Applicable IPC/BNS/IT Act sections with brief explanations
+6. Evidence already collected and evidence still needed
+7. Next steps after FIR registration
+8. Important reminders for the filing officer
+
+Format with proper markdown. Include a disclaimer that this is a draft for review and verification.";
+
+        var aiResult = await AgentService.SendMessageAsync(prompt, "FIR draft generation for Indian law enforcement", _currentCts?.Token ?? CancellationToken.None);
+        if (aiResult?.Success == true && !IsAgentRefusal(aiResult.Message))
+            return aiResult.Message;
+
+        // Fallback
+        if (draft == null)
+            return "Unable to generate FIR draft. Please provide more details about the incident.";
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("## 📝 FIR Draft Generated\n");
+        sb.AppendLine($"**Crime Type:** {draft.CrimeType}");
+        sb.AppendLine($"**Applicable Sections:** {string.Join(", ", draft.ApplicableSections ?? new List<string>())}");
+        sb.AppendLine($"\n**Incident Description:**\n{draft.IncidentDescription}");
+        if (!string.IsNullOrEmpty(draft.AIDraftedFIR))
+            sb.AppendLine($"\n### 📝 AI Drafted FIR\n{draft.AIDraftedFIR}");
+        sb.AppendLine("\n_⚠️ This is a draft. Please review and edit before official filing._");
+        return sb.ToString();
+    }
+
+    private async Task<string> HandleEvidenceInfoAsync(string query)
+    {
+        var stats = await EvidenceSvc.GetStatisticsAsync();
+
+        var context = new System.Text.StringBuilder();
+        if (stats != null)
+        {
+            context.AppendLine($"Total Evidence Items: {stats.TotalEvidence}, Verified: {stats.VerifiedCount}");
+            context.AppendLine($"Pending Verification: {stats.PendingVerification}, Chain Integrity Rate: {stats.ChainIntegrityRate:P0}");
+        }
+
+        var prompt = $@"You are an Indian law enforcement evidence management expert AI.
+
+User query: ""{query}""
+
+{(context.Length > 0 ? $"Current evidence statistics:\n{context}" : "No evidence statistics available.")}
+
+Provide comprehensive guidance on evidence handling including:
+1. Answer the user's specific evidence-related query
+2. Chain of custody best practices
+3. Evidence collection and preservation procedures
+4. Digital evidence handling guidelines
+5. Legal requirements under Indian Evidence Act
+6. Common pitfalls to avoid
+
+Format with proper markdown. Be professional and thorough.";
+
+        var aiResult = await AgentService.SendMessageAsync(prompt, "Evidence handling and chain of custody procedures", _currentCts?.Token ?? CancellationToken.None);
+        if (aiResult?.Success == true && !IsAgentRefusal(aiResult.Message))
+            return aiResult.Message;
+
+        // Fallback
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("## 🔐 Evidence & Chain of Custody\n");
+        if (stats != null)
+        {
+            sb.AppendLine($"- Total Evidence Items: **{stats.TotalEvidence}**");
+            sb.AppendLine($"- Verified: **{stats.VerifiedCount}**");
+            sb.AppendLine($"- Pending Verification: **{stats.PendingVerification}**");
+            sb.AppendLine($"- Chain Integrity Rate: **{stats.ChainIntegrityRate:P0}**\n");
+        }
+        return sb.ToString();
+    }
+
+    private async Task<string> HandleLegalNoticeAsync(string query)
+    {
+        var categories = LegalNoticeSvc.GetRecipientCategories();
+        var notices = await LegalNoticeSvc.GetAllNoticesAsync();
+
+        var context = new System.Text.StringBuilder();
+        if (categories?.Any() == true)
+            context.AppendLine($"Available notice categories: {string.Join(", ", categories)}");
+        if (notices?.Any() == true)
+        {
+            context.AppendLine($"Recent notices ({notices.Count} total):");
+            foreach (var n in notices.Take(5))
+                context.AppendLine($"- {n.NoticeNumber} — {n.Subject} (Type: {n.Type}, Sent: {(n.IsSent ? "Yes" : "No")})");
+        }
+
+        var prompt = $@"You are an Indian legal notice drafting expert AI.
+
+User query: ""{query}""
+
+{(context.Length > 0 ? $"Available data:\n{context}" : "No existing notice data available.")}
+
+Provide comprehensive legal notice assistance including:
+1. Answer the user's specific query about legal notices
+2. Guidance on drafting the appropriate type of notice
+3. Required elements and format under Indian law
+4. Relevant legal provisions
+5. Timeline and service requirements
+6. Next steps after sending
+
+Format with proper markdown. Be professional and legally precise.";
+
+        var aiResult = await AgentService.SendMessageAsync(prompt, "Legal notice drafting assistance", _currentCts?.Token ?? CancellationToken.None);
+        if (aiResult?.Success == true && !IsAgentRefusal(aiResult.Message))
+            return aiResult.Message;
+
+        // Fallback
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("## 📄 Legal Notice Assistance\n");
+        if (categories?.Any() == true)
+        {
+            sb.AppendLine("### Available Notice Categories");
+            foreach (var c in categories)
+                sb.AppendLine($"- {c}");
+        }
+        if (notices?.Any() == true)
+        {
+            sb.AppendLine($"\n### Recent Notices ({notices.Count} total)");
+            foreach (var n in notices.Take(5))
+                sb.AppendLine($"- **{n.NoticeNumber}** — {n.Subject} (Type: {n.Type}, Sent: {(n.IsSent ? "Yes" : "No")})");
+        }
+        return sb.ToString();
+    }
+
+    private async Task<string> HandlePhoneIntelligenceAsync(string query)
+    {
+        // Extract phone number from query
+        var phoneMatch = System.Text.RegularExpressions.Regex.Match(query, @"\b(\+?\d{10,13})\b");
+        if (!phoneMatch.Success)
+        {
+            pendingFollowUpIntent = SpecializedIntent.PhoneIntelligence;
+            return "Please provide a valid phone number (10-13 digits) for intelligence lookup.";
+        }
+
+        var phone = phoneMatch.Value;
+
+        // Gather whatever data is available to provide as context
+        var contextParts = new System.Text.StringBuilder();
+        contextParts.AppendLine($"Phone number: {phone}");
+
+        var summaryResult = await PhoneIntelSvc.GetPhoneSummaryAsync(phone);
+        if (summaryResult.IsSuccess && summaryResult.Data != null)
+        {
+            var s = summaryResult.Data;
+            contextParts.AppendLine($"Call Records: {s.CallCount}, Transactions: {s.TransactionCount}");
+            contextParts.AppendLine($"Linked Cases: {s.CaseCount}, Profiles Found: {s.ProfilesFound}");
+            contextParts.AppendLine($"Trust Score: {s.TrustScore}/100, Wanted: {s.IsWanted}");
+            if (s.LastActivityDate.HasValue)
+                contextParts.AppendLine($"Last Activity: {s.LastActivityDate:MMM dd, yyyy}");
+        }
+
+        var prompt = $@"You are an Indian law enforcement intelligence analyst AI.
+
+The user asked: ""{query}""
+
+Available intelligence data:
+{contextParts}
+
+Provide a comprehensive phone intelligence analysis including:
+1. Intelligence summary for the phone number
+2. Risk assessment and threat level
+3. Key indicators and patterns to watch
+4. Recommended investigative actions
+5. Any red flags or alerts
+
+Format with proper markdown. Be professional and actionable. If data is limited, explain what additional intelligence gathering steps are recommended.";
+
+        var aiResult = await AgentService.SendMessageAsync(prompt, "Phone intelligence analysis for law enforcement", _currentCts?.Token ?? CancellationToken.None);
+        if (aiResult?.Success == true && !IsAgentRefusal(aiResult.Message))
+            return aiResult.Message;
+
+        // Fallback if AI is unavailable
+        if (summaryResult.IsSuccess && summaryResult.Data != null)
+        {
+            var summary = summaryResult.Data;
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"## 📱 Phone Intelligence: {phone}\n");
+            sb.AppendLine($"| Metric | Value |");
+            sb.AppendLine($"|--------|-------|");
+            sb.AppendLine($"| Call Records | {summary.CallCount} |");
+            sb.AppendLine($"| Transactions | {summary.TransactionCount} |");
+            sb.AppendLine($"| Linked Cases | {summary.CaseCount} |");
+            sb.AppendLine($"| Profiles Found | {summary.ProfilesFound} |");
+            sb.AppendLine($"| Trust Score | {summary.TrustScore}/100 |");
+            sb.AppendLine($"| Wanted Status | {(summary.IsWanted ? "⚠️ YES" : "No")} |");
+            return sb.ToString();
+        }
+
+        return $"📱 No intelligence data currently available for {phone}. Please run a full intelligence gathering operation first.";
+    }
+
+    private async Task<string> HandleInvestigationHelpAsync(string query)
+    {
+        var stages = WorkflowSvc.GetAvailableNextStages("Initial Report");
+
+        var context = new System.Text.StringBuilder();
+        if (stages?.Any() == true)
+        {
+            context.AppendLine("Available investigation stages:");
+            foreach (var stage in stages)
+                context.AppendLine($"- {stage}");
+        }
+
+        var prompt = $@"You are an Indian law enforcement investigation workflow expert AI.
+
+User query: ""{query}""
+
+{(context.Length > 0 ? $"System data:\n{context}" : "")}
+
+Provide comprehensive investigation guidance including:
+1. Answer the user's specific investigation query
+2. Recommended investigation procedures
+3. Evidence collection priorities
+4. Legal requirements and compliance
+5. Available next steps in the workflow
+6. Best practices for Indian law enforcement
+
+Format with proper markdown. Be professional and actionable.";
+
+        var aiResult = await AgentService.SendMessageAsync(prompt, "Investigation procedure and workflow guidance", _currentCts?.Token ?? CancellationToken.None);
+        if (aiResult?.Success == true && !IsAgentRefusal(aiResult.Message))
+            return aiResult.Message;
+
+        // Fallback
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("## 🔎 Investigation Workflow Assistance\n");
+        if (stages?.Any() == true)
+        {
+            sb.AppendLine("### Available Investigation Stages");
+            foreach (var stage in stages)
+                sb.AppendLine($"- {stage}");
+        }
+        return sb.ToString();
+    }
+
+    private async Task<string> HandleCDRAnalysisAsync(string query)
+    {
+        var analyses = await CDRSvc.GetAllAnalysesAsync();
+
+        var context = new System.Text.StringBuilder();
+        if (analyses?.Any() == true)
+        {
+            context.AppendLine($"Existing CDR analyses ({analyses.Count} total):");
+            foreach (var a in analyses.Take(5))
+                context.AppendLine($"- Case {a.CaseId} ({a.PrimaryNumber}) — {a.CreatedAt:dd MMM yyyy} by {a.AnalyzedBy}");
+        }
+
+        var prompt = $@"You are an Indian law enforcement CDR (Call Detail Record) analysis expert AI.
+
+User query: ""{query}""
+
+{(context.Length > 0 ? $"Existing CDR analyses in the system:\n{context}" : "No existing CDR analyses found in the system.")}
+
+Provide comprehensive CDR analysis guidance including:
+1. Answer the user's specific CDR-related query
+2. How to interpret CDR patterns
+3. Key indicators to look for (frequency, duration, tower changes)
+4. How to identify suspicious communication patterns
+5. Legal procedures for obtaining CDR under Indian law
+6. How CDR evidence can be used in court
+
+Format with proper markdown. Be professional and actionable.";
+
+        var aiResult = await AgentService.SendMessageAsync(prompt, "CDR analysis guidance for Indian law enforcement", _currentCts?.Token ?? CancellationToken.None);
+        if (aiResult?.Success == true && !IsAgentRefusal(aiResult.Message))
+            return aiResult.Message;
+
+        // Fallback
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("## 📊 CDR Analysis\n");
+        if (analyses?.Any() == true)
+        {
+            sb.AppendLine("### Recent CDR Analyses");
+            foreach (var a in analyses.Take(5))
+                sb.AppendLine($"- **Case {a.CaseId}** ({a.PrimaryNumber}) — {a.CreatedAt:dd MMM yyyy} by {a.AnalyzedBy}");
+        }
+        else
+            sb.AppendLine("No CDR analyses found. Navigate to the CDR Analysis page to upload call records.");
+        return sb.ToString();
+    }
+
+    private async Task<string> HandleIntelligenceGatheringAsync(string query)
+    {
+        var prompt = $@"You are an Indian law enforcement intelligence analyst AI specializing in OSINT and intelligence gathering.
+
+User query: ""{query}""
+
+Provide comprehensive intelligence gathering guidance including:
+1. Answer the user's specific intelligence query
+2. OSINT methodologies applicable to this scenario
+3. Available data sources (telecom, banking, social media, police records)
+4. Legal framework for intelligence collection in India
+5. Step-by-step intelligence gathering plan
+6. How to correlate data across sources
+7. Risk assessment and threat indicators
+
+Format with proper markdown. Be professional and actionable.";
+
+        var aiResult = await AgentService.SendMessageAsync(prompt, "Intelligence gathering and OSINT analysis for Indian law enforcement", _currentCts?.Token ?? CancellationToken.None);
+        if (aiResult?.Success == true && !IsAgentRefusal(aiResult.Message))
+            return aiResult.Message;
+
+        return "Intelligence gathering module is ready. Provide a target identifier (name, phone, email) for lookup.";
+    }
+
+    private async Task<string> HandleSuspectNetworkAsync(string query)
+    {
+        var phoneMatch = System.Text.RegularExpressions.Regex.Match(query, @"\b(\+?\d{10,13})\b");
+        if (!phoneMatch.Success)
+        {
+            pendingFollowUpIntent = SpecializedIntent.SuspectNetwork;
+            return "Please provide a phone number or suspect identifier for network analysis.";
+        }
+
+        var phone = phoneMatch.Value;
+        var result = await SuspectNetSvc.BuildNetworkGraphAsync(phone);
+
+        var context = new System.Text.StringBuilder();
+        context.AppendLine($"Target phone: {phone}");
+        if (result.IsSuccess && result.Data != null)
+        {
+            var network = result.Data;
+            context.AppendLine($"Network nodes: {network.Nodes?.Count ?? 0}, Edges: {network.Edges?.Count ?? 0}");
+            if (network.Nodes?.Any() == true)
+            {
+                context.AppendLine("Key suspects in network:");
+                foreach (var n in network.Nodes.Take(10))
+                    context.AppendLine($"- {n.SuspectName} ({n.PhoneNumber}) — Risk: {n.RiskLevel}, Role: {n.Role}");
+            }
+            if (network.Edges?.Any() == true)
+            {
+                context.AppendLine("Network connections:");
+                foreach (var e in network.Edges.Take(10))
+                    context.AppendLine($"- {e.SourcePhone} ↔ {e.TargetPhone}: {e.RelationType} (Calls: {e.CallCount})");
+            }
+            if (!string.IsNullOrEmpty(network.AIAnalysis))
+                context.AppendLine($"Existing AI analysis: {network.AIAnalysis}");
+        }
+
+        var prompt = $@"You are an Indian law enforcement criminal network analysis expert AI.
+
+User query: ""{query}""
+
+{(context.Length > 0 ? $"Network data gathered:\n{context}" : $"No network data found for {phone}.")}
+
+Provide a comprehensive suspect network analysis including:
+1. Network structure and key players
+2. Central figures and their roles
+3. Communication patterns and relationships
+4. Risk assessment of each suspect
+5. Potential criminal organization structure
+6. Recommended investigative actions
+7. Which connections to prioritize
+
+Format with proper markdown. Be professional and thorough.";
+
+        var aiResult = await AgentService.SendMessageAsync(prompt, "Suspect network analysis for Indian law enforcement", _currentCts?.Token ?? CancellationToken.None);
+        if (aiResult?.Success == true && !IsAgentRefusal(aiResult.Message))
+            return aiResult.Message;
+
+        // Fallback
+        if (!result.IsSuccess || result.Data == null)
+            return $"No network data found for {phone}. Ensure intelligence has been gathered first.";
+
+        var fb = new System.Text.StringBuilder();
+        fb.AppendLine($"## 🕸️ Suspect Network Analysis\n");
+        fb.AppendLine($"- Total Nodes: **{result.Data.Nodes?.Count ?? 0}**");
+        fb.AppendLine($"- Total Edges: **{result.Data.Edges?.Count ?? 0}**");
+        if (result.Data.Nodes?.Any() == true)
+        {
+            fb.AppendLine("\n### Key Suspects");
+            foreach (var n in result.Data.Nodes.Take(8))
+                fb.AppendLine($"- **{n.SuspectName}** ({n.PhoneNumber}) — Risk: {n.RiskLevel}, Role: {n.Role}");
+        }
+        return fb.ToString();
+    }
+
+    private async Task<string> HandleGeoIntelligenceAsync(string query)
+    {
+        var prompt = $@"You are an Indian law enforcement geospatial intelligence expert AI.
+
+User query: ""{query}""
+
+Provide comprehensive geo-intelligence analysis including:
+1. Answer the user's specific location/geospatial query
+2. How to use cell tower data for location tracking
+3. Geofencing and surveillance zone setup
+4. Movement pattern analysis methodology
+5. Legal requirements for location surveillance in India
+6. How to correlate location data with other evidence
+7. Tools and techniques for geo-analysis
+
+Format with proper markdown. Be professional and actionable.";
+
+        var aiResult = await AgentService.SendMessageAsync(prompt, "Geospatial intelligence analysis for Indian law enforcement", _currentCts?.Token ?? CancellationToken.None);
+        if (aiResult?.Success == true && !IsAgentRefusal(aiResult.Message))
+            return aiResult.Message;
+
+        return "Geo-intelligence module is ready. Provide a location or coordinates for analysis.";
+    }
+
+    private async Task<string> HandleDataSourceQueryAsync(string query)
+    {
+        var prompt = $@"You are an Indian law enforcement data integration expert AI.
+
+User query: ""{query}""
+
+Available data sources in the system:
+- Telecom CDR — Call Detail Records from telecom operators
+- Banking Intelligence — Financial transaction analysis
+- OSINT — Open Source Intelligence (social media, public records)
+- CCTNS — Crime and Criminal Tracking Network System
+- Tower Location — Cell tower location data for geo-tracking
+- Criminal History — Previous arrest and conviction records
+
+Provide comprehensive data source guidance including:
+1. Answer the user's specific query about data sources
+2. Which data sources are most relevant to their needs
+3. How to request and obtain data from each source
+4. Legal procedures and authorization requirements under Indian law
+5. How to cross-reference data across sources
+6. Best practices for evidence integrity
+
+Format with proper markdown. Be professional and actionable.";
+
+        var aiResult = await AgentService.SendMessageAsync(prompt, "Data source integration guidance for Indian law enforcement", _currentCts?.Token ?? CancellationToken.None);
+        if (aiResult?.Success == true && !IsAgentRefusal(aiResult.Message))
+            return aiResult.Message;
+
+        // Fallback
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("## 🔗 Data Source Integration\n");
+        sb.AppendLine("### Available Data Sources");
+        sb.AppendLine("- **Telecom CDR** — Call Detail Records from telecom operators");
+        sb.AppendLine("- **Banking Intelligence** — Financial transaction analysis");
+        sb.AppendLine("- **OSINT** — Open Source Intelligence (social media, public records)");
+        sb.AppendLine("- **CCTNS** — Crime and Criminal Tracking Network System");
+        sb.AppendLine("- **Tower Location** — Cell tower location data for geo-tracking");
+        sb.AppendLine("- **Criminal History** — Previous arrest and conviction records\n");
+        sb.AppendLine("_Provide a phone number or identifier for targeted queries._");
+        return sb.ToString();
+    }
+}

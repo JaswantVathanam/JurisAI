@@ -1,0 +1,282 @@
+/* ============================================
+   CASES PAGE - PRINT STYLES
+   ============================================ */
+
+@media print {
+    @page {
+        margin: 1.5cm;
+        size: A4 portrait;
+    }
+
+    /* Hide interactive elements */
+    .no-print,
+    button,
+    .btn-primary,
+    .btn-glass,
+    .filters-container,
+    .search-box,
+    .filter-group,
+    .action-buttons,
+    .btn-link,
+    nav,
+    .navbar,
+    .sidebar,
+    header,
+    footer,
+    .new-case-modal {
+        display: none !important;
+    }
+
+    /* Show print-only elements */
+    .print-only {
+        display: block !important;
+    }
+
+    /* Print header */
+    .print-header {
+        border-bottom: 2px solid #d4af37;
+        padding-bottom: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .print-header h1 {
+        color: #000;
+        font-size: 1.8rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .print-header p {
+        color: #666;
+        font-size: 0.9rem;
+        margin: 0.25rem 0;
+    }
+
+    /* Reset colors for print */
+    body {
+        background: white !important;
+        color: black !important;
+    }
+
+    .page-container {
+        background: white !important;
+        padding: 0 !important;
+    }
+
+    .glass-card,
+    .case-card {
+        background: white !important;
+        border: 1px solid #ccc !important;
+        box-shadow: none !important;
+        page-break-inside: avoid;
+        margin-bottom: 1rem !important;
+        padding: 1rem !important;
+    }
+
+    /* Cases Grid - Single column for print */
+    .cases-grid {
+        display: block !important;
+    }
+
+    .case-card {
+        margin-bottom: 1.5rem !important;
+        page-break-inside: avoid;
+    }
+
+    .case-card-header h3 {
+        color: #000 !important;
+        font-size: 1.2rem !important;
+    }
+
+    .case-number {
+        color: #666 !important;
+        font-size: 0.85rem !important;
+    }
+
+    .case-description {
+        color: #333 !important;
+        font-size: 0.9rem !important;
+    }
+
+    /* Status badges */
+    .badge {
+        border: 1px solid #000 !important;
+        padding: 0.25rem 0.5rem !important;
+        font-size: 0.75rem !important;
+    }
+
+    .badge-draft {
+        background: #f0f0f0 !important;
+        color: #000 !important;
+    }
+
+    .badge-filed {
+        background: #e3f2fd !important;
+        color: #000 !important;
+    }
+
+    .badge-investigating {
+        background: #fff3e0 !important;
+        color: #000 !important;
+    }
+
+    .badge-progress {
+        background: #e8f5e9 !important;
+        color: #000 !important;
+    }
+
+    .badge-hold {
+        background: #fce4ec !important;
+        color: #000 !important;
+    }
+
+    .badge-closed {
+        background: #f5f5f5 !important;
+        color: #000 !important;
+    }
+
+    .badge-cybercrime {
+        background: #ffebee !important;
+        color: #000 !important;
+        border-color: #c62828 !important;
+    }
+
+    /* Case detail view */
+    .case-detail-container {
+        background: white !important;
+    }
+
+    .case-detail-header {
+        border-bottom: 1px solid #ccc;
+        padding-bottom: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .case-detail-header h2 {
+        color: #000 !important;
+        font-size: 1.5rem !important;
+    }
+
+    .case-info-grid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 0.75rem !important;
+    }
+
+    .info-item {
+        padding: 0.5rem 0 !important;
+        border-bottom: 1px solid #eee !important;
+    }
+
+    .info-item label {
+        font-weight: bold !important;
+        color: #000 !important;
+        font-size: 0.85rem !important;
+    }
+
+    .info-item span,
+    .info-item p {
+        color: #333 !important;
+        font-size: 0.9rem !important;
+    }
+
+    /* Timeline */
+    .timeline-item {
+        page-break-inside: avoid;
+        margin-bottom: 1rem !important;
+        border-left: 2px solid #ccc !important;
+        padding-left: 1rem !important;
+    }
+
+    .timeline-icon {
+        color: #666 !important;
+    }
+
+    .timeline-content h4 {
+        color: #000 !important;
+        font-size: 1rem !important;
+    }
+
+    .timeline-content p {
+        color: #333 !important;
+        font-size: 0.85rem !important;
+    }
+
+    /* Documents section */
+    .document-item {
+        page-break-inside: avoid;
+        border: 1px solid #ccc !important;
+        background: #fafafa !important;
+        padding: 0.75rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+
+    .document-item i {
+        color: #666 !important;
+    }
+
+    /* Hide row/column layouts for print */
+    .row {
+        display: block !important;
+    }
+
+    .col-lg-8,
+    .col-lg-4 {
+        width: 100% !important;
+        margin-bottom: 1rem !important;
+    }
+
+    /* Page breaks */
+    h1, h2, h3 {
+        page-break-after: avoid;
+    }
+
+    /* Meta information */
+    .case-card-meta {
+        display: flex !important;
+        gap: 1rem !important;
+        font-size: 0.85rem !important;
+        color: #666 !important;
+    }
+
+    .meta-item {
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.25rem !important;
+    }
+
+    .meta-item i {
+        color: #999 !important;
+    }
+
+    /* Icons */
+    .bi {
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+    }
+
+    .cybercrime-icon {
+        color: #c62828 !important;
+        font-size: 1.5rem !important;
+    }
+
+    /* Footer */
+    .case-card-footer {
+        border-top: 1px solid #eee !important;
+        padding-top: 0.75rem !important;
+        margin-top: 0.75rem !important;
+    }
+
+    /* Ensure all text is readable */
+    * {
+        color: black !important;
+        background: transparent !important;
+    }
+
+    .glass-card h3 {
+        color: #000 !important;
+        font-size: 1.1rem !important;
+        margin-bottom: 1rem !important;
+        border-bottom: 1px solid #ccc !important;
+        padding-bottom: 0.5rem !important;
+    }
+}

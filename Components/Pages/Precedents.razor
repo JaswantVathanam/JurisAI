@@ -1,0 +1,1072 @@
+@page "/precedents"
+@page "/precedents/{PrecedentId:int}"
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@using AILegalAsst.Components.Shared
+@inject AuthenticationService AuthService
+@inject PrecedentService PrecedentService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject LanguageService LangService
+@rendermode InteractiveServer
+@implements IDisposable
+
+<PageTitle>Precedents - JurisAI</PageTitle>
+
+<link rel="stylesheet" href="precedents-enhancements.css" />
+<link rel="stylesheet" href="precedents-print.css" media="print" />
+<script src="app-utilities.js"></script>
+
+<CustomErrorBoundary ShowDetails="true" ShowReportButton="true">
+<div class="page-container">
+    @if (!AuthService.IsAuthenticated())
+    {
+        <div class="empty-state-v2">
+            <div class="empty-icon-v2">
+                <i class="bi bi-lock"></i>
+            </div>
+            <h3>Authentication Required</h3>
+            <p>Please log in to access case precedents.</p>
+        </div>
+        return;
+    }
+
+    @if (PrecedentId.HasValue && selectedPrecedent != null)
+    {
+        <!-- Precedent Detail View -->
+        <div class="precedent-detail-header-v2">
+            <button class="btn-back-v2" @onclick="@(() => NavigateTo("/precedents"))">
+                <i class="bi bi-arrow-left"></i> Back to Precedents
+            </button>
+            <div class="precedent-title-info-v2">
+                @if (isEditingPrecedent)
+                {
+                    <input type="text" class="form-input-v2" @bind="selectedPrecedent.CaseTitle" placeholder="Enter case title" />
+                    <input type="text" class="form-input-v2 mt-2" @bind="selectedPrecedent.Citation" placeholder="Enter citation" />
+                }
+                else
+                {
+                    <h1>@selectedPrecedent.CaseTitle</h1>
+                    <span class="citation-badge-v2">@selectedPrecedent.Citation</span>
+                }
+            </div>
+            <div class="precedent-badges-v2">
+                <span class="meta-badge-v2 meta-court">@selectedPrecedent.CourtName</span>
+                <span class="meta-badge-v2">@selectedPrecedent.JudgementDate.ToString("MMMM dd, yyyy")</span>
+                @if (selectedPrecedent.IsCybercrimeRelated)
+                {
+                    <span class="meta-badge-v2 meta-cybercrime">
+                        <i class="bi bi-shield-exclamation"></i> Cybercrime
+                    </span>
+                }
+            </div>
+            <div class="header-actions-v2">
+                @if (currentUser?.Role == UserRole.Lawyer || currentUser?.Role == UserRole.Admin)
+                {
+                    @if (isEditingPrecedent)
+                    {
+                        <button class="btn-primary-v2" @onclick="SavePrecedentChanges">
+                            <i class="bi bi-check-circle"></i> Save
+                        </button>
+                    }
+                    <button class="btn-secondary-v2" @onclick="ToggleEditPrecedent">
+                        <i class="bi @(isEditingPrecedent ? "bi-x-circle" : "bi-pencil-square")"></i>
+                        @(isEditingPrecedent ? "Cancel" : "Edit Details")
+                    </button>
+                }
+                @if (currentUser?.Role == UserRole.Lawyer && !isEditingPrecedent)
+                {
+                    <button class="btn-secondary-v2" @onclick="AddToFavorites">
+                        <i class="bi bi-bookmark"></i> Bookmark
+                    </button>
+                }
+            </div>
+        </div>
+
+        <div class="precedent-detail-container-v2">
+            <div class="row">
+                <!-- Main Content -->
+                <div class="col-lg-8">
+                    <!-- Case Summary -->
+                    <div class="precedent-section-v2">
+                        <h3><i class="bi bi-file-text"></i> Case Summary</h3>
+                        @if (isEditingPrecedent)
+                        {
+                            <textarea class="form-textarea-v2" rows="5" @bind="selectedPrecedent.Summary" placeholder="Enter case summary"></textarea>
+                        }
+                        else
+                        {
+                            <p class="section-text-v2">@selectedPrecedent.Summary</p>
+                        }
+                    </div>
+
+                    <!-- Judgement -->
+                    <div class="judgement-section-v2">
+                        <h3><i class="bi bi-gavel"></i> Judgement</h3>
+                        @if (isEditingPrecedent)
+                        {
+                            <textarea class="form-textarea-v2" rows="8" @bind="selectedPrecedent.JudgementText" placeholder="Enter judgement text"></textarea>
+                        }
+                        else
+                        {
+                            <div class="judgement-text-v2">@selectedPrecedent.JudgementText</div>
+                        }
+                    </div>
+
+                    <!-- Legal Principles -->
+                    @if (selectedPrecedent.KeyPrinciples?.Any() == true)
+                    {
+                        <div class="precedent-section-v2">
+                            <h3><i class="bi bi-lightbulb"></i> Key Legal Principles</h3>
+                            <ul class="principles-list-v2">
+                                @foreach (var principle in selectedPrecedent.KeyPrinciples)
+                                {
+                                    <li>@principle</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+
+                    <!-- Applicable Sections -->
+                    @if (selectedPrecedent.ApplicableSections?.Any() == true)
+                    {
+                        <div class="precedent-section-v2">
+                            <h3><i class="bi bi-bookmark"></i> Applicable Legal Sections</h3>
+                            <div class="sections-tags-v2">
+                                @foreach (var sec in selectedPrecedent.ApplicableSections)
+                                {
+                                    <span class="section-tag-v2">@sec</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Sidebar -->
+                <div class="col-lg-4">
+                    <!-- Court Information -->
+                    <div class="court-info-v2">
+                        <h3><i class="bi bi-bank"></i> Court Details</h3>
+                        <div class="info-list-v2">
+                            <div class="info-item-v2">
+                                <label>Court:</label>
+                                @if (isEditingPrecedent)
+                                {
+                                    <input type="text" class="form-input-inline-v2" @bind="selectedPrecedent.CourtName" placeholder="Enter court name" />
+                                }
+                                else
+                                {
+                                    <span>@selectedPrecedent.CourtName</span>
+                                }
+                            </div>
+                            <div class="info-item-v2">
+                                <label>Judge(s):</label>
+                                @if (isEditingPrecedent)
+                                {
+                                    <input type="text" class="form-input-inline-v2" @bind="selectedPrecedent.JudgeName" placeholder="Enter judge name(s)" />
+                                }
+                                else
+                                {
+                                    <span>@selectedPrecedent.JudgeName</span>
+                                }
+                            </div>
+                            <div class="info-item-v2">
+                                <label>Date:</label>
+                                @if (isEditingPrecedent)
+                                {
+                                    <input type="date" class="form-input-inline-v2" 
+                                           value="@selectedPrecedent.JudgementDate.ToString("yyyy-MM-dd")" 
+                                           @onchange="@((ChangeEventArgs e) => selectedPrecedent.JudgementDate = DateTime.Parse(e.Value?.ToString() ?? DateTime.Now.ToString()))" />
+                                }
+                                else
+                                {
+                                    <span>@selectedPrecedent.JudgementDate.ToString("MMMM dd, yyyy")</span>
+                                }
+                            </div>
+                            <div class="info-item-v2">
+                                <label>Citation:</label>
+                                <span class="citation-inline-v2">@selectedPrecedent.Citation</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Keywords -->
+                    @if (selectedPrecedent.Keywords?.Any() == true)
+                    {
+                        <div class="keywords-cloud-v2">
+                            <h3><i class="bi bi-tags"></i> Keywords</h3>
+                            <div class="keywords-list-v2">
+                                @foreach (var keyword in selectedPrecedent.Keywords)
+                                {
+                                    <span class="keyword-tag-v2">@keyword</span>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Related Precedents -->
+                    @if (currentUser?.Role == UserRole.Lawyer && relatedPrecedents.Any())
+                    {
+                        <div class="related-precedents-v2">
+                            <h3><i class="bi bi-link-45deg"></i> Related Cases</h3>
+                            <div class="related-list-v2">
+                                @foreach (var related in relatedPrecedents.Take(3))
+                                {
+                                    <div class="related-item-v2" @onclick="@(() => ViewPrecedentDetails(related.Id))">
+                                        <p class="related-title-v2">@related.CaseTitle</p>
+                                        <p class="related-citation-v2">@related.Citation</p>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Quick Actions -->
+                    @if (currentUser?.Role == UserRole.Lawyer)
+                    {
+                        <div class="quick-actions-v2">
+                            <h3><i class="bi bi-lightning"></i> Actions</h3>
+                            <div class="actions-grid-v2">
+                                <button class="btn-action-v2">
+                                    <i class="bi bi-printer"></i> Print Judgement
+                                </button>
+                                <button class="btn-action-v2">
+                                    <i class="bi bi-download"></i> Download PDF
+                                </button>
+                                <button class="btn-action-v2">
+                                    <i class="bi bi-share"></i> Share
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Precedents List View -->
+        <!-- Print Header (only visible when printing) -->
+        <div class="print-only print-header">
+            <h1>JurisAI - Precedents Report</h1>
+            <p>Generated: @DateTime.Now.ToString("MMMM dd, yyyy HH:mm")</p>
+            <p>Total Precedents: @filteredPrecedents.Count() | Showing: @filterCourt @filterYear</p>
+        </div>
+
+        <div class="precedents-page-header-v2">
+            <h1><i class="bi bi-book"></i> @GetPageTitle()</h1>
+            <div class="header-actions-v2 no-print">
+                <!-- Print Button -->
+                <button class="btn-secondary-v2" @onclick="PrintPrecedents" disabled="@isPrinting" aria-label="Print precedents list">
+                    @if (isPrinting)
+                    {
+                        <span class="spinner-small" aria-hidden="true"></span>
+                        <span>Printing...</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-printer" aria-hidden="true"></i>
+                        <span>Print</span>
+                    }
+                </button>
+
+                <!-- Export Button with Dropdown -->
+                <div class="export-dropdown-container">
+                    <button class="btn-secondary-v2" 
+                            @onclick="ToggleExportMenu" 
+                            disabled="@isExporting"
+                            aria-label="Export precedents data"
+                            aria-expanded="@showExportMenu"
+                            aria-haspopup="true">
+                        @if (isExporting)
+                        {
+                            <span class="spinner-small" aria-hidden="true"></span>
+                            <span>Exporting...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-download" aria-hidden="true"></i>
+                            <span>Export</span>
+                            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                        }
+                    </button>
+                    @if (showExportMenu)
+                    {
+                        <div class="export-dropdown-v2" role="menu">
+                            <div class="export-option-v2" role="menuitem" @onclick='() => ExportPrecedents("csv")'>
+                                <i class="bi bi-filetype-csv" aria-hidden="true"></i>
+                                <span>Export as CSV</span>
+                            </div>
+                            <div class="export-option-v2" role="menuitem" @onclick='() => ExportPrecedents("pdf")'>
+                                <i class="bi bi-filetype-pdf" aria-hidden="true"></i>
+                                <span>Export as PDF</span>
+                            </div>
+                            <div class="export-option-v2" role="menuitem" @onclick='() => ExportPrecedents("json")'>
+                                <i class="bi bi-filetype-json" aria-hidden="true"></i>
+                                <span>Export as JSON</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Search and Filters -->
+        <div class="search-panel-v2" role="search" aria-label="Precedent search and filters">
+            <div class="search-header-v2">
+                <h3><i class="bi bi-search"></i> Search & Filter</h3>
+            </div>
+            
+            <div class="search-input-v2">
+                <i class="bi bi-search" aria-hidden="true"></i>
+                <input type="search"
+                       id="precedentSearch" 
+                       placeholder="Search precedents by case title, citation, or keywords..." 
+                       @bind="searchQuery"
+                       @bind:event="oninput"
+                       @onkeyup="SearchPrecedents"
+                       aria-label="Search precedents by case title, citation, or keywords" />
+            </div>
+            
+            <div class="filters-grid-v2">
+                <div class="filter-group-v2">
+                    <label for="filterCourt">Court</label>
+                    <select id="filterCourt" @bind="filterCourt" @bind:after="ApplyFilters" aria-label="Filter by court">
+                        <option value="">All Courts</option>
+                        <option value="Supreme Court of India">Supreme Court of India</option>
+                        <option value="High Court">High Courts</option>
+                        <option value="District Court">District Courts</option>
+                    </select>
+                </div>
+
+                <div class="filter-group-v2">
+                    <label for="filterYear">Year</label>
+                    <select id="filterYear" @bind="filterYear" @bind:after="ApplyFilters" aria-label="Filter by year">
+                        <option value="">All Years</option>
+                        @for (int year = DateTime.Now.Year; year >= 2000; year--)
+                        {
+                            <option value="@year">@year</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="filter-group-v2">
+                        <label for="sortBy">Sort By</label>
+                        <select id="sortBy" @bind="sortColumn" @bind:after="ApplySorting" aria-label="Sort precedents by">
+                            <option value="JudgementDate">Judgement Date</option>
+                            <option value="CaseTitle">Case Title</option>
+                            <option value="CourtName">Court</option>
+                            <option value="Relevance">Relevance</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group-v2">
+                        <label for="sortOrder">Order</label>
+                        <select id="sortOrder" @bind="sortAscending" @bind:after="ApplySorting" aria-label="Sort order">
+                            <option value="false">Newest First</option>
+                            <option value="true">Oldest First</option>
+                        </select>
+                    </div>
+
+                    @if (currentUser?.Role == UserRole.Lawyer || currentUser?.Role == UserRole.Police)
+                    {
+                        <div class="filter-group-v2">
+                            <label for="cybercrimeFilter">Cybercrime Filter</label>
+                            <label class="checkbox-label-v2">
+                                <input type="checkbox" 
+                                       id="cybercrimeFilter"
+                                       @bind="showCybercrimeOnly" 
+                                       @bind:after="ApplyFilters"
+                                       aria-label="Show only cybercrime cases" />
+                                <span class="checkbox-custom-v2"></span>
+                                <span>Cybercrime Only</span>
+                            </label>
+                        </div>
+                    }
+                </div>
+
+                @if (currentUser?.Role == UserRole.Lawyer)
+                {
+                    <div class="advanced-search-v2">
+                        <button class="btn-advanced-toggle-v2" @onclick="ToggleAdvancedSearch" aria-label="Toggle advanced search">
+                            <i class="bi bi-chevron-@(showAdvancedSearch ? "up" : "down")" aria-hidden="true"></i>
+                            Advanced Search
+                        </button>
+                    </div>
+
+                    @if (showAdvancedSearch)
+                    {
+                        <div class="advanced-filters-v2" role="region" aria-label="Advanced search filters">
+                            <div class="advanced-filters-grid-v2">
+                                <div class="filter-group-v2">
+                                    <label for="filterJudge">Judge Name</label>
+                                    <input type="text" 
+                                           id="filterJudge"
+                                           class="filter-input-v2"
+                                           @bind="filterJudge" 
+                                           placeholder="Search by judge name"
+                                           aria-label="Filter by judge name" />
+                                </div>
+                                <div class="filter-group-v2">
+                                    <label for="filterSection">Legal Section</label>
+                                    <input type="text" 
+                                           id="filterSection"
+                                           class="filter-input-v2"
+                                           @bind="filterSection" 
+                                           placeholder="e.g., IPC 420, IT Act 66C"
+                                           aria-label="Filter by legal section" />
+                                </div>
+                            </div>
+                            <div class="filter-actions-v2">
+                                <button class="btn-clear-v2" @onclick="ClearFilters" aria-label="Clear all filters">
+                                    <i class="bi bi-x-circle" aria-hidden="true"></i> Clear All Filters
+                                </button>
+                                <button class="btn-apply-v2" @onclick="ApplyFilters" aria-label="Apply advanced filters">
+                                    <i class="bi bi-search" aria-hidden="true"></i> Apply Filters
+                                </button>
+                            </div>
+                        </div>
+                    }
+                }
+                
+                <!-- Filter Summary -->
+                <div class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+                    Showing @filteredPrecedents.Count() of @allPrecedents.Count precedents
+                </div>
+            </div>
+
+        <!-- Results Count -->
+        @if (!isLoading)
+        {
+            <div class="results-info-v2" role="status" aria-live="polite">
+                <p>Found <strong>@filteredPrecedents.Count</strong> precedent(s)</p>
+            </div>
+        }
+
+        <!-- Precedents List -->
+        @if (isLoading)
+        {
+            <div class="skeleton-grid-v2" role="status" aria-live="polite" aria-label="Loading precedents">
+                <span class="sr-only">Loading precedents, please wait...</span>
+                @for (int i = 0; i < 5; i++)
+                {
+                    <div class="skeleton-card-v2">
+                        <div class="skeleton-v2 skeleton-header-v2"></div>
+                        <div class="skeleton-v2 skeleton-citation-v2"></div>
+                        <div class="skeleton-v2 skeleton-text-v2"></div>
+                        <div class="skeleton-v2 skeleton-text-v2"></div>
+                        <div class="skeleton-v2 skeleton-text-v2" style="width: 80%;"></div>
+                        <div class="skeleton-meta-v2">
+                            <div class="skeleton-v2 skeleton-meta-item-v2"></div>
+                            <div class="skeleton-v2 skeleton-meta-item-v2"></div>
+                            <div class="skeleton-v2 skeleton-meta-item-v2"></div>
+                        </div>
+                        <div class="skeleton-keywords-v2">
+                            <div class="skeleton-v2 skeleton-badge-v2"></div>
+                            <div class="skeleton-v2 skeleton-badge-v2"></div>
+                            <div class="skeleton-v2 skeleton-badge-v2"></div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else if (!filteredPrecedents.Any())
+        {
+            <div class="empty-state-v2">
+                <div class="empty-icon-v2">
+                    <i class="bi bi-inbox" aria-hidden="true"></i>
+                </div>
+                <h3>No precedents found</h3>
+                <p>Try adjusting your search criteria</p>
+            </div>
+        }
+        else
+        {
+            <div class="precedents-grid-v2" role="list" aria-label="Precedents list">
+                @foreach (var precedent in filteredPrecedents)
+                {
+                    <div class="precedent-card-v2" 
+                         @onclick="@(() => ViewPrecedentDetails(precedent.Id))"
+                         tabindex="0"
+                         role="listitem"
+                         aria-label="Precedent: @precedent.CaseTitle, Citation: @precedent.Citation"
+                         @onkeydown="@(e => HandleKeyPress(e, () => ViewPrecedentDetails(precedent.Id)))">
+                        <div class="precedent-header-v2">
+                            <div class="precedent-title-v2">
+                                <h3>@precedent.CaseTitle</h3>
+                                <span class="citation-v2">@precedent.Citation</span>
+                            </div>
+                            @if (precedent.IsCybercrimeRelated)
+                            {
+                                <span class="cybercrime-badge-v2" 
+                                      aria-label="Cybercrime related"
+                                      title="Cybercrime Related">
+                                    <i class="bi bi-shield-exclamation"></i>
+                                    Cyber
+                                </span>
+                            }
+                        </div>
+
+                        <p class="precedent-summary-v2">@GetTruncatedSummary(precedent.Summary)</p>
+
+                        <div class="precedent-meta-v2">
+                            <div class="meta-badge-v2 meta-court">
+                                <i class="bi bi-bank" aria-hidden="true"></i>
+                                <span>@precedent.CourtName</span>
+                            </div>
+                            <div class="meta-badge-v2">
+                                <i class="bi bi-calendar" aria-hidden="true"></i>
+                                <span>@precedent.JudgementDate.ToString("MMM dd, yyyy")</span>
+                            </div>
+                            <div class="meta-badge-v2">
+                                <i class="bi bi-person" aria-hidden="true"></i>
+                                <span>@precedent.JudgeName</span>
+                            </div>
+                        </div>
+
+                        @if (precedent.Keywords?.Any() == true)
+                        {
+                            <div class="keywords-v2" role="list" aria-label="Keywords">
+                                @foreach (var keyword in precedent.Keywords.Take(4))
+                                {
+                                    <span class="keyword-v2" role="listitem">@keyword</span>
+                                }
+                                @if (precedent.Keywords.Count > 4)
+                                {
+                                    <span class="keyword-v2 keyword-more-v2">+@(precedent.Keywords.Count - 4) more</span>
+                                }
+                            </div>
+                        }
+
+                        <div class="precedent-footer-v2">
+                            <button class="view-details-v2" 
+                                    @onclick="@(() => ViewPrecedentDetails(precedent.Id))" 
+                                    @onclick:stopPropagation="true"
+                                    aria-label="View details for precedent @precedent.CaseTitle">
+                                View Details <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+
+    <!-- Toast Notification -->
+    @if (showToast)
+    {
+        <div class="toast-notification" role="alert" aria-live="polite" aria-atomic="true">
+            <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+            <span>@toastMessage</span>
+            <button class="toast-close" @onclick="HideToast" aria-label="Close notification">
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
+        </div>
+    }
+</div>
+</CustomErrorBoundary>
+
+@code {
+    [Parameter]
+    public int? PrecedentId { get; set; }
+
+    private User? currentUser;
+    private List<Precedent> allPrecedents = new();
+    private List<Precedent> filteredPrecedents = new();
+    private List<Precedent> relatedPrecedents = new();
+    private Precedent? selectedPrecedent;
+
+    private bool isLoading = true;
+    private bool showAdvancedSearch = false;
+    private bool showCybercrimeOnly = false;
+
+    // Export and Print States
+    private bool isExporting = false;
+    private bool isPrinting = false;
+    private bool showExportMenu = false;
+
+    // Filtering and Sorting
+    private string searchQuery = "";
+    private string filterCourt = "";
+    private string filterYear = "";
+    private string filterJudge = "";
+    private string filterSection = "";
+    private string sortColumn = "JudgementDate";
+    private bool sortAscending = false;
+
+    // Toast notification
+    private string toastMessage = "";
+    private bool showToast = false;
+
+    // Edit mode state
+    private bool isEditingPrecedent = false;
+    private Precedent? originalPrecedent; // Store original state for cancel operation
+
+    protected override async Task OnInitializedAsync()
+    {
+        LangService.OnLanguageChanged += OnLanguageChanged;
+        
+        currentUser = AuthService.GetCurrentUser();
+
+        if (currentUser == null)
+        {
+            NavigationManager.NavigateTo("/login", true);
+            return;
+        }
+
+        await LoadPrecedents();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (PrecedentId.HasValue)
+        {
+            await LoadPrecedentDetails(PrecedentId.Value);
+        }
+    }
+
+    private async Task LoadPrecedents()
+    {
+        isLoading = true;
+        allPrecedents = await PrecedentService.GetAllPrecedentsAsync();
+        ApplyFilters();
+        isLoading = false;
+    }
+
+    private async Task LoadPrecedentDetails(int precedentId)
+    {
+        selectedPrecedent = await PrecedentService.GetPrecedentByIdAsync(precedentId);
+        if (selectedPrecedent == null)
+        {
+            NavigationManager.NavigateTo("/precedents");
+            return;
+        }
+
+        // Load related precedents based on keywords and sections
+        relatedPrecedents = await PrecedentService.SearchPrecedentsAsync(
+            selectedPrecedent.Keywords?.FirstOrDefault() ?? ""
+        );
+        relatedPrecedents = relatedPrecedents.Where(p => p.Id != precedentId).ToList();
+    }
+
+    private void ApplyFilters()
+    {
+        filteredPrecedents = allPrecedents;
+
+        // Search filter
+        if (!string.IsNullOrWhiteSpace(searchQuery))
+        {
+            filteredPrecedents = filteredPrecedents.Where(p =>
+                p.CaseTitle.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                p.Citation.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                p.Summary.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                (p.Keywords?.Any(k => k.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)) ?? false)
+            ).ToList();
+        }
+
+        // Court filter
+        if (!string.IsNullOrWhiteSpace(filterCourt))
+        {
+            if (filterCourt == "High Court")
+            {
+                filteredPrecedents = filteredPrecedents.Where(p => p.CourtName.Contains("High Court")).ToList();
+            }
+            else if (filterCourt == "District Court")
+            {
+                filteredPrecedents = filteredPrecedents.Where(p => p.CourtName.Contains("District Court")).ToList();
+            }
+            else
+            {
+                filteredPrecedents = filteredPrecedents.Where(p => p.CourtName == filterCourt).ToList();
+            }
+        }
+
+        // Year filter
+        if (!string.IsNullOrWhiteSpace(filterYear) && int.TryParse(filterYear, out int year))
+        {
+            filteredPrecedents = filteredPrecedents.Where(p => p.JudgementDate.Year == year).ToList();
+        }
+
+        // Judge filter
+        if (!string.IsNullOrWhiteSpace(filterJudge))
+        {
+            filteredPrecedents = filteredPrecedents.Where(p =>
+                p.JudgeName.Contains(filterJudge, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+        }
+
+        // Section filter
+        if (!string.IsNullOrWhiteSpace(filterSection))
+        {
+            filteredPrecedents = filteredPrecedents.Where(p =>
+                p.ApplicableSections?.Any(s => s.Contains(filterSection, StringComparison.OrdinalIgnoreCase)) ?? false
+            ).ToList();
+        }
+
+        // Cybercrime filter
+        if (showCybercrimeOnly)
+        {
+            filteredPrecedents = filteredPrecedents.Where(p => p.IsCybercrimeRelated).ToList();
+        }
+
+        // Role-based filtering
+        if (currentUser?.Role == UserRole.Citizen)
+        {
+            // Citizens see only landmark/public cases
+            filteredPrecedents = filteredPrecedents.Where(p => p.IsLandmarkCase).ToList();
+        }
+
+        // Apply sorting after filtering
+        ApplySorting();
+    }
+
+    private void ApplySorting()
+    {
+        filteredPrecedents = sortColumn switch
+        {
+            "CaseTitle" => sortAscending 
+                ? filteredPrecedents.OrderBy(p => p.CaseTitle).ToList()
+                : filteredPrecedents.OrderByDescending(p => p.CaseTitle).ToList(),
+            "CourtName" => sortAscending
+                ? filteredPrecedents.OrderBy(p => p.CourtName).ToList()
+                : filteredPrecedents.OrderByDescending(p => p.CourtName).ToList(),
+            "Relevance" => sortAscending
+                ? filteredPrecedents.OrderBy(p => p.Citation).ToList()
+                : filteredPrecedents.OrderByDescending(p => p.Citation).ToList(),
+            _ => sortAscending
+                ? filteredPrecedents.OrderBy(p => p.JudgementDate).ToList()
+                : filteredPrecedents.OrderByDescending(p => p.JudgementDate).ToList()
+        };
+    }
+
+    private void SearchPrecedents()
+    {
+        ApplyFilters();
+    }
+
+    private void ClearFilters()
+    {
+        searchQuery = "";
+        filterCourt = "";
+        filterYear = "";
+        filterJudge = "";
+        filterSection = "";
+        showCybercrimeOnly = false;
+        ApplyFilters();
+    }
+
+    private void ToggleAdvancedSearch()
+    {
+        showAdvancedSearch = !showAdvancedSearch;
+    }
+
+    private void ViewPrecedentDetails(int precedentId)
+    {
+        NavigationManager.NavigateTo($"/precedents/{precedentId}");
+    }
+
+    private void AddToFavorites()
+    {
+        // TODO: Implement bookmark functionality
+    }
+
+    private void ToggleEditPrecedent()
+    {
+        if (selectedPrecedent == null) return;
+
+        if (!isEditingPrecedent)
+        {
+            // Entering edit mode - save original state
+            originalPrecedent = new Precedent
+            {
+                Id = selectedPrecedent.Id,
+                CaseTitle = selectedPrecedent.CaseTitle,
+                Citation = selectedPrecedent.Citation,
+                CourtName = selectedPrecedent.CourtName,
+                JudgeName = selectedPrecedent.JudgeName,
+                JudgementDate = selectedPrecedent.JudgementDate,
+                Summary = selectedPrecedent.Summary,
+                JudgementText = selectedPrecedent.JudgementText,
+                KeyPrinciples = selectedPrecedent.KeyPrinciples?.ToList(),
+                ApplicableSections = selectedPrecedent.ApplicableSections?.ToList(),
+                Keywords = selectedPrecedent.Keywords?.ToList(),
+                IsCybercrimeRelated = selectedPrecedent.IsCybercrimeRelated
+            };
+            isEditingPrecedent = true;
+        }
+        else
+        {
+            // Canceling edit - restore original state
+            if (originalPrecedent != null)
+            {
+                selectedPrecedent.CaseTitle = originalPrecedent.CaseTitle;
+                selectedPrecedent.Citation = originalPrecedent.Citation;
+                selectedPrecedent.CourtName = originalPrecedent.CourtName;
+                selectedPrecedent.JudgeName = originalPrecedent.JudgeName;
+                selectedPrecedent.JudgementDate = originalPrecedent.JudgementDate;
+                selectedPrecedent.Summary = originalPrecedent.Summary;
+                selectedPrecedent.JudgementText = originalPrecedent.JudgementText;
+            }
+            isEditingPrecedent = false;
+            originalPrecedent = null;
+        }
+    }
+
+    private async Task SavePrecedentChanges()
+    {
+        if (selectedPrecedent == null) return;
+
+        try
+        {
+            await PrecedentService.UpdatePrecedentAsync(selectedPrecedent);
+            
+            // Reload the data to reflect changes
+            allPrecedents = await PrecedentService.GetAllPrecedentsAsync();
+            ApplyFilters();
+            
+            // Refresh the selected precedent
+            selectedPrecedent = await PrecedentService.GetPrecedentByIdAsync(selectedPrecedent.Id);
+            
+            isEditingPrecedent = false;
+            originalPrecedent = null;
+            
+            ShowToast("Precedent updated successfully!");
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Error updating precedent: {ex.Message}");
+        }
+    }
+
+    private void NavigateTo(string url)
+    {
+        NavigationManager.NavigateTo(url);
+    }
+
+    private string GetPageTitle()
+    {
+        return currentUser?.Role switch
+        {
+            UserRole.Lawyer => "Case Precedents & Legal Research",
+            UserRole.Police => "Relevant Case Law",
+            UserRole.Citizen => "Public Judgements",
+            _ => "Precedents"
+        };
+    }
+
+    private string GetTruncatedSummary(string summary)
+    {
+        if (string.IsNullOrEmpty(summary)) return "";
+        return summary.Length > 200 ? summary.Substring(0, 200) + "..." : summary;
+    }
+
+    // ============================================
+    // NEW ENHANCEMENT METHODS
+    // ============================================
+
+    // Export Functionality
+    private void ToggleExportMenu()
+    {
+        if (!isExporting)
+        {
+            showExportMenu = !showExportMenu;
+        }
+    }
+
+    private async Task ExportPrecedents(string format)
+    {
+        showExportMenu = false;
+        isExporting = true;
+        StateHasChanged();
+
+        var precedentsToExport = filteredPrecedents.ToList();
+
+        if (!precedentsToExport.Any())
+        {
+            ShowToast("No precedents to export");
+            isExporting = false;
+            return;
+        }
+
+        try
+        {
+            await Task.Delay(1000); // Simulate export processing
+
+            switch (format.ToLower())
+            {
+                case "csv":
+                    ExportToCsv(precedentsToExport);
+                    break;
+                case "pdf":
+                    ExportToPdf(precedentsToExport);
+                    break;
+                case "json":
+                    ExportToJson(precedentsToExport);
+                    break;
+            }
+
+            ShowToast($"Exported {precedentsToExport.Count} precedents as {format.ToUpper()}");
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Export failed: {ex.Message}");
+        }
+        finally
+        {
+            isExporting = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ExportToCsv(List<Precedent> precedents)
+    {
+        var csv = "Case Title,Citation,Court,Judge,Judgement Date,Cybercrime Related,Keywords\n";
+        csv += string.Join("\n", precedents.Select(p => 
+            $"\"{p.CaseTitle}\",\"{p.Citation}\",\"{p.CourtName}\",\"{p.JudgeName}\"," +
+            $"{p.JudgementDate:yyyy-MM-dd},{p.IsCybercrimeRelated}," +
+            $"\"{string.Join("; ", p.Keywords ?? new List<string>())}\""
+        ));
+
+        var dataUrl = $"data:text/csv;charset=utf-8,{Uri.EscapeDataString(csv)}";
+        var filename = $"precedents_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+        JSRuntime.InvokeVoidAsync("downloadFile", dataUrl, filename);
+    }
+
+    private void ExportToPdf(List<Precedent> precedents)
+    {
+        var tableRows = string.Join("", precedents.Select(p => 
+            "<tr>" +
+                $"<td>{p.CaseTitle}</td>" +
+                $"<td>{p.Citation}</td>" +
+                $"<td>{p.CourtName}</td>" +
+                $"<td>{p.JudgeName}</td>" +
+                $"<td>{p.JudgementDate:MMM dd, yyyy}</td>" +
+                $"<td>{(p.IsCybercrimeRelated ? "Yes" : "No")}</td>" +
+            "</tr>"
+        ));
+
+        var html = $@"
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                h1 {{ color: #333; border-bottom: 2px solid #d4af37; padding-bottom: 10px; }}
+                table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
+                th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+                th {{ background-color: #f5f5f5; font-weight: bold; }}
+                .header {{ margin-bottom: 20px; }}
+                .footer {{ margin-top: 20px; font-size: 0.9em; color: #888; }}
+            </style>
+        </head>
+        <body>
+            <div class='header'>
+                <h1>JurisAI - Precedents Report</h1>
+                <p>Generated: {DateTime.Now:MMMM dd, yyyy HH:mm}</p>
+                <p>Total Precedents: {precedents.Count}</p>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Case Title</th>
+                        <th>Citation</th>
+                        <th>Court</th>
+                        <th>Judge</th>
+                        <th>Date</th>
+                        <th>Cybercrime</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {tableRows}
+                </tbody>
+            </table>
+            <div class='footer'>
+                <p>Report generated by JurisAI</p>
+            </div>
+        </body>
+        </html>";
+
+        var dataUrl = $"data:text/html;charset=utf-8,{Uri.EscapeDataString(html)}";
+        var filename = $"precedents_{DateTime.Now:yyyyMMdd_HHmmss}.html";
+        JSRuntime.InvokeVoidAsync("downloadFile", dataUrl, filename);
+    }
+
+    private void ExportToJson(List<Precedent> precedents)
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(precedents.Select(p => new
+        {
+            p.CaseTitle,
+            p.Citation,
+            p.CourtName,
+            p.JudgeName,
+            JudgementDate = p.JudgementDate.ToString("yyyy-MM-dd"),
+            p.IsCybercrimeRelated,
+            p.Summary,
+            p.Keywords,
+            p.ApplicableSections
+        }), new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+
+        var dataUrl = $"data:application/json;charset=utf-8,{Uri.EscapeDataString(json)}";
+        var filename = $"precedents_{DateTime.Now:yyyyMMdd_HHmmss}.json";
+        JSRuntime.InvokeVoidAsync("downloadFile", dataUrl, filename);
+    }
+
+    // Print Functionality
+    private async Task PrintPrecedents()
+    {
+        isPrinting = true;
+        StateHasChanged();
+
+        try
+        {
+            await Task.Delay(300); // Small delay to ensure state updates
+            await JSRuntime.InvokeVoidAsync("window.print");
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Print failed: {ex.Message}");
+        }
+        finally
+        {
+            isPrinting = false;
+            StateHasChanged();
+        }
+    }
+
+    // Keyboard Navigation
+    private void HandleKeyPress(KeyboardEventArgs e, Action action)
+    {
+        if (e.Key == "Enter" || e.Key == " ")
+        {
+            action.Invoke();
+        }
+    }
+
+    // Toast Notification
+    private async void ShowToast(string message)
+    {
+        toastMessage = message;
+        showToast = true;
+        StateHasChanged();
+
+        await Task.Delay(3000);
+
+        showToast = false;
+        StateHasChanged();
+    }
+
+    private void HideToast()
+    {
+        showToast = false;
+        StateHasChanged();
+    }
+
+    private void OnLanguageChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        LangService.OnLanguageChanged -= OnLanguageChanged;
+    }
+}

@@ -1,0 +1,900 @@
+@page "/profile"
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@inject AuthenticationService AuthService
+@inject LanguageService LangService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+@implements IDisposable
+
+<PageTitle>My Profile - AI Legal Assistant</PageTitle>
+
+<div class="profile-page profile-page-v2">
+    @if (currentUser != null)
+    {
+        <div class="profile-container profile-container-v2">
+            <!-- Profile Header -->
+            <div class="profile-header profile-header-v2">
+                <div class="profile-banner profile-banner-v2">
+                    <div class="banner-gradient banner-gradient-v2"></div>
+                </div>
+                <div class="profile-header-content profile-header-content-v2">
+                    <div class="profile-avatar-section profile-avatar-section-v2">
+                        <div class="profile-avatar profile-avatar-v2">
+                            @if (!string.IsNullOrEmpty(currentUser.ProfilePicture))
+                            {
+                                <img src="@currentUser.ProfilePicture" alt="@currentUser.Name" />
+                            }
+                            else
+                            {
+                                <i class="bi bi-person-circle"></i>
+                            }
+                            <button class="avatar-edit-btn avatar-edit-btn-v2" @onclick="HandleImageUpload">
+                                <i class="bi bi-camera"></i>
+                            </button>
+                        </div>
+                        <div class="profile-header-info profile-header-info-v2">
+                            <h1>@currentUser.Name</h1>
+                            <div class="profile-role-badge profile-role-badge-v2 @GetRoleBadgeClass()">
+                                <i class="@GetRoleIcon()"></i>
+                                @GetRoleDisplayName()
+                            </div>
+                            <div class="verification-badges verification-badges-v2">
+                                @if (currentUser.IsEmailVerified)
+                                {
+                                    <span class="badge badge-v2 badge-verified-v2">
+                                        <i class="bi bi-envelope-check"></i> Email Verified
+                                    </span>
+                                }
+                                @if (currentUser.IsPhoneVerified)
+                                {
+                                    <span class="badge badge-v2 badge-verified-v2">
+                                        <i class="bi bi-phone-check"></i> Phone Verified
+                                    </span>
+                                }
+                                @if (currentUser.VerificationStatus == VerificationStatus.Verified && currentUser.Role != UserRole.Citizen)
+                                {
+                                    <span class="badge badge-v2 badge-verified-pro-v2">
+                                        <i class="bi bi-patch-check-fill"></i> Professionally Verified
+                                    </span>
+                                }
+                                else if (currentUser.VerificationStatus == VerificationStatus.Pending && currentUser.Role != UserRole.Citizen)
+                                {
+                                    <span class="badge badge-v2 badge-pending-v2">
+                                        <i class="bi bi-clock-history"></i> Verification Pending
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <div class="profile-actions profile-actions-v2">
+                        @if (editMode)
+                        {
+                            <button class="btn-profile btn-profile-v2 btn-save-v2" @onclick="SaveProfile">
+                                <i class="bi bi-check-circle"></i> Save Changes
+                            </button>
+                            <button class="btn-profile btn-profile-v2 btn-cancel-v2" @onclick="CancelEdit">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn-profile btn-profile-v2 btn-edit-v2" @onclick="() => editMode = true">
+                                <i class="bi bi-pencil"></i> Edit Profile
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile Content -->
+            <div class="profile-content profile-content-v2">
+                <!-- Personal Information -->
+                <div class="profile-card profile-card-v2">
+                    <div class="card-header card-header-v2">
+                        <h2><i class="bi bi-person"></i> Personal Information</h2>
+                    </div>
+                    <div class="card-body card-body-v2">
+                        <div class="form-grid form-grid-v2">
+                            <!-- Name -->
+                            <div class="form-group form-group-v2">
+                                <label class="form-label-v2">Full Name</label>
+                                @if (editMode)
+                                {
+                                    <input type="text" class="form-input form-input-v2" @bind="editedUser.Name" />
+                                }
+                                else
+                                {
+                                    <div class="form-value form-value-v2">@currentUser.Name</div>
+                                }
+                            </div>
+
+                            <!-- Email -->
+                            <div class="form-group form-group-v2">
+                                <label class="form-label-v2">
+                                    Email Address
+                                    @if (currentUser.Role == UserRole.Police)
+                                    {
+                                        <span class="field-locked field-locked-v2" title="Contact admin to change verified email">
+                                            <i class="bi bi-lock-fill"></i> Verified Field
+                                        </span>
+                                    }
+                                </label>
+                                @if (editMode && currentUser.Role != UserRole.Police)
+                                {
+                                    <div class="input-with-verify input-with-verify-v2">
+                                        <input type="email" class="form-input form-input-v2" @bind="editedUser.Email" />
+                                        <button class="btn-verify btn-verify-v2" @onclick="VerifyEmail">
+                                            <i class="bi bi-shield-check"></i> Verify
+                                        </button>
+                                    </div>
+                                    <small class="form-hint form-hint-v2">Changing email requires OTP verification</small>
+                                }
+                                else
+                                {
+                                    <div class="form-value form-value-v2">
+                                        @currentUser.Email
+                                        @if (currentUser.IsEmailVerified)
+                                        {
+                                            <i class="bi bi-check-circle-fill verified-icon"></i>
+                                        }
+                                    </div>
+                                }
+                            </div>
+
+                            <!-- Phone -->
+                            <div class="form-group form-group-v2">
+                                <label class="form-label-v2">Phone Number</label>
+                                @if (editMode)
+                                {
+                                    <div class="input-with-verify input-with-verify-v2">
+                                        <input type="tel" class="form-input form-input-v2" @bind="editedUser.Phone" />
+                                        <button class="btn-verify btn-verify-v2" @onclick="VerifyPhone">
+                                            <i class="bi bi-shield-check"></i> Verify
+                                        </button>
+                                    </div>
+                                    <small class="form-hint form-hint-v2">Changing phone requires OTP verification</small>
+                                }
+                                else
+                                {
+                                    <div class="form-value form-value-v2">
+                                        @currentUser.Phone
+                                        @if (currentUser.IsPhoneVerified)
+                                        {
+                                            <i class="bi bi-check-circle-fill verified-icon"></i>
+                                        }
+                                    </div>
+                                }
+                            </div>
+
+                            <!-- Address (Citizen & Lawyer only) -->
+                            @if (currentUser.Role != UserRole.Police)
+                            {
+                                <div class="form-group form-group-v2 full-width">
+                                    <label class="form-label-v2">Address</label>
+                                    @if (editMode)
+                                    {
+                                        <textarea class="form-input form-input-v2" rows="3" @bind="editedUser.Address"></textarea>
+                                    }
+                                    else
+                                    {
+                                        <div class="form-value form-value-v2">@(currentUser.Address ?? "Not provided")</div>
+                                    }
+                                </div>
+                            }
+
+                            <!-- Bio (Citizen & Lawyer only) -->
+                            @if (currentUser.Role != UserRole.Police)
+                            {
+                                <div class="form-group form-group-v2 full-width">
+                                    <label class="form-label-v2">Bio / About Me</label>
+                                    @if (editMode)
+                                    {
+                                        <textarea class="form-input form-input-v2" rows="4" @bind="editedUser.Bio" placeholder="Tell us about yourself..."></textarea>
+                                    }
+                                    else
+                                    {
+                                        <div class="form-value form-value-v2">@(currentUser.Bio ?? "No bio added")</div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Citizen Specific -->
+                @if (currentUser.Role == UserRole.Citizen)
+                {
+                    <div class="profile-card profile-card-v2">
+                        <div class="card-header card-header-v2">
+                            <h2><i class="bi bi-shield-check"></i> Identity Verification (Optional)</h2>
+                        </div>
+                        <div class="card-body card-body-v2">
+                            <div class="form-group form-group-v2">
+                                <label class="form-label-v2">
+                                    Aadhaar Number
+                                    <span class="field-locked field-locked-v2" title="One-time entry, cannot be changed">
+                                        <i class="bi bi-lock-fill"></i> One-time Only
+                                    </span>
+                                </label>
+                                @if (string.IsNullOrEmpty(currentUser.AadhaarNumber))
+                                {
+                                    @if (editMode)
+                                    {
+                                        <input type="text" class="form-input form-input-v2" @bind="editedUser.AadhaarNumber" placeholder="XXXX-XXXX-XXXX" maxlength="14" />
+                                        <small class="form-hint form-hint-v2">
+                                            <i class="bi bi-info-circle"></i> Optional. Once saved, cannot be changed. Required for advanced features.
+                                        </small>
+                                    }
+                                    else
+                                    {
+                                        <div class="form-value form-value-v2 text-muted">Not provided</div>
+                                    }
+                                }
+                                else
+                                {
+                                    <div class="form-value form-value-v2">
+                                        <i class="bi bi-lock-fill"></i> XXXX-XXXX-@currentUser.AadhaarNumber.Substring(currentUser.AadhaarNumber.Length - 4)
+                                        <i class="bi bi-check-circle-fill verified-icon"></i>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Lawyer Specific -->
+                @if (currentUser.Role == UserRole.Lawyer)
+                {
+                    <div class="profile-card profile-card-v2">
+                        <div class="card-header card-header-v2">
+                            <h2><i class="bi bi-briefcase"></i> Professional Details</h2>
+                        </div>
+                        <div class="card-body card-body-v2">
+                            <div class="form-grid form-grid-v2">
+                                <div class="form-group form-group-v2">
+                                    <label class="form-label-v2">
+                                        Bar Council Number
+                                        <span class="field-locked field-locked-v2">
+                                            <i class="bi bi-lock-fill"></i> Verified Field
+                                        </span>
+                                    </label>
+                                    <div class="form-value form-value-v2 locked">
+                                        <i class="bi bi-award-fill"></i> @currentUser.BarCouncilNumber
+                                        @if (currentUser.VerificationStatus == VerificationStatus.Verified)
+                                        {
+                                            <i class="bi bi-patch-check-fill verified-icon"></i>
+                                        }
+                                    </div>
+                                </div>
+
+                                <div class="form-group form-group-v2">
+                                    <label class="form-label-v2">
+                                        Bar Council State
+                                        <span class="field-locked field-locked-v2">
+                                            <i class="bi bi-lock-fill"></i> Verified Field
+                                        </span>
+                                    </label>
+                                    <div class="form-value form-value-v2 locked">@currentUser.BarCouncilState</div>
+                                </div>
+
+                                <div class="form-group form-group-v2">
+                                    <label class="form-label-v2">
+                                        Years of Practice
+                                        <span class="field-locked field-locked-v2">
+                                            <i class="bi bi-lock-fill"></i> Verified Field
+                                        </span>
+                                    </label>
+                                    <div class="form-value form-value-v2 locked">@currentUser.YearsOfPractice years</div>
+                                </div>
+
+                                <div class="form-group form-group-v2">
+                                    <label class="form-label-v2">Specialization</label>
+                                    @if (editMode)
+                                    {
+                                        <input type="text" class="form-input form-input-v2" @bind="editedUser.Specialization" placeholder="e.g., Criminal Law, Cyber Law" />
+                                        <small class="form-hint form-hint-v2">Separate multiple specializations with commas</small>
+                                    }
+                                    else
+                                    {
+                                        <div class="form-value form-value-v2">
+                                            @if (!string.IsNullOrEmpty(currentUser.Specialization))
+                                            {
+                                                @foreach (var spec in currentUser.Specialization.Split(','))
+                                                {
+                                                    <span class="spec-badge spec-badge-v2">@spec.Trim()</span>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">Not specified</span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+
+                                <div class="form-group form-group-v2 full-width">
+                                    <label class="form-label-v2">Office Address</label>
+                                    @if (editMode)
+                                    {
+                                        <textarea class="form-input form-input-v2" rows="3" @bind="editedUser.OfficeAddress"></textarea>
+                                    }
+                                    else
+                                    {
+                                        <div class="form-value form-value-v2">@(currentUser.OfficeAddress ?? "Not provided")</div>
+                                    }
+                                </div>
+
+                                <div class="form-group form-group-v2 full-width">
+                                    <label class="form-label-v2">Availability Hours</label>
+                                    @if (editMode)
+                                    {
+                                        <input type="text" class="form-input form-input-v2" @bind="editedUser.AvailabilityHours" placeholder="e.g., Mon-Fri, 9AM-6PM" />
+                                    }
+                                    else
+                                    {
+                                        <div class="form-value form-value-v2">@(currentUser.AvailabilityHours ?? "Not specified")</div>
+                                    }
+                                </div>
+                            </div>
+
+                            <!-- Bar Council Certificate -->
+                            <div class="document-section document-section-v2">
+                                <h3><i class="bi bi-file-earmark-text"></i> Verification Documents</h3>
+                                <div class="document-card document-card-v2 locked">
+                                    <i class="bi bi-file-pdf"></i>
+                                    <div class="document-info document-info-v2">
+                                        <div class="document-name document-name-v2">Bar Council Certificate</div>
+                                        <small class="text-muted">Uploaded during registration</small>
+                                    </div>
+                                    <button class="btn-view-doc btn-view-doc-v2" @onclick="() => ViewDocument(currentUser.BarCouncilCertificate)">
+                                        <i class="bi bi-eye"></i> View
+                                    </button>
+                                </div>
+                                <small class="form-hint form-hint-v2">
+                                    <i class="bi bi-info-circle"></i> Verified documents cannot be changed. Contact support for updates.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Police Specific -->
+                @if (currentUser.Role == UserRole.Police)
+                {
+                    <div class="profile-card profile-card-v2">
+                        <div class="card-header card-header-v2">
+                            <h2><i class="bi bi-shield-fill-check"></i> Service Details</h2>
+                        </div>
+                        <div class="card-body card-body-v2">
+                            <div class="locked-section locked-section-v2">
+                                <div class="locked-notice locked-notice-v2">
+                                    <i class="bi bi-lock-fill"></i>
+                                    <div>
+                                        <strong>All service details are locked and verified</strong>
+                                        <p>These fields are verified by your department and cannot be changed here. Contact your administrative officer for any updates.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-grid form-grid-v2">
+                                <div class="form-group form-group-v2">
+                                    <label class="form-label-v2">Police ID / Service Number</label>
+                                    <div class="form-value form-value-v2 locked">
+                                        <i class="bi bi-badge-tm-fill"></i> @currentUser.PoliceId
+                                        @if (currentUser.VerificationStatus == VerificationStatus.Verified)
+                                        {
+                                            <i class="bi bi-patch-check-fill verified-icon"></i>
+                                        }
+                                    </div>
+                                </div>
+
+                                <div class="form-group form-group-v2">
+                                    <label class="form-label-v2">Rank</label>
+                                    <div class="form-value form-value-v2 locked">@currentUser.Rank</div>
+                                </div>
+
+                                <div class="form-group form-group-v2">
+                                    <label class="form-label-v2">Department</label>
+                                    <div class="form-value form-value-v2 locked">@currentUser.Department</div>
+                                </div>
+
+                                <div class="form-group form-group-v2">
+                                    <label class="form-label-v2">Police Station</label>
+                                    <div class="form-value form-value-v2 locked">@currentUser.PoliceStation</div>
+                                </div>
+
+                                <div class="form-group form-group-v2 full-width">
+                                    <label class="form-label-v2">Jurisdiction</label>
+                                    <div class="form-value form-value-v2 locked">@currentUser.Jurisdiction</div>
+                                </div>
+                            </div>
+
+                            <!-- Service Documents -->
+                            <div class="document-section document-section-v2">
+                                <h3><i class="bi bi-file-earmark-text"></i> Verification Documents</h3>
+                                <div class="document-card document-card-v2 locked">
+                                    <i class="bi bi-file-pdf"></i>
+                                    <div class="document-info document-info-v2">
+                                        <div class="document-name document-name-v2">Service ID Card</div>
+                                        <small class="text-muted">Uploaded during registration</small>
+                                    </div>
+                                    <button class="btn-view-doc btn-view-doc-v2" @onclick="() => ViewDocument(currentUser.ServiceIdCard)">
+                                        <i class="bi bi-eye"></i> View
+                                    </button>
+                                </div>
+                                @if (!string.IsNullOrEmpty(currentUser.AuthorizationLetter))
+                                {
+                                    <div class="document-card document-card-v2 locked">
+                                        <i class="bi bi-file-pdf"></i>
+                                        <div class="document-info document-info-v2">
+                                            <div class="document-name document-name-v2">Authorization Letter</div>
+                                            <small class="text-muted">Uploaded during registration</small>
+                                        </div>
+                                        <button class="btn-view-doc btn-view-doc-v2" @onclick="() => ViewDocument(currentUser.AuthorizationLetter)">
+                                            <i class="bi bi-eye"></i> View
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Appearance Preferences -->
+                <div class="profile-card profile-card-v2">
+                    <div class="card-header card-header-v2">
+                        <h2><i class="bi bi-palette"></i> Appearance Preferences</h2>
+                    </div>
+                    <div class="card-body card-body-v2">
+                        <div class="appearance-section appearance-section-v2">
+                            <!-- Theme Selector -->
+                            <div class="preference-group preference-group-v2">
+                                <label class="preference-label preference-label-v2">
+                                    <i class="bi bi-moon-stars"></i>
+                                    <span>Theme Mode</span>
+                                </label>
+                                <p class="preference-description preference-description-v2">Choose your preferred color theme</p>
+                                <div class="theme-selector theme-selector-v2">
+                                    <button class="theme-option theme-option-v2 @(selectedTheme == "dark" ? "active" : "")" 
+                                            @onclick='() => SetTheme("dark")'>
+                                        <i class="bi bi-moon-stars-fill"></i>
+                                        <span>Dark</span>
+                                    </button>
+                                    <button class="theme-option theme-option-v2 @(selectedTheme == "light" ? "active" : "")" 
+                                            @onclick='() => SetTheme("light")'>
+                                        <i class="bi bi-sun-fill"></i>
+                                        <span>Light</span>
+                                    </button>
+                                    <button class="theme-option theme-option-v2 @(selectedTheme == "system" ? "active" : "")" 
+                                            @onclick='() => SetTheme("system")'>
+                                        <i class="bi bi-laptop"></i>
+                                        <span>System</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- High Contrast -->
+                            <div class="preference-group preference-group-v2">
+                                <div class="preference-toggle preference-toggle-v2">
+                                    <div class="preference-info preference-info-v2">
+                                        <label class="preference-label preference-label-v2">
+                                            <i class="bi bi-eye"></i>
+                                            <span>High Contrast</span>
+                                        </label>
+                                        <p class="preference-description preference-description-v2">Increase text contrast for better readability</p>
+                                    </div>
+                                    <label class="switch switch-v2">
+                                        <input type="checkbox" checked="@highContrast" @onchange="OnHighContrastChanged" />
+                                        <span class="slider slider-v2"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Security Settings -->
+                <div class="profile-card profile-card-v2">
+                    <div class="card-header card-header-v2">
+                        <h2><i class="bi bi-shield-lock"></i> Security Settings</h2>
+                    </div>
+                    <div class="card-body card-body-v2">
+                        <div class="security-options security-options-v2">
+                            <div class="security-item security-item-v2">
+                                <div class="security-item-info security-item-info-v2">
+                                    <i class="bi bi-key-fill"></i>
+                                    <div>
+                                        <strong>Change Password</strong>
+                                        <p>Update your account password</p>
+                                    </div>
+                                </div>
+                                <button class="btn-security btn-security-v2" @onclick="HandlePasswordChange">
+                                    Change
+                                </button>
+                            </div>
+
+                            <div class="security-item security-item-v2">
+                                <div class="security-item-info security-item-info-v2">
+                                    <i class="bi bi-shield-check"></i>
+                                    <div>
+                                        <strong>Two-Factor Authentication</strong>
+                                        <p>Add an extra layer of security @(currentUser.Role == UserRole.Police ? "(Mandatory)" : "")</p>
+                                    </div>
+                                </div>
+                                <button class="btn-security btn-security-v2" disabled>
+                                    @(currentUser.Role == UserRole.Police ? "Enabled" : "Enable")
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Success Message -->
+        @if (showSuccessMessage)
+        {
+            <div class="toast-notification toast-notification-v2 success">
+                <i class="bi bi-check-circle-fill"></i>
+                <span>Profile updated successfully!</span>
+                <button class="toast-close toast-close-v2" @onclick="HideSuccessMessage">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        }
+
+        <!-- Error Message -->
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="toast-notification toast-notification-v2 error">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <span>@errorMessage</span>
+                <button class="toast-close toast-close-v2" @onclick="HideErrorMessage">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="loading-container loading-container-v2">
+            <div class="spinner spinner-v2"></div>
+            <p>Loading profile...</p>
+        </div>
+    }
+</div>
+
+@code {
+    private User? currentUser;
+    private User editedUser = new User();
+    private bool editMode = false;
+    private bool showSuccessMessage = false;
+    private string errorMessage = string.Empty;
+    private System.Threading.Timer? successTimer;
+    private System.Threading.Timer? errorTimer;
+
+    // Appearance preferences
+    private string selectedTheme = "dark";
+    private bool highContrast = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        LangService.OnLanguageChanged += OnLanguageChanged;
+        
+        currentUser = AuthService.GetCurrentUser();
+        
+        if (currentUser == null)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        // Create a copy for editing
+        editedUser = new User
+        {
+            Id = currentUser.Id,
+            Name = currentUser.Name,
+            Email = currentUser.Email,
+            Phone = currentUser.Phone,
+            Address = currentUser.Address,
+            Bio = currentUser.Bio,
+            AadhaarNumber = currentUser.AadhaarNumber,
+            Specialization = currentUser.Specialization,
+            OfficeAddress = currentUser.OfficeAddress,
+            AvailabilityHours = currentUser.AvailabilityHours,
+            Role = currentUser.Role,
+            VerificationStatus = currentUser.VerificationStatus
+        };
+
+        // Load current theme preferences to display in UI
+        await LoadThemePreferences();
+    }
+
+    private string GetRoleBadgeClass()
+    {
+        return currentUser?.Role switch
+        {
+            UserRole.Citizen => "role-citizen",
+            UserRole.Lawyer => "role-lawyer",
+            UserRole.Police => "role-police",
+            _ => ""
+        };
+    }
+
+    private string GetRoleIcon()
+    {
+        return currentUser?.Role switch
+        {
+            UserRole.Citizen => "bi bi-person-fill",
+            UserRole.Lawyer => "bi bi-briefcase-fill",
+            UserRole.Police => "bi bi-shield-fill",
+            _ => "bi bi-person"
+        };
+    }
+
+    private string GetRoleDisplayName()
+    {
+        if (currentUser == null) return "";
+        
+        return currentUser.Role switch
+        {
+            UserRole.Citizen => "Citizen",
+            UserRole.Lawyer => currentUser.VerificationStatus == VerificationStatus.Verified ? "Verified Lawyer" : "Lawyer (Pending)",
+            UserRole.Police => currentUser.VerificationStatus == VerificationStatus.Verified ? "Verified Police Officer" : "Police (Pending)",
+            _ => "User"
+        };
+    }
+
+    private void SaveProfile()
+    {
+        try
+        {
+            // Validate changes
+            if (string.IsNullOrWhiteSpace(editedUser.Name))
+            {
+                errorMessage = "Name cannot be empty";
+                return;
+            }
+
+            // Update current user with edited values
+            if (currentUser != null)
+            {
+                currentUser.Name = editedUser.Name;
+                currentUser.Phone = editedUser.Phone;
+            }
+            
+            // Only update editable fields based on role
+            if (currentUser?.Role != UserRole.Police && currentUser != null)
+            {
+                currentUser.Address = editedUser.Address;
+                currentUser.Bio = editedUser.Bio;
+            }
+
+            if (currentUser?.Role == UserRole.Lawyer && currentUser != null)
+            {
+                currentUser.Specialization = editedUser.Specialization;
+                currentUser.OfficeAddress = editedUser.OfficeAddress;
+                currentUser.AvailabilityHours = editedUser.AvailabilityHours;
+            }
+
+            if (currentUser?.Role == UserRole.Citizen && currentUser != null && string.IsNullOrEmpty(currentUser.AadhaarNumber))
+            {
+                currentUser.AadhaarNumber = editedUser.AadhaarNumber;
+            }
+
+            // TODO: Save to database
+            // await UserService.UpdateUser(currentUser);
+
+            editMode = false;
+            errorMessage = string.Empty;
+            showSuccessMessage = true;
+            
+            // Auto-hide success message after 3 seconds
+            successTimer?.Dispose();
+            successTimer = new System.Threading.Timer(_ =>
+            {
+                InvokeAsync(() =>
+                {
+                    HideSuccessMessage();
+                });
+            }, null, 3000, System.Threading.Timeout.Infinite);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Failed to update profile: " + ex.Message;
+            
+            // Auto-hide error message after 3 seconds
+            errorTimer?.Dispose();
+            errorTimer = new System.Threading.Timer(_ =>
+            {
+                InvokeAsync(() =>
+                {
+                    HideErrorMessage();
+                });
+            }, null, 3000, System.Threading.Timeout.Infinite);
+        }
+    }
+
+    private void CancelEdit()
+    {
+        // Reset edited user to current values
+        if (currentUser != null)
+        {
+            editedUser.Name = currentUser.Name;
+            editedUser.Email = currentUser.Email;
+            editedUser.Phone = currentUser.Phone;
+            editedUser.Address = currentUser.Address;
+            editedUser.Bio = currentUser.Bio;
+            editedUser.Specialization = currentUser.Specialization;
+            editedUser.OfficeAddress = currentUser.OfficeAddress;
+            editedUser.AvailabilityHours = currentUser.AvailabilityHours;
+        }
+        
+        editMode = false;
+        errorMessage = string.Empty;
+    }
+
+    private void VerifyEmail()
+    {
+        // TODO: Implement email OTP verification
+        errorMessage = "Email verification coming soon!";
+        
+        // Auto-hide error message after 3 seconds
+        errorTimer?.Dispose();
+        errorTimer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                HideErrorMessage();
+            });
+        }, null, 3000, System.Threading.Timeout.Infinite);
+    }
+
+    private void VerifyPhone()
+    {
+        // TODO: Implement phone OTP verification
+        errorMessage = "Phone verification coming soon!";
+        
+        // Auto-hide error message after 3 seconds
+        errorTimer?.Dispose();
+        errorTimer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                HideErrorMessage();
+            });
+        }, null, 3000, System.Threading.Timeout.Infinite);
+    }
+
+    private void HandleImageUpload()
+    {
+        // TODO: Implement image upload functionality
+        errorMessage = "Image upload coming soon!";
+        
+        // Auto-hide error message after 3 seconds
+        errorTimer?.Dispose();
+        errorTimer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                HideErrorMessage();
+            });
+        }, null, 3000, System.Threading.Timeout.Infinite);
+    }
+
+    private void HandlePasswordChange()
+    {
+        // TODO: Implement password change functionality
+        errorMessage = "Password change coming soon!";
+        
+        // Auto-hide error message after 3 seconds
+        errorTimer?.Dispose();
+        errorTimer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                HideErrorMessage();
+            });
+        }, null, 3000, System.Threading.Timeout.Infinite);
+    }
+
+    private void ViewDocument(string? documentPath)
+    {
+        if (!string.IsNullOrEmpty(documentPath))
+        {
+            // TODO: Open document viewer
+            errorMessage = "Document viewer coming soon!";
+            
+            // Auto-hide error message after 3 seconds
+            errorTimer?.Dispose();
+            errorTimer = new System.Threading.Timer(_ =>
+            {
+                InvokeAsync(() =>
+                {
+                    HideErrorMessage();
+                });
+            }, null, 3000, System.Threading.Timeout.Infinite);
+        }
+    }
+
+    private void HideSuccessMessage()
+    {
+        successTimer?.Dispose();
+        showSuccessMessage = false;
+        StateHasChanged();
+    }
+
+    private void HideErrorMessage()
+    {
+        errorTimer?.Dispose();
+        errorMessage = string.Empty;
+        StateHasChanged();
+    }
+
+    // Appearance Preferences Methods
+    private async Task LoadThemePreferences()
+    {
+        if (currentUser == null) return;
+
+        try
+        {
+            var prefs = await JSRuntime.InvokeAsync<ThemePreference>("getThemePreference", currentUser.Id);
+            if (prefs != null)
+            {
+                selectedTheme = prefs.Theme ?? "dark";
+                highContrast = prefs.HighContrast;
+                StateHasChanged();
+            }
+        }
+        catch (Exception)
+        {
+            // If loading fails, use defaults
+            selectedTheme = "dark";
+            highContrast = false;
+        }
+    }
+
+    private async Task SetTheme(string theme)
+    {
+        if (currentUser == null) return;
+
+        selectedTheme = theme;
+        
+        // Save and apply immediately
+        await JSRuntime.InvokeVoidAsync("saveThemePreference", currentUser.Id, selectedTheme, highContrast);
+        
+        Console.WriteLine($"✓ Theme changed to: {theme}");
+    }
+
+    private async Task OnHighContrastChanged(ChangeEventArgs e)
+    {
+        if (currentUser == null) return;
+
+        highContrast = (bool)(e.Value ?? false);
+        
+        // Save and apply immediately
+        await JSRuntime.InvokeVoidAsync("saveThemePreference", currentUser.Id, selectedTheme, highContrast);
+        
+        Console.WriteLine($"✓ High contrast changed to: {highContrast}");
+    }
+
+    // Helper class for theme preferences
+    private class ThemePreference
+    {
+        public string? Theme { get; set; }
+        public bool HighContrast { get; set; }
+    }
+
+    public void Dispose()
+    {
+        successTimer?.Dispose();
+        errorTimer?.Dispose();
+        LangService.OnLanguageChanged -= OnLanguageChanged;
+    }
+
+    private void OnLanguageChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+}

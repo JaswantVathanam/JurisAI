@@ -1,0 +1,340 @@
+@rendermode InteractiveServer
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@using Microsoft.AspNetCore.Components.Routing
+@inject AuthenticationService AuthService
+@inject LanguageService LangService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+<nav class="navbar-glass-v2 @(isScrolled ? "scrolled" : "")">
+    <div class="navbar-container-v2">
+        <a href="/" class="navbar-brand-v2">
+            <div class="brand-icon-v2">
+                <i class="bi bi-shield-check"></i>
+            </div>
+            <div class="brand-text-v2">
+                <span class="brand-name-v2">JurisAI</span>
+                <span class="brand-tagline-v2">Indian Judiciary</span>
+            </div>
+        </a>
+
+        @if (AuthService.IsAuthenticated())
+        {
+            <button class="mobile-menu-toggle-v2 @(mobileMenuOpen ? "active" : "")" @onclick="ToggleMobileMenu" @onclick:stopPropagation="true">
+                <i class="bi @(mobileMenuOpen ? "bi-x-lg" : "bi-list")"></i>
+            </button>
+
+            <ul class="navbar-menu-v2 @(mobileMenuOpen ? "active" : "")" @onclick="HandleMenuClick" @onclick:stopPropagation="true">
+                @if (currentUser?.Role == UserRole.Admin)
+                {
+                    <!-- Admin-specific navigation -->
+                    <li>
+                        <NavLink href="/admin" class="nav-link-v2 admin-link-v2" Match="NavLinkMatch.All">
+                            <i class="bi bi-shield-lock-fill"></i>
+                            <span>Verification Center</span>
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink href="/users" class="nav-link-v2" Match="NavLinkMatch.All">
+                            <i class="bi bi-people"></i>
+                            <span>User Management</span>
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink href="/reports" class="nav-link-v2" Match="NavLinkMatch.All">
+                            <i class="bi bi-bar-chart"></i>
+                            <span>Reports</span>
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink href="/settings" class="nav-link-v2" Match="NavLinkMatch.All">
+                            <i class="bi bi-gear"></i>
+                            <span>Settings</span>
+                        </NavLink>
+                    </li>
+                }
+                else
+                {
+                    <!-- Regular user navigation -->
+                    <li>
+                        <NavLink href="/cases" class="nav-link-v2" Match="NavLinkMatch.All">
+                            <i class="bi bi-folder"></i>
+                            <span>Cases</span>
+                        </NavLink>
+                    </li>
+                    @if (currentUser?.Role == UserRole.Citizen)
+                    {
+                        <li>
+                            <NavLink href="/case-tracker" class="nav-link-v2 tracker-link-v2" Match="NavLinkMatch.Prefix">
+                                <i class="bi bi-geo-alt-fill"></i>
+                                <span>Track Case</span>
+                            </NavLink>
+                        </li>
+                        <li>
+                            <NavLink href="/emergency-sos" class="nav-link-v2 sos-link-v2" Match="NavLinkMatch.All">
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                <span>SOS</span>
+                            </NavLink>
+                        </li>
+                        <li>
+                            <NavLink href="/fir-generator" class="nav-link-v2 fir-link-v2" Match="NavLinkMatch.All">
+                                <i class="bi bi-file-earmark-plus"></i>
+                                <span>FIR Draft</span>
+                            </NavLink>
+                        </li>
+                        <li>
+                            <NavLink href="/bank-freeze" class="nav-link-v2 freeze-link-v2" Match="NavLinkMatch.All">
+                                <i class="bi bi-bank2"></i>
+                                <span>Bank Freeze</span>
+                            </NavLink>
+                        </li>
+                    }
+                    <li>
+                        <NavLink href="/precedents" class="nav-link-v2" Match="NavLinkMatch.All">
+                            <i class="bi bi-book"></i>
+                            <span>Precedents</span>
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink href="/constitution" class="nav-link-v2" Match="NavLinkMatch.All">
+                            <i class="bi bi-journal-text"></i>
+                            <span>Laws</span>
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink href="/cybercrime" class="nav-link-v2" Match="NavLinkMatch.All">
+                            <i class="bi bi-shield-exclamation"></i>
+                            <span>Cybercrime</span>
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink href="/scam-hub" class="nav-link-v2 scam-link-v2" Match="NavLinkMatch.All">
+                            <i class="bi bi-shield-shaded"></i>
+                            <span>Scam Hub</span>
+                        </NavLink>
+                    </li>
+                    @if (currentUser?.Role == UserRole.Police || currentUser?.Role == UserRole.Admin)
+                    {
+                        <li>
+                            <NavLink href="/phone-intelligence" class="nav-link-v2 intel-link-v2" Match="NavLinkMatch.All">
+                                <i class="bi bi-telephone-fill"></i>
+                                <span>Phone Intel</span>
+                            </NavLink>
+                        </li>
+                        <li>
+                            <NavLink href="/cdr-analysis" class="nav-link-v2 cdr-link-v2" Match="NavLinkMatch.All">
+                                <i class="bi bi-reception-4"></i>
+                                <span>CDR Analysis</span>
+                            </NavLink>
+                        </li>
+                        <li>
+                            <NavLink href="/evidence-custody" class="nav-link-v2 evidence-link-v2" Match="NavLinkMatch.All">
+                                <i class="bi bi-safe"></i>
+                                <span>Evidence</span>
+                            </NavLink>
+                        </li>
+                        <li>
+                            <NavLink href="/deadline-tracker" class="nav-link-v2 deadline-link-v2" Match="NavLinkMatch.All">
+                                <i class="bi bi-alarm"></i>
+                                <span>Deadlines</span>
+                            </NavLink>
+                        </li>
+                    }
+                    @if (currentUser?.Role == UserRole.Police)
+                    {
+                        <li>
+                            <NavLink href="/legal-notices" class="nav-link-v2" Match="NavLinkMatch.All">
+                                <i class="bi bi-file-earmark-text"></i>
+                                <span>Legal Notices</span>
+                            </NavLink>
+                        </li>
+                    }
+                    <li>
+                        <NavLink href="/database" class="nav-link-v2" Match="NavLinkMatch.All">
+                            <i class="bi bi-database"></i>
+                            <span>Database</span>
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink href="/ai-chat" class="nav-link-v2" Match="NavLinkMatch.All">
+                            <i class="bi bi-chat-dots"></i>
+                            <span>AI Assistant</span>
+                        </NavLink>
+                    </li>
+                }
+            </ul>
+
+            <!-- Language Selector -->
+            <div class="language-selector-nav-v2" @onclick:stopPropagation="true">
+                <button class="language-toggle-v2 @(languageDropdownOpen ? "active" : "")" @onclick="ToggleLanguageDropdown" title="Change Language">
+                    <span class="lang-icon">@LangService.CurrentLanguageInfo.Icon</span>
+                    <span class="lang-code">@LangService.CurrentLanguage.ToUpper()</span>
+                    <i class="bi bi-chevron-down"></i>
+                </button>
+                @if (languageDropdownOpen)
+                {
+                    <div class="language-dropdown-menu-v2">
+                        <div class="dropdown-header">
+                            <i class="bi bi-translate"></i>
+                            <span>Select Language</span>
+                        </div>
+                        <div class="language-options-v2">
+                            @foreach (var lang in LangService.GetAvailableLanguages())
+                            {
+                                <button class="language-option-v2 @(LangService.CurrentLanguage == lang.Key ? "active" : "")" 
+                                        @onclick="() => SelectLanguage(lang.Key)">
+                                    <span class="lang-flag">@lang.Value.Icon</span>
+                                    <span class="lang-name">@lang.Value.NativeName</span>
+                                    <span class="lang-english">@lang.Value.Name</span>
+                                    @if (LangService.CurrentLanguage == lang.Key)
+                                    {
+                                        <i class="bi bi-check-lg"></i>
+                                    }
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- User Profile Section -->
+            <div class="user-profile-v2" @onclick:stopPropagation="true">
+                <button class="user-avatar-v2" @onclick="NavigateToProfile" title="View Profile">
+                    @GetUserInitials()
+                </button>
+                <div class="user-info-v2">
+                    <button class="user-name-btn-v2" @onclick="NavigateToProfile">@currentUser?.Name</button>
+                    <span class="role-badge-v2 @GetRoleClass()">@currentUser?.Role</span>
+                </div>
+                <button @onclick="HandleLogout" @onclick:stopPropagation="true" class="logout-btn-v2" title="Logout">
+                    <i class="bi bi-box-arrow-right"></i>
+                </button>
+            </div>
+        }
+    </div>
+</nav>
+
+@code {
+    private User? currentUser;
+    private bool mobileMenuOpen = false;
+    private bool isScrolled = false;
+    private bool languageDropdownOpen = false;
+    private DotNetObjectReference<NavBar>? objRef;
+
+    protected override void OnInitialized()
+    {
+        currentUser = AuthService.GetCurrentUser();
+        AuthService.OnAuthStateChanged += OnAuthStateChanged;
+        LangService.OnLanguageChanged += OnLanguageChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            objRef = DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("addScrollListener", objRef);
+            
+            // Initialize language for current user
+            if (currentUser != null)
+            {
+                await LangService.InitializeLanguageAsync(currentUser.Id);
+            }
+        }
+    }
+
+    [JSInvokable]
+    public void OnScroll(bool scrolled)
+    {
+        if (isScrolled != scrolled)
+        {
+            isScrolled = scrolled;
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void OnAuthStateChanged()
+    {
+        currentUser = AuthService.GetCurrentUser();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleMobileMenu()
+    {
+        mobileMenuOpen = !mobileMenuOpen;
+        languageDropdownOpen = false; // Close language dropdown when toggling menu
+    }
+
+    private void CloseMobileMenu()
+    {
+        mobileMenuOpen = false;
+    }
+
+    private void HandleMenuClick(MouseEventArgs e)
+    {
+        // Close menu when a navigation item is clicked (on mobile)
+        // The NavLink will handle navigation
+        CloseMobileMenu();
+    }
+
+    private string GetUserInitials()
+    {
+        if (currentUser == null || string.IsNullOrEmpty(currentUser.Name))
+            return "U";
+        
+        var parts = currentUser.Name.Split(' ');
+        if (parts.Length >= 2)
+            return $"{parts[0][0]}{parts[1][0]}";
+        
+        return currentUser.Name[0].ToString();
+    }
+
+    private string GetRoleClass()
+    {
+        return currentUser?.Role switch
+        {
+            UserRole.Citizen => "role-citizen-v2",
+            UserRole.Lawyer => "role-lawyer-v2",
+            UserRole.Police => "role-police-v2",
+            UserRole.Admin => "role-admin-v2",
+            _ => ""
+        };
+    }
+
+    private void NavigateToProfile()
+    {
+        NavigationManager.NavigateTo("/profile");
+        CloseMobileMenu();
+    }
+
+    private void HandleLogout()
+    {
+        AuthService.Logout();
+        NavigationManager.NavigateTo("/login", true);
+    }
+
+    private void ToggleLanguageDropdown()
+    {
+        languageDropdownOpen = !languageDropdownOpen;
+    }
+
+    private async Task SelectLanguage(string langCode)
+    {
+        await LangService.SetLanguageAsync(langCode);
+        languageDropdownOpen = false;
+    }
+
+    private void OnLanguageChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        AuthService.OnAuthStateChanged -= OnAuthStateChanged;
+        LangService.OnLanguageChanged -= OnLanguageChanged;
+        objRef?.Dispose();
+    }
+}

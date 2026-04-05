@@ -1,0 +1,780 @@
+@page "/reports"
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@using AILegalAsst.Components.Shared
+@inject AuthenticationService AuthService
+@inject LanguageService LangService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+@implements IDisposable
+
+<PageTitle>Reports & Analytics - AI Legal Assistant</PageTitle>
+
+<link rel="stylesheet" href="reports.css" />
+<link rel="stylesheet" href="reports-enhancements.css" />
+<link rel="stylesheet" href="reports-print.css" media="print" />
+<script src="app-utilities.js"></script>
+
+<CustomErrorBoundary ShowDetails="true" ShowReportButton="true">
+
+@if (currentUser?.Role != UserRole.Admin)
+{
+    <div class="error-container-v2">
+        <i class="bi bi-shield-exclamation"></i>
+        <h2>Access Denied</h2>
+        <p>You do not have permission to access this page.</p>
+        <button class="btn-home-v2" @onclick="GoToHome"><i class="bi bi-house"></i> Go to Home</button>
+    </div>
+}
+else
+{
+    <div class="reports-page-v2">
+        <div class="reports-container-v2">
+        <!-- Print-Only Header -->
+        <div class="print-only print-header-v2">
+            <div class="print-title-v2"><i class="bi bi-bar-chart-fill"></i> Reports & Analytics</div>
+            <p class="print-meta-v2">Generated: @DateTime.Now.ToString("MMMM dd, yyyy HH:mm")</p>
+            <p class="print-meta-v2">Total Users: @totalUsers | Verified: @verifiedUsers | Pending: @pendingVerifications</p>
+        </div>
+
+        <!-- Header -->
+        <div class="page-header-v2">
+            <div class="header-content-v2">
+                <h1><i class="bi bi-bar-chart-fill"></i> Reports & Analytics</h1>
+                <p class="header-subtitle-v2">System statistics, trends, and insights</p>
+            </div>
+            <div class="header-actions-v2 no-print">
+                <button class="btn-print-v2" @onclick="PrintReports" disabled="@isPrinting" aria-label="Print report">
+                    @if (isPrinting)
+                    {
+                        <span class="spinner-small" aria-hidden="true"></span>
+                        <span>Printing...</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-printer" aria-hidden="true"></i>
+                        <span>Print</span>
+                    }
+                </button>
+                <div class="export-dropdown-v2">
+                    <button class="btn-export-v2" 
+                            @onclick="ToggleExportMenu" 
+                            disabled="@isExporting"
+                            aria-label="Export report data"
+                            aria-expanded="@showExportMenu"
+                            aria-haspopup="true">
+                        @if (isExporting)
+                        {
+                            <span class="spinner-small" aria-hidden="true"></span>
+                            <span>Exporting...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-download" aria-hidden="true"></i>
+                            <span>Export</span>
+                            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                        }
+                    </button>
+                    @if (showExportMenu)
+                    {
+                        <div class="export-menu-v2" role="menu">
+                            <div class="export-option-v2" role="menuitem" @onclick="ExportToCsv" @onkeydown="HandleKeyPress" tabindex="0">
+                                <i class="bi bi-filetype-csv" aria-hidden="true"></i>
+                                <span>Export as CSV</span>
+                            </div>
+                            <div class="export-option-v2" role="menuitem" @onclick="ExportToPdf" @onkeydown="HandleKeyPress" tabindex="0">
+                                <i class="bi bi-filetype-pdf" aria-hidden="true"></i>
+                                <span>Export as PDF</span>
+                            </div>
+                            <div class="export-option-v2" role="menuitem" @onclick="ExportToJson" @onkeydown="HandleKeyPress" tabindex="0">
+                                <i class="bi bi-filetype-json" aria-hidden="true"></i>
+                                <span>Export as JSON</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Overview Stats -->
+        <div class="overview-section-v2">
+            <h2><i class="bi bi-speedometer2"></i> Quick Overview</h2>
+            @if (isLoading)
+            {
+                <div class="skeleton-stats-grid-v2" role="status" aria-label="Loading statistics">
+                    <span class="sr-only">Loading reports data, please wait...</span>
+                    @for (int i = 0; i < 4; i++)
+                    {
+                        <div class="skeleton-stat-card-v2">
+                            <div class="skeleton-stat-header-v2"></div>
+                            <div class="skeleton-stat-value-v2"></div>
+                            <div class="skeleton-stat-change-v2"></div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="stats-grid-v2">
+                    <div class="stat-card-v2 primary">
+                        <div class="stat-header-v2">
+                            <i class="bi bi-people-fill stat-icon-v2"></i>
+                            <span>Total Users</span>
+                        </div>
+                        <div class="stat-value-v2">@totalUsers</div>
+                        <div class="stat-change-v2 positive">
+                            <i class="bi bi-arrow-up"></i> +12% this month
+                        </div>
+                    </div>
+
+                    <div class="stat-card-v2 success">
+                        <div class="stat-header-v2">
+                            <i class="bi bi-check-circle-fill stat-icon-v2"></i>
+                            <span>Verified Users</span>
+                        </div>
+                        <div class="stat-value-v2">@verifiedUsers</div>
+                        <div class="stat-change-v2 positive">
+                            <i class="bi bi-arrow-up"></i> +8% this month
+                        </div>
+                    </div>
+
+                    <div class="stat-card-v2 warning">
+                        <div class="stat-header-v2">
+                            <i class="bi bi-clock-history stat-icon-v2"></i>
+                            <span>Pending Verifications</span>
+                        </div>
+                        <div class="stat-value-v2">@pendingVerifications</div>
+                        <div class="stat-change-v2 neutral">
+                            <i class="bi bi-dash"></i> No change
+                        </div>
+                    </div>
+
+                    <div class="stat-card-v2 info">
+                        <div class="stat-header-v2">
+                            <i class="bi bi-person-check stat-icon-v2"></i>
+                            <span>Active Today</span>
+                        </div>
+                        <div class="stat-value-v2">@activeToday</div>
+                        <div class="stat-change-v2 positive">
+                            <i class="bi bi-arrow-up"></i> +5% vs yesterday
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- User Distribution -->
+        <div class="charts-section-v2">
+            @if (isLoading)
+            {
+                <div class="skeleton-charts-grid-v2" role="status" aria-label="Loading charts">
+                    @for (int i = 0; i < 2; i++)
+                    {
+                        <div class="skeleton-chart-card-v2">
+                            <div class="skeleton-chart-title-v2"></div>
+                            <div class="skeleton-chart-bars-v2">
+                                @for (int j = 0; j < 3; j++)
+                                {
+                                    <div class="skeleton-chart-bar-v2">
+                                        <div class="skeleton-bar-fill-v2"></div>
+                                        <div class="skeleton-bar-label-v2">
+                                            <div class="skeleton-bar-name-v2"></div>
+                                            <div class="skeleton-bar-value-v2"></div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="chart-card-v2">
+                    <h3><i class="bi bi-pie-chart-fill"></i> User Distribution by Role</h3>
+                    <div class="chart-placeholder-v2">
+                        <div class="distribution-stats-v2">
+                            <div class="dist-item-v2">
+                                <div class="dist-bar-v2">
+                                    <div class="dist-fill-v2 citizen" style="width: @citizenPercentage%" aria-label="@citizenPercentage percent"></div>
+                                </div>
+                                <div class="dist-label-v2">
+                                    <span class="dist-name-v2">👤 Citizens</span>
+                                    <span class="dist-value-v2">@citizenCount (@citizenPercentage%)</span>
+                                </div>
+                            </div>
+                        <div class="dist-item-v2">
+                            <div class="dist-bar-v2">
+                                <div class="dist-fill-v2 lawyer" style="width: @lawyerPercentage%" aria-label="@lawyerPercentage percent"></div>
+                            </div>
+                            <div class="dist-label-v2">
+                                <span class="dist-name-v2">⚖️ Lawyers</span>
+                                <span class="dist-value-v2">@lawyerCount (@lawyerPercentage%)</span>
+                            </div>
+                        </div>
+                        <div class="dist-item-v2">
+                            <div class="dist-bar-v2">
+                                <div class="dist-fill-v2 police" style="width: @policePercentage%" aria-label="@policePercentage percent"></div>
+                            </div>
+                            <div class="dist-label-v2">
+                                <span class="dist-name-v2">🛡️ Police</span>
+                                <span class="dist-value-v2">@policeCount (@policePercentage%)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-card-v2">
+                <h3><i class="bi bi-graph-up"></i> Verification Status</h3>
+                <div class="chart-placeholder-v2">
+                    <div class="distribution-stats-v2">
+                        <div class="dist-item-v2">
+                            <div class="dist-bar-v2">
+                                <div class="dist-fill-v2 verified" style="width: @verifiedPercentage%" aria-label="@verifiedPercentage percent"></div>
+                            </div>
+                            <div class="dist-label-v2">
+                                <span class="dist-name-v2">✅ Verified</span>
+                                <span class="dist-value-v2">@verifiedUsers (@verifiedPercentage%)</span>
+                            </div>
+                        </div>
+                        <div class="dist-item-v2">
+                            <div class="dist-bar-v2">
+                                <div class="dist-fill-v2 pending" style="width: @pendingPercentage%" aria-label="@pendingPercentage percent"></div>
+                            </div>
+                            <div class="dist-label-v2">
+                                <span class="dist-name-v2">⏳ Pending</span>
+                                <span class="dist-value-v2">@pendingVerifications (@pendingPercentage%)</span>
+                            </div>
+                        </div>
+                        <div class="dist-item-v2">
+                            <div class="dist-bar-v2">
+                                <div class="dist-fill-v2 rejected" style="width: @rejectedPercentage%" aria-label="@rejectedPercentage percent"></div>
+                            </div>
+                            <div class="dist-label-v2">
+                                <span class="dist-name-v2">❌ Rejected</span>
+                                <span class="dist-value-v2">@rejectedUsers (@rejectedPercentage%)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="activity-section-v2">
+            <h2><i class="bi bi-activity"></i> Recent Activity</h2>
+            <div class="activity-list-v2">
+                <div class="activity-item-v2">
+                    <div class="activity-icon-v2 verified">
+                        <i class="bi bi-check-circle-fill"></i>
+                    </div>
+                    <div class="activity-content-v2">
+                        <div class="activity-title-v2">User Verified</div>
+                        <div class="activity-desc-v2">Adv. Priya Sharma's account was verified</div>
+                        <div class="activity-time-v2">2 hours ago</div>
+                    </div>
+                </div>
+                <div class="activity-item-v2">
+                    <div class="activity-icon-v2 new">
+                        <i class="bi bi-person-plus-fill"></i>
+                    </div>
+                    <div class="activity-content-v2">
+                        <div class="activity-title-v2">New Registration</div>
+                        <div class="activity-desc-v2">New lawyer registered: Adv. Rahul Mehta</div>
+                        <div class="activity-time-v2">5 hours ago</div>
+                    </div>
+                </div>
+                <div class="activity-item-v2">
+                    <div class="activity-icon-v2 pending">
+                        <i class="bi bi-clock-history"></i>
+                    </div>
+                    <div class="activity-content-v2">
+                        <div class="activity-title-v2">Pending Verification</div>
+                        <div class="activity-desc-v2">SI Amit Verma awaiting verification</div>
+                        <div class="activity-time-v2">1 day ago</div>
+                    </div>
+                </div>
+                <div class="activity-item-v2">
+                    <div class="activity-icon-v2 rejected">
+                        <i class="bi bi-x-circle-fill"></i>
+                    </div>
+                    <div class="activity-content-v2">
+                        <div class="activity-title-v2">Application Rejected</div>
+                        <div class="activity-desc-v2">Invalid credentials provided</div>
+                        <div class="activity-time-v2">2 days ago</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Table -->
+        <div class="summary-section-v2">
+            <h2><i class="bi bi-table"></i> Summary Report</h2>
+            <div class="summary-table-v2">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>This Week</th>
+                            <th>Last Week</th>
+                            <th>Change</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>New Registrations</td>
+                            <td>15</td>
+                            <td>12</td>
+                            <td class="positive">+25%</td>
+                        </tr>
+                        <tr>
+                            <td>Verifications Completed</td>
+                            <td>8</td>
+                            <td>10</td>
+                            <td class="negative">-20%</td>
+                        </tr>
+                        <tr>
+                            <td>Active Users</td>
+                            <td>45</td>
+                            <td>42</td>
+                            <td class="positive">+7%</td>
+                        </tr>
+                        <tr>
+                            <td>Avg. Verification Time</td>
+                            <td>2.5 days</td>
+                            <td>3.2 days</td>
+                            <td class="positive">-22%</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Toast Notification -->
+        @if (showToast)
+        {
+            <div class="toast-v2" role="alert" aria-live="polite" aria-atomic="true">
+                <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+                <span>@toastMessage</span>
+                <button class="toast-close-v2" @onclick="HideToast" aria-label="Close notification">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+        }
+    </div>
+    </div>
+}
+</CustomErrorBoundary>
+
+@code {
+    private User? currentUser;
+    private List<User> allUsers = new();
+
+    // Statistics
+    private int totalUsers = 0;
+    private int verifiedUsers = 0;
+    private int pendingVerifications = 0;
+    private int rejectedUsers = 0;
+    private int activeToday = 0;
+    private int citizenCount = 0;
+    private int lawyerCount = 0;
+    private int policeCount = 0;
+
+    // Percentages
+    private int citizenPercentage = 0;
+    private int lawyerPercentage = 0;
+    private int policePercentage = 0;
+    private int verifiedPercentage = 0;
+    private int pendingPercentage = 0;
+    private int rejectedPercentage = 0;
+
+    // Enhancement state variables
+    private bool isLoading = false;
+    private bool isExporting = false;
+    private bool isPrinting = false;
+    private bool showExportMenu = false;
+    private bool showToast = false;
+    private string toastMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        LangService.OnLanguageChanged += OnLanguageChanged;
+        currentUser = AuthService.GetCurrentUser();
+        
+        if (currentUser?.Role != UserRole.Admin)
+        {
+            return;
+        }
+
+        isLoading = true;
+        await Task.Delay(500); // Simulate loading
+        LoadData();
+        CalculateStatistics();
+        isLoading = false;
+    }
+
+    private void LoadData()
+    {
+        allUsers = AuthService.GetAllUsers()
+            .Where(u => u.Role != UserRole.Admin)
+            .ToList();
+    }
+
+    private void CalculateStatistics()
+    {
+        totalUsers = allUsers.Count;
+        verifiedUsers = allUsers.Count(u => u.VerificationStatus == VerificationStatus.Verified);
+        pendingVerifications = allUsers.Count(u => u.VerificationStatus == VerificationStatus.Pending || 
+                                                   u.VerificationStatus == VerificationStatus.UnderReview ||
+                                                   u.VerificationStatus == VerificationStatus.MoreInfoNeeded);
+        rejectedUsers = allUsers.Count(u => u.VerificationStatus == VerificationStatus.Rejected);
+        activeToday = allUsers.Count(u => u.IsActive);
+        
+        citizenCount = allUsers.Count(u => u.Role == UserRole.Citizen);
+        lawyerCount = allUsers.Count(u => u.Role == UserRole.Lawyer);
+        policeCount = allUsers.Count(u => u.Role == UserRole.Police);
+
+        // Calculate percentages
+        if (totalUsers > 0)
+        {
+            citizenPercentage = (int)((double)citizenCount / totalUsers * 100);
+            lawyerPercentage = (int)((double)lawyerCount / totalUsers * 100);
+            policePercentage = (int)((double)policeCount / totalUsers * 100);
+            verifiedPercentage = (int)((double)verifiedUsers / totalUsers * 100);
+            pendingPercentage = (int)((double)pendingVerifications / totalUsers * 100);
+            rejectedPercentage = (int)((double)rejectedUsers / totalUsers * 100);
+        }
+    }
+
+    // Export and UI methods
+    private void ToggleExportMenu()
+    {
+        showExportMenu = !showExportMenu;
+    }
+
+    private async Task ExportToCsv()
+    {
+        if (isExporting) return;
+        
+        try
+        {
+            isExporting = true;
+            showExportMenu = false;
+
+            var csv = new System.Text.StringBuilder();
+            csv.AppendLine("Statistic,Value,Percentage");
+            csv.AppendLine($"Total Users,{totalUsers},100%");
+            csv.AppendLine($"Verified Users,{verifiedUsers},{verifiedPercentage}%");
+            csv.AppendLine($"Pending Verifications,{pendingVerifications},{pendingPercentage}%");
+            csv.AppendLine($"Rejected Users,{rejectedUsers},{rejectedPercentage}%");
+            csv.AppendLine($"Active Today,{activeToday},-");
+            csv.AppendLine("");
+            csv.AppendLine("User Role Distribution");
+            csv.AppendLine($"Citizens,{citizenCount},{citizenPercentage}%");
+            csv.AppendLine($"Lawyers,{lawyerCount},{lawyerPercentage}%");
+            csv.AppendLine($"Police Officers,{policeCount},{policePercentage}%");
+
+            var fileName = $"reports_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+            var base64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(csv.ToString()));
+            var dataUrl = $"data:text/csv;base64,{base64}";
+
+            await JS.InvokeVoidAsync("eval", $@"
+                const link = document.createElement('a');
+                link.href = '{dataUrl}';
+                link.download = '{fileName}';
+                link.click();
+            ");
+
+            ShowToast("Report exported to CSV successfully!");
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Export failed: {ex.Message}");
+        }
+        finally
+        {
+            isExporting = false;
+        }
+    }
+
+    private async Task ExportToPdf()
+    {
+        if (isExporting) return;
+        
+        try
+        {
+            isExporting = true;
+            showExportMenu = false;
+
+            var html = $@"
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset='utf-8'>
+                    <title>Reports & Analytics - {DateTime.Now:MMMM dd, yyyy}</title>
+                    <style>
+                        body {{ font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; }}
+                        .header {{ border-bottom: 2px solid #0066cc; margin-bottom: 20px; padding-bottom: 10px; }}
+                        .header h1 {{ color: #0066cc; margin: 0; }}
+                        .meta {{ color: #666; font-size: 14px; }}
+                        .stats-grid {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px; }}
+                        .stat-card {{ border: 1px solid #ddd; padding: 15px; border-radius: 8px; }}
+                        .stat-value {{ font-size: 32px; font-weight: bold; color: #0066cc; }}
+                        .stat-label {{ color: #666; margin-top: 5px; }}
+                        .section {{ margin: 30px 0; }}
+                        .section h2 {{ color: #333; border-bottom: 1px solid #ddd; padding-bottom: 5px; }}
+                        table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+                        th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }}
+                        th {{ background-color: #f5f5f5; font-weight: 600; }}
+                    </style>
+                </head>
+                <body>
+                    <div class='header'>
+                        <h1>Reports & Analytics</h1>
+                        <div class='meta'>
+                            Generated: {DateTime.Now:MMMM dd, yyyy HH:mm} | 
+                            Generated by: {currentUser?.Name}
+                        </div>
+                    </div>
+
+                    <div class='section'>
+                        <h2>System Overview</h2>
+                        <div class='stats-grid'>
+                            <div class='stat-card'>
+                                <div class='stat-value'>{totalUsers}</div>
+                                <div class='stat-label'>Total Users</div>
+                            </div>
+                            <div class='stat-card'>
+                                <div class='stat-value'>{verifiedUsers}</div>
+                                <div class='stat-label'>Verified Users ({verifiedPercentage}%)</div>
+                            </div>
+                            <div class='stat-card'>
+                                <div class='stat-value'>{pendingVerifications}</div>
+                                <div class='stat-label'>Pending Verifications</div>
+                            </div>
+                            <div class='stat-card'>
+                                <div class='stat-value'>{activeToday}</div>
+                                <div class='stat-label'>Active Today</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class='section'>
+                        <h2>User Distribution by Role</h2>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Role</th>
+                                    <th>Count</th>
+                                    <th>Percentage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Citizens</td>
+                                    <td>{citizenCount}</td>
+                                    <td>{citizenPercentage}%</td>
+                                </tr>
+                                <tr>
+                                    <td>Lawyers</td>
+                                    <td>{lawyerCount}</td>
+                                    <td>{lawyerPercentage}%</td>
+                                </tr>
+                                <tr>
+                                    <td>Police Officers</td>
+                                    <td>{policeCount}</td>
+                                    <td>{policePercentage}%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class='section'>
+                        <h2>Verification Status</h2>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Count</th>
+                                    <th>Percentage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Verified</td>
+                                    <td>{verifiedUsers}</td>
+                                    <td>{verifiedPercentage}%</td>
+                                </tr>
+                                <tr>
+                                    <td>Pending</td>
+                                    <td>{pendingVerifications}</td>
+                                    <td>{pendingPercentage}%</td>
+                                </tr>
+                                <tr>
+                                    <td>Rejected</td>
+                                    <td>{rejectedUsers}</td>
+                                    <td>{rejectedPercentage}%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </body>
+                </html>
+            ";
+
+            var fileName = $"reports_{DateTime.Now:yyyyMMdd_HHmmss}.html";
+            var base64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(html));
+            var dataUrl = $"data:text/html;base64,{base64}";
+
+            await JS.InvokeVoidAsync("eval", $@"
+                const link = document.createElement('a');
+                link.href = '{dataUrl}';
+                link.download = '{fileName}';
+                link.click();
+            ");
+
+            ShowToast("Report exported to PDF/HTML successfully!");
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Export failed: {ex.Message}");
+        }
+        finally
+        {
+            isExporting = false;
+        }
+    }
+
+    private async Task ExportToJson()
+    {
+        if (isExporting) return;
+        
+        try
+        {
+            isExporting = true;
+            showExportMenu = false;
+
+            var data = new
+            {
+                generatedAt = DateTime.Now,
+                generatedBy = currentUser?.Name,
+                overview = new
+                {
+                    totalUsers,
+                    verifiedUsers,
+                    pendingVerifications,
+                    rejectedUsers,
+                    activeToday
+                },
+                userDistribution = new
+                {
+                    citizens = new { count = citizenCount, percentage = citizenPercentage },
+                    lawyers = new { count = lawyerCount, percentage = lawyerPercentage },
+                    police = new { count = policeCount, percentage = policePercentage }
+                },
+                verificationStatus = new
+                {
+                    verified = new { count = verifiedUsers, percentage = verifiedPercentage },
+                    pending = new { count = pendingVerifications, percentage = pendingPercentage },
+                    rejected = new { count = rejectedUsers, percentage = rejectedPercentage }
+                }
+            };
+
+            var json = System.Text.Json.JsonSerializer.Serialize(data, new System.Text.Json.JsonSerializerOptions 
+            { 
+                WriteIndented = true 
+            });
+
+            var fileName = $"reports_{DateTime.Now:yyyyMMdd_HHmmss}.json";
+            var base64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(json));
+            var dataUrl = $"data:application/json;base64,{base64}";
+
+            await JS.InvokeVoidAsync("eval", $@"
+                const link = document.createElement('a');
+                link.href = '{dataUrl}';
+                link.download = '{fileName}';
+                link.click();
+            ");
+
+            ShowToast("Report exported to JSON successfully!");
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Export failed: {ex.Message}");
+        }
+        finally
+        {
+            isExporting = false;
+        }
+    }
+
+    private async Task PrintReports()
+    {
+        if (isPrinting) return;
+        
+        try
+        {
+            isPrinting = true;
+            await JS.InvokeVoidAsync("window.print");
+            ShowToast("Print dialog opened");
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Print failed: {ex.Message}");
+        }
+        finally
+        {
+            isPrinting = false;
+        }
+    }
+
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" || e.Key == " ")
+        {
+            await Task.CompletedTask;
+        }
+    }
+
+    private void ShowToast(string message)
+    {
+        toastMessage = message;
+        showToast = true;
+        StateHasChanged();
+
+        var timer = new System.Threading.Timer(_ =>
+        {
+            showToast = false;
+            InvokeAsync(StateHasChanged);
+        }, null, 3000, System.Threading.Timeout.Infinite);
+    }
+
+    private void HideToast()
+    {
+        showToast = false;
+    }
+
+    private void ExportReport()
+    {
+        // TODO: Implement PDF export
+        Console.WriteLine("Export report functionality coming soon!");
+    }
+
+    private void GoToHome()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    private void OnLanguageChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        LangService.OnLanguageChanged -= OnLanguageChanged;
+    }
+}

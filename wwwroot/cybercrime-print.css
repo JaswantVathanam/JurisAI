@@ -1,0 +1,461 @@
+/* ============================================
+   CYBERCRIME PAGE - PRINT STYLES
+   Optimized for cybercrime reports (A4 Portrait)
+   ============================================ */
+
+@media print {
+    /* Page Setup */
+    @page {
+        size: A4 portrait;
+        margin: 1.5cm;
+    }
+
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* Hide Interactive Elements */
+    .no-print,
+    .action-buttons,
+    .btn-primary,
+    .btn-secondary,
+    .btn-glass,
+    .btn-print,
+    .btn-export,
+    .export-dropdown-container,
+    .filter-bar,
+    button,
+    select,
+    input,
+    .urgent-badge,
+    .report-card-fixed:hover,
+    .navbar,
+    .sidebar {
+        display: none !important;
+    }
+
+    /* Show Print-Only Elements */
+    .print-only {
+        display: block !important;
+    }
+
+    .print-header {
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 3px solid #000;
+    }
+
+    .print-header h1 {
+        font-size: 2rem;
+        color: #000;
+        margin: 0 0 0.5rem 0;
+        font-weight: 700;
+    }
+
+    .print-header .header-icon i {
+        font-size: 2.5rem;
+        color: #d32f2f;
+    }
+
+    .print-header p {
+        margin: 0.25rem 0;
+        color: #333;
+        font-size: 0.95rem;
+    }
+
+    /* Page Container */
+    .cybercrime-page {
+        background: white !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .page-header {
+        margin-bottom: 1.5rem;
+        page-break-after: avoid;
+    }
+
+    .page-header h1 {
+        font-size: 1.5rem;
+        color: #000;
+        margin-bottom: 0.5rem;
+    }
+
+    .header-subtitle {
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    /* Statistics Cards */
+    .stats-grid-fixed {
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 1rem !important;
+        margin-bottom: 2rem !important;
+        page-break-inside: avoid;
+    }
+
+    .stat-card-fixed {
+        background: white !important;
+        border: 2px solid #e0e0e0 !important;
+        border-radius: 8px !important;
+        padding: 1rem !important;
+        box-shadow: none !important;
+        page-break-inside: avoid;
+    }
+
+    .stat-icon-fixed i {
+        font-size: 2rem;
+        color: #555;
+    }
+
+    .stat-content-fixed h3 {
+        font-size: 1.5rem;
+        color: #000;
+        margin: 0.5rem 0 0.25rem 0;
+        font-weight: 700;
+    }
+
+    .stat-content-fixed p {
+        font-size: 0.85rem;
+        color: #666;
+        margin: 0;
+    }
+
+    /* Reports Grid */
+    .reports-grid,
+    .reports-container {
+        display: block !important;
+    }
+
+    .report-card-fixed {
+        background: white !important;
+        border: 1px solid #ddd !important;
+        border-radius: 6px !important;
+        padding: 1.25rem !important;
+        margin-bottom: 1.5rem !important;
+        page-break-inside: avoid;
+        box-shadow: none !important;
+    }
+
+    .report-card-fixed.urgent {
+        border-left: 4px solid #d32f2f !important;
+    }
+
+    .report-header-fixed {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .report-number-badge {
+        background: #f5f5f5 !important;
+        border: 1px solid #ccc !important;
+        padding: 0.35rem 0.75rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #333 !important;
+    }
+
+    .report-card-body h3 {
+        font-size: 1.1rem;
+        color: #000;
+        margin: 0 0 0.5rem 0;
+        font-weight: 700;
+    }
+
+    .report-card-body p {
+        font-size: 0.9rem;
+        color: #333;
+        line-height: 1.5;
+        margin-bottom: 1rem;
+    }
+
+    .report-meta-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+        margin: 1rem 0;
+    }
+
+    .meta-item {
+        font-size: 0.85rem;
+        color: #555;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .meta-item i {
+        font-size: 1rem;
+        color: #777;
+    }
+
+    .meta-item.loss {
+        font-weight: 600;
+        color: #d32f2f !important;
+    }
+
+    /* Status Badges */
+    .report-card-footer {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid #e0e0e0;
+    }
+
+    .status-badge-fixed {
+        display: inline-block;
+        padding: 0.3rem 0.75rem;
+        font-size: 0.8rem;
+        border-radius: 4px;
+        font-weight: 600;
+        border: 1px solid;
+    }
+
+    .status-badge-fixed.status-submitted {
+        background: #fff3e0 !important;
+        border-color: #ffb74d !important;
+        color: #e65100 !important;
+    }
+
+    .status-badge-fixed.status-underreview {
+        background: #e3f2fd !important;
+        border-color: #90caf9 !important;
+        color: #1565c0 !important;
+    }
+
+    .status-badge-fixed.status-investigationstarted {
+        background: #f3e5f5 !important;
+        border-color: #ba68c8 !important;
+        color: #6a1b9a !important;
+    }
+
+    .status-badge-fixed.status-closed {
+        background: #e8f5e9 !important;
+        border-color: #81c784 !important;
+        color: #2e7d32 !important;
+    }
+
+    .fir-badge-fixed {
+        background: #ffebee !important;
+        border: 1px solid #ef5350 !important;
+        color: #c62828 !important;
+        padding: 0.3rem 0.75rem;
+        font-size: 0.8rem;
+        border-radius: 4px;
+        font-weight: 600;
+    }
+
+    /* Law Sections */
+    .law-sections-grid {
+        display: block !important;
+    }
+
+    .law-section-card {
+        background: white !important;
+        border: 1px solid #ddd !important;
+        border-radius: 6px !important;
+        padding: 1rem !important;
+        margin-bottom: 1rem !important;
+        page-break-inside: avoid;
+        box-shadow: none !important;
+    }
+
+    .law-card-header {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+
+    .section-number {
+        background: #f5f5f5 !important;
+        border: 1px solid #ccc !important;
+        padding: 0.75rem;
+        border-radius: 6px;
+        min-width: 50px;
+        text-align: center;
+    }
+
+    .section-number i {
+        font-size: 1.5rem;
+        color: #555;
+    }
+
+    .section-title-area h3 {
+        font-size: 1rem;
+        color: #000;
+        margin: 0 0 0.5rem 0;
+        font-weight: 700;
+    }
+
+    .law-card-description {
+        font-size: 0.85rem;
+        color: #333;
+        line-height: 1.6;
+        margin: 0.75rem 0;
+    }
+
+    .penalty-section {
+        background: #fff3e0 !important;
+        border: 1px solid #ffb74d !important;
+        padding: 0.75rem;
+        border-radius: 4px;
+        margin-top: 0.75rem;
+    }
+
+    .penalty-section strong {
+        color: #e65100;
+        font-size: 0.85rem;
+    }
+
+    .penalty-section span {
+        color: #333;
+        font-size: 0.85rem;
+    }
+
+    /* Cybercrime Badge */
+    .cybercrime-badge {
+        background: #ffebee !important;
+        border: 1px solid #ef5350 !important;
+        color: #c62828 !important;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        border-radius: 3px;
+        font-weight: 600;
+    }
+
+    /* Resource Cards */
+    .resource-grid {
+        display: block !important;
+    }
+
+    .resource-card {
+        background: white !important;
+        border: 1px solid #ddd !important;
+        border-radius: 6px !important;
+        padding: 1rem !important;
+        margin-bottom: 1rem !important;
+        page-break-inside: avoid;
+        box-shadow: none !important;
+    }
+
+    .resource-card.emergency {
+        border-left: 4px solid #d32f2f !important;
+    }
+
+    .resource-icon i {
+        font-size: 2rem;
+        color: #555;
+    }
+
+    .resource-card h3 {
+        font-size: 1rem;
+        color: #000;
+        margin: 0.75rem 0 0.5rem 0;
+        font-weight: 700;
+    }
+
+    .resource-card p {
+        font-size: 0.85rem;
+        color: #333;
+        line-height: 1.5;
+        margin-bottom: 0.75rem;
+    }
+
+    .resource-link {
+        display: block;
+        font-size: 0.85rem;
+        color: #1565c0 !important;
+        margin: 0.5rem 0;
+        text-decoration: none;
+    }
+
+    /* Report Details Modal Content */
+    .report-details-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin: 1rem 0;
+    }
+
+    .detail-item {
+        padding: 0.75rem;
+        background: #f5f5f5 !important;
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 4px;
+    }
+
+    .detail-item label {
+        font-weight: 600;
+        color: #555;
+        font-size: 0.8rem;
+        display: block;
+        margin-bottom: 0.25rem;
+    }
+
+    .detail-item span {
+        color: #000;
+        font-size: 0.9rem;
+    }
+
+    /* Hide Modal Overlays */
+    .modal-overlay,
+    .report-form-container {
+        display: none !important;
+    }
+
+    /* Grid Layouts */
+    .citizen-view,
+    .lawyer-view,
+    .police-view {
+        background: white !important;
+    }
+
+    /* Page Breaks */
+    h1, h2, h3 {
+        page-break-after: avoid;
+    }
+
+    .report-card-fixed,
+    .stat-card-fixed,
+    .law-section-card,
+    .resource-card {
+        page-break-inside: avoid;
+    }
+
+    /* Empty States */
+    .no-data-message {
+        text-align: center;
+        color: #888;
+        font-size: 0.95rem;
+        padding: 2rem;
+    }
+
+    /* Footer */
+    @page {
+        @bottom-right {
+            content: "Page " counter(page) " of " counter(pages);
+            font-size: 0.8rem;
+            color: #888;
+        }
+    }
+
+    /* Icons in Print */
+    .bi {
+        display: inline-block !important;
+    }
+
+    /* Ensure proper text rendering */
+    body {
+        font-family: Arial, sans-serif;
+        color: #000;
+    }
+}

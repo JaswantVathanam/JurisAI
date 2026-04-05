@@ -1,0 +1,687 @@
+@page "/fir-generator"
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@inject FIRDraftService FIRService
+@inject IJSRuntime JSRuntime
+@inject LanguageService LangService
+@rendermode InteractiveServer
+@implements IDisposable
+
+<PageTitle>FIR Draft Generator - JurisAI</PageTitle>
+
+<div class="fir-page-v2">
+    <!-- Header -->
+    <div class="fir-header-v2">
+        <div class="header-content-v2">
+            <div class="header-icon-v2">
+                <i class="bi bi-file-earmark-text"></i>
+            </div>
+            <div class="header-text-v2">
+                <h1>FIR Draft Generator</h1>
+                <p>AI-powered First Information Report drafting for Indian Police</p>
+            </div>
+        </div>
+        <div class="header-actions-v2">
+            <div class="language-selector-v2">
+                <label>Language:</label>
+                <select @bind="selectedLanguage" class="language-dropdown-v2">
+                    @foreach (var lang in LanguageSupport.SupportedLanguages)
+                    {
+                        <option value="@lang.Key">@lang.Value.Icon @lang.Value.NativeName</option>
+                    }
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Steps -->
+    <div class="progress-steps-v2">
+        <div class="step-item-v2 @(currentStep >= 1 ? "active" : "") @(currentStep > 1 ? "completed" : "")">
+            <div class="step-number-v2">@(currentStep > 1 ? "✓" : "1")</div>
+            <span>Your Details</span>
+        </div>
+        <div class="step-connector-v2 @(currentStep > 1 ? "active" : "")"></div>
+        <div class="step-item-v2 @(currentStep >= 2 ? "active" : "") @(currentStep > 2 ? "completed" : "")">
+            <div class="step-number-v2">@(currentStep > 2 ? "✓" : "2")</div>
+            <span>Incident Details</span>
+        </div>
+        <div class="step-connector-v2 @(currentStep > 2 ? "active" : "")"></div>
+        <div class="step-item-v2 @(currentStep >= 3 ? "active" : "") @(currentStep > 3 ? "completed" : "")">
+            <div class="step-number-v2">@(currentStep > 3 ? "✓" : "3")</div>
+            <span>Accused Info</span>
+        </div>
+        <div class="step-connector-v2 @(currentStep > 3 ? "active" : "")"></div>
+        <div class="step-item-v2 @(currentStep >= 4 ? "active" : "") @(currentStep > 4 ? "completed" : "")">
+            <div class="step-number-v2">@(currentStep > 4 ? "✓" : "4")</div>
+            <span>Review & Generate</span>
+        </div>
+    </div>
+
+    <div class="fir-content-v2">
+        @if (!firGenerated)
+        {
+            <EditForm Model="@firDraft" OnValidSubmit="HandleValidSubmit">
+                <DataAnnotationsValidator />
+
+                <!-- Step 1: Complainant Details -->
+                @if (currentStep == 1)
+                {
+                    <div class="form-section-v2 animate-in">
+                        <div class="section-header-v2">
+                            <i class="bi bi-person-badge"></i>
+                            <h2>Complainant Details</h2>
+                        </div>
+
+                        <div class="form-grid-v2">
+                            <div class="form-group-v2">
+                                <label>Full Name <span class="required">*</span></label>
+                                <InputText @bind-Value="firDraft.ComplainantName" class="form-control-v2" placeholder="Enter your full name" />
+                                <ValidationMessage For="@(() => firDraft.ComplainantName)" />
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>Father's / Husband's Name <span class="required">*</span></label>
+                                <InputText @bind-Value="firDraft.FatherOrHusbandName" class="form-control-v2" placeholder="S/o, D/o, W/o" />
+                                <ValidationMessage For="@(() => firDraft.FatherOrHusbandName)" />
+                            </div>
+
+                            <div class="form-group-v2 full-width">
+                                <label>Address <span class="required">*</span></label>
+                                <InputTextArea @bind-Value="firDraft.Address" class="form-control-v2" rows="2" placeholder="House No, Street, Area" />
+                                <ValidationMessage For="@(() => firDraft.Address)" />
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>City</label>
+                                <InputText @bind-Value="firDraft.City" class="form-control-v2" placeholder="City" />
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>State</label>
+                                <InputSelect @bind-Value="firDraft.State" class="form-control-v2">
+                                    <option value="">Select State</option>
+                                    @foreach (var state in LanguageSupport.IndianStates)
+                                    {
+                                        <option value="@state.Value">@state.Value</option>
+                                    }
+                                </InputSelect>
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>PIN Code</label>
+                                <InputText @bind-Value="firDraft.PinCode" class="form-control-v2" placeholder="6-digit PIN" />
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>Phone Number <span class="required">*</span></label>
+                                <InputText @bind-Value="firDraft.PhoneNumber" class="form-control-v2" placeholder="+91 XXXXX XXXXX" />
+                                <ValidationMessage For="@(() => firDraft.PhoneNumber)" />
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>Email</label>
+                                <InputText @bind-Value="firDraft.Email" class="form-control-v2" placeholder="email@example.com" />
+                                <ValidationMessage For="@(() => firDraft.Email)" />
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>Aadhaar Number (Optional)</label>
+                                <InputText @bind-Value="firDraft.AadharNumber" class="form-control-v2" placeholder="XXXX XXXX XXXX" />
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Step 2: Incident Details -->
+                @if (currentStep == 2)
+                {
+                    <div class="form-section-v2 animate-in">
+                        <div class="section-header-v2">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <h2>Incident Details</h2>
+                        </div>
+
+                        <div class="form-grid-v2">
+                            <div class="form-group-v2">
+                                <label>Crime Type <span class="required">*</span></label>
+                                <InputSelect @bind-Value="firDraft.CrimeType" class="form-control-v2">
+                                    @foreach (FIRCrimeType type in Enum.GetValues(typeof(FIRCrimeType)))
+                                    {
+                                        <option value="@type">@GetEnumDisplayName(type)</option>
+                                    }
+                                </InputSelect>
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>Crime Sub-Type</label>
+                                <InputSelect @bind-Value="firDraft.CrimeSubType" class="form-control-v2">
+                                    @foreach (FIRCrimeSubType type in Enum.GetValues(typeof(FIRCrimeSubType)))
+                                    {
+                                        <option value="@type">@GetEnumDisplayName(type)</option>
+                                    }
+                                </InputSelect>
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>Date of Incident <span class="required">*</span></label>
+                                <InputDate TValue="DateTime" @bind-Value="firDraft.IncidentDate" class="form-control-v2" />
+                                <ValidationMessage For="@(() => firDraft.IncidentDate)" />
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>Time of Incident</label>
+                                <InputText @bind-Value="incidentTimeString" class="form-control-v2" placeholder="HH:MM (e.g., 14:30)" />
+                            </div>
+
+                            <div class="form-group-v2 full-width">
+                                <label>Location of Incident <span class="required">*</span></label>
+                                <InputText @bind-Value="firDraft.IncidentLocation" class="form-control-v2" placeholder="Where did this happen?" />
+                                <ValidationMessage For="@(() => firDraft.IncidentLocation)" />
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>District</label>
+                                <InputText @bind-Value="firDraft.District" class="form-control-v2" placeholder="District name" />
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>Nearest Police Station</label>
+                                <InputText @bind-Value="firDraft.PoliceStation" class="form-control-v2" placeholder="If known" />
+                            </div>
+
+                            <div class="form-group-v2 full-width">
+                                <label>Describe What Happened <span class="required">*</span></label>
+                                <InputTextArea @bind-Value="firDraft.IncidentDescription" class="form-control-v2 incident-textarea" rows="6" 
+                                    placeholder="Describe the incident in detail. Include:
+• What happened step by step
+• How you were contacted (if applicable)
+• What was said or done
+• Any threats made
+• How money was transferred (if applicable)" />
+                                <ValidationMessage For="@(() => firDraft.IncidentDescription)" />
+                                <div class="char-count">@(firDraft.IncidentDescription?.Length ?? 0) characters (minimum 50)</div>
+                            </div>
+
+                            @if (firDraft.CrimeType == FIRCrimeType.CyberCrime || firDraft.CrimeType == FIRCrimeType.FinancialFraud)
+                            {
+                                <div class="financial-section-v2 full-width">
+                                    <h3><i class="bi bi-currency-rupee"></i> Financial Details</h3>
+                                    <div class="form-grid-v2">
+                                        <div class="form-group-v2">
+                                            <label>Amount Lost (₹)</label>
+                                            <InputNumber @bind-Value="firDraft.AmountLost" class="form-control-v2" placeholder="0.00" />
+                                        </div>
+                                        <div class="form-group-v2">
+                                            <label>Your Bank Name</label>
+                                            <InputText @bind-Value="firDraft.BankName" class="form-control-v2" placeholder="Bank from which money was sent" />
+                                        </div>
+                                        <div class="form-group-v2">
+                                            <label>Your Account Number</label>
+                                            <InputText @bind-Value="firDraft.AccountNumber" class="form-control-v2" placeholder="Your account number" />
+                                        </div>
+                                        <div class="form-group-v2">
+                                            <label>Transaction IDs</label>
+                                            <InputText @bind-Value="firDraft.TransactionIds" class="form-control-v2" placeholder="UTR, Reference numbers" />
+                                        </div>
+                                        <div class="form-group-v2 full-width">
+                                            <label>UPI IDs Used by Fraudster</label>
+                                            <InputText @bind-Value="firDraft.UPIIds" class="form-control-v2" placeholder="scammer@upi, fake@paytm, etc." />
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <!-- Step 3: Accused Details -->
+                @if (currentStep == 3)
+                {
+                    <div class="form-section-v2 animate-in">
+                        <div class="section-header-v2">
+                            <i class="bi bi-person-x"></i>
+                            <h2>Accused Details (If Known)</h2>
+                            <span class="optional-badge">Optional - Fill if you know</span>
+                        </div>
+
+                        <div class="form-grid-v2">
+                            <div class="form-group-v2">
+                                <label>Name of Accused</label>
+                                <InputText @bind-Value="firDraft.AccusedName" class="form-control-v2" placeholder="Name (if known)" />
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>Relation to You</label>
+                                <InputText @bind-Value="firDraft.AccusedRelation" class="form-control-v2" placeholder="Stranger, Known person, etc." />
+                            </div>
+
+                            <div class="form-group-v2 full-width">
+                                <label>Physical Description</label>
+                                <InputTextArea @bind-Value="firDraft.AccusedDescription" class="form-control-v2" rows="2" 
+                                    placeholder="Age, height, complexion, any identifying marks..." />
+                            </div>
+
+                            <div class="form-group-v2 full-width">
+                                <label>Address (if known)</label>
+                                <InputText @bind-Value="firDraft.AccusedAddress" class="form-control-v2" placeholder="Any address information" />
+                            </div>
+
+                            <div class="form-group-v2">
+                                <label>Phone Number Used</label>
+                                <InputText @bind-Value="firDraft.AccusedPhone" class="form-control-v2" placeholder="Fraudster's phone number" />
+                            </div>
+                        </div>
+
+                        <div class="witness-section-v2">
+                            <h3><i class="bi bi-people"></i> Witnesses</h3>
+                            <div class="form-group-v2">
+                                <label>Witness Details</label>
+                                <InputTextArea @bind-Value="firDraft.WitnessDetails" class="form-control-v2" rows="3" 
+                                    placeholder="Names and contact details of any witnesses..." />
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Step 4: Review -->
+                @if (currentStep == 4)
+                {
+                    <div class="form-section-v2 animate-in">
+                        <div class="section-header-v2">
+                            <i class="bi bi-check-circle"></i>
+                            <h2>Review Your Information</h2>
+                        </div>
+
+                        <div class="review-grid-v2">
+                            <div class="review-card-v2">
+                                <h4><i class="bi bi-person"></i> Complainant</h4>
+                                <p><strong>@firDraft.ComplainantName</strong></p>
+                                <p>@firDraft.Address, @firDraft.City</p>
+                                <p>📞 @firDraft.PhoneNumber</p>
+                            </div>
+
+                            <div class="review-card-v2">
+                                <h4><i class="bi bi-exclamation-triangle"></i> Incident</h4>
+                                <p><strong>@GetEnumDisplayName(firDraft.CrimeType)</strong></p>
+                                <p>📅 @firDraft.IncidentDate.ToString("dd MMM yyyy")</p>
+                                <p>📍 @firDraft.IncidentLocation</p>
+                            </div>
+
+                            @if (firDraft.AmountLost.HasValue && firDraft.AmountLost > 0)
+                            {
+                                <div class="review-card-v2 alert-card">
+                                    <h4><i class="bi bi-currency-rupee"></i> Financial Loss</h4>
+                                    <p class="amount-lost">₹@firDraft.AmountLost.Value.ToString("N2")</p>
+                                    <p>Bank: @firDraft.BankName</p>
+                                </div>
+                            }
+
+                            @if (!string.IsNullOrEmpty(firDraft.AccusedName) || !string.IsNullOrEmpty(firDraft.AccusedPhone))
+                            {
+                                <div class="review-card-v2">
+                                    <h4><i class="bi bi-person-x"></i> Accused</h4>
+                                    <p>@(string.IsNullOrEmpty(firDraft.AccusedName) ? "Unknown" : firDraft.AccusedName)</p>
+                                    @if (!string.IsNullOrEmpty(firDraft.AccusedPhone))
+                                    {
+                                        <p>📞 @firDraft.AccusedPhone</p>
+                                    }
+                                </div>
+                            }
+                        </div>
+
+                        <div class="review-description-v2">
+                            <h4>Incident Description</h4>
+                            <p>@firDraft.IncidentDescription</p>
+                        </div>
+
+                        <!-- Similar Cases Preview -->
+                        @if (similarCases.Any())
+                        {
+                            <div class="similar-cases-preview-v2">
+                                <h4><i class="bi bi-link-45deg"></i> Similar Cases Found: @similarCases.Count</h4>
+                                <p>Your case may be linked to other reported frauds. Details will be shown after generation.</p>
+                            </div>
+                        }
+
+                        <div class="legal-sections-preview-v2">
+                            <h4><i class="bi bi-book"></i> Applicable Legal Sections</h4>
+                            <div class="sections-list-v2">
+                                @foreach (var legalSection in applicableSections.Take(5))
+                                {
+                                    <span class="section-badge-v2">@legalSection</span>
+                                }
+                                @if (applicableSections.Count > 5)
+                                {
+                                    <span class="section-badge-v2 more">+@(applicableSections.Count - 5) more</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Navigation Buttons -->
+                <div class="form-navigation-v2">
+                    @if (currentStep > 1)
+                    {
+                        <button type="button" class="btn-secondary-v2" @onclick="PreviousStep">
+                            <i class="bi bi-arrow-left"></i> Previous
+                        </button>
+                    }
+                    else
+                    {
+                        <div></div>
+                    }
+
+                    @if (currentStep < 4)
+                    {
+                        <button type="button" class="btn-primary-v2" @onclick="NextStep">
+                            Next <i class="bi bi-arrow-right"></i>
+                        </button>
+                    }
+                    else
+                    {
+                        <button type="submit" class="btn-generate-v2" disabled="@isGenerating">
+                            @if (isGenerating)
+                            {
+                                <span class="spinner"></span>
+                                <span>Generating FIR Draft...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-magic"></i>
+                                <span>Generate FIR Draft</span>
+                            }
+                        </button>
+                    }
+                </div>
+            </EditForm>
+        }
+        else
+        {
+            <!-- Generated FIR Display -->
+            <div class="fir-generated-v2 animate-in">
+                <div class="success-banner-v2">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <div>
+                        <h3>FIR Draft Generated Successfully!</h3>
+                        <p>Review the draft below and download or print for police submission</p>
+                    </div>
+                </div>
+
+                <!-- Action Bar -->
+                <div class="fir-actions-v2">
+                    <button class="btn-action-v2" @onclick="DownloadAsPDF">
+                        <i class="bi bi-file-pdf"></i> Download PDF
+                    </button>
+                    <button class="btn-action-v2" @onclick="PrintFIR">
+                        <i class="bi bi-printer"></i> Print
+                    </button>
+                    <button class="btn-action-v2" @onclick="CopyToClipboard">
+                        <i class="bi bi-clipboard"></i> Copy Text
+                    </button>
+                    @if (selectedLanguage != "en")
+                    {
+                        <button class="btn-action-v2" @onclick="TranslateToEnglish">
+                            <i class="bi bi-translate"></i> Show English
+                        </button>
+                    }
+                    <button class="btn-action-v2 secondary" @onclick="StartNew">
+                        <i class="bi bi-plus-circle"></i> New FIR
+                    </button>
+                </div>
+
+                <!-- Main FIR Content -->
+                <div class="fir-document-v2" id="fir-content">
+                    <div class="fir-paper-v2">
+                        <div class="fir-watermark">DRAFT</div>
+                        
+                        <pre class="fir-text-v2">@firDraft.AIDraftedFIR</pre>
+                    </div>
+                </div>
+
+                <!-- Legal Analysis -->
+                <div class="legal-analysis-v2">
+                    <h3><i class="bi bi-balance-scale"></i> Legal Analysis</h3>
+                    <div class="analysis-content-v2">
+                        @((MarkupString)FormatLegalAnalysis(firDraft.LegalAnalysis))
+                    </div>
+                </div>
+
+                <!-- Applicable Sections -->
+                <div class="applicable-sections-v2">
+                    <h3><i class="bi bi-book"></i> Applicable Legal Sections</h3>
+                    <div class="sections-grid-v2">
+                        @foreach (var legalSection in firDraft.ApplicableSections)
+                        {
+                            <div class="section-card-v2">
+                                <span class="section-code">@legalSection.Split(" - ")[0]</span>
+                                @if (legalSection.Contains(" - "))
+                                {
+                                    <span class="section-title">@legalSection.Split(" - ")[1]</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Recommended Actions -->
+                <div class="recommended-actions-v2">
+                    <h3><i class="bi bi-lightning-charge"></i> Immediate Actions</h3>
+                    <div class="actions-list-v2">
+                        @foreach (var action in firDraft.RecommendedActions.Split('\n'))
+                        {
+                            @if (!string.IsNullOrWhiteSpace(action))
+                            {
+                                <div class="action-item-v2">@action</div>
+                            }
+                        }
+                    </div>
+                </div>
+
+                <!-- Similar Cases (Case Linking) -->
+                @if (similarCases.Any())
+                {
+                    <div class="similar-cases-v2">
+                        <h3><i class="bi bi-diagram-3"></i> Linked Similar Cases (@similarCases.Count found)</h3>
+                        <p class="cases-subtitle">Your case may be connected to these reported frauds</p>
+                        
+                        <div class="cases-grid-v2">
+                            @foreach (var similarCase in similarCases)
+                            {
+                                <div class="case-card-v2">
+                                    <div class="case-header-v2">
+                                        <span class="case-id-v2">@similarCase.CaseId</span>
+                                        <span class="similarity-score-v2" style="--score: @(similarCase.SimilarityScore * 100)%">
+                                            @((similarCase.SimilarityScore * 100).ToString("F0"))% Match
+                                        </span>
+                                    </div>
+                                    <h4>@similarCase.CaseTitle</h4>
+                                    <div class="case-meta-v2">
+                                        <span><i class="bi bi-geo-alt"></i> @similarCase.Location</span>
+                                        <span><i class="bi bi-calendar"></i> @similarCase.IncidentDate.ToString("dd MMM yyyy")</span>
+                                        @if (similarCase.AmountInvolved.HasValue)
+                                        {
+                                            <span><i class="bi bi-currency-rupee"></i> @similarCase.AmountInvolved.Value.ToString("N0")</span>
+                                        }
+                                    </div>
+                                    <div class="matching-factors-v2">
+                                        @foreach (var factor in similarCase.MatchingFactors)
+                                        {
+                                            <span class="factor-badge-v2">@factor</span>
+                                        }
+                                    </div>
+                                    <div class="case-status-v2 @similarCase.Status.ToLower().Replace(" ", "-")">
+                                        <span class="status">@similarCase.Status</span>
+                                        @if (!string.IsNullOrEmpty(similarCase.Outcome) && similarCase.Outcome != "Pending")
+                                        {
+                                            <span class="outcome">@similarCase.Outcome</span>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <!-- Jurisdiction Info -->
+                <div class="jurisdiction-info-v2">
+                    <h3><i class="bi bi-building"></i> Jurisdiction & Resources</h3>
+                    <pre class="jurisdiction-text-v2">@firDraft.JurisdictionInfo</pre>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private FIRDraft firDraft = new();
+    private int currentStep = 1;
+    private string selectedLanguage = "en";
+    private string incidentTimeString = "";
+    private bool isGenerating = false;
+    private bool firGenerated = false;
+    private List<string> applicableSections = new();
+    private List<SimilarCaseMatch> similarCases = new();
+
+    protected override void OnInitialized()
+    {
+        LangService.OnLanguageChanged += OnLanguageChanged;
+        
+        firDraft = new FIRDraft
+        {
+            IncidentDate = DateTime.Today
+        };
+    }
+
+    private void OnLanguageChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        LangService.OnLanguageChanged -= OnLanguageChanged;
+    }
+
+    private void NextStep()
+    {
+        if (currentStep < 4)
+        {
+            currentStep++;
+            
+            // When reaching review step, pre-fetch data
+            if (currentStep == 4)
+            {
+                applicableSections = FIRService.GetApplicableSections(firDraft.CrimeType, firDraft.CrimeSubType);
+                _ = LoadSimilarCasesAsync();
+            }
+        }
+    }
+
+    private void PreviousStep()
+    {
+        if (currentStep > 1)
+        {
+            currentStep--;
+        }
+    }
+
+    private async Task LoadSimilarCasesAsync()
+    {
+        similarCases = await FIRService.FindSimilarCasesAsync(firDraft);
+        StateHasChanged();
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        isGenerating = true;
+        StateHasChanged();
+
+        try
+        {
+            // Parse time
+            if (!string.IsNullOrEmpty(incidentTimeString) && TimeSpan.TryParse(incidentTimeString, out var time))
+            {
+                firDraft.IncidentTime = time;
+            }
+
+            firDraft.Language = selectedLanguage;
+            firDraft = await FIRService.GenerateFIRDraftAsync(firDraft);
+            
+            // Reload similar cases with updated info
+            similarCases = await FIRService.FindSimilarCasesAsync(firDraft);
+            
+            firGenerated = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error generating FIR: {ex.Message}");
+        }
+        finally
+        {
+            isGenerating = false;
+        }
+    }
+
+    private void StartNew()
+    {
+        firDraft = new FIRDraft { IncidentDate = DateTime.Today };
+        currentStep = 1;
+        firGenerated = false;
+        applicableSections.Clear();
+        similarCases.Clear();
+    }
+
+    private async Task DownloadAsPDF()
+    {
+        try
+        {
+            var filename = $"FIR_Draft_{firDraft.Id}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+            var result = await JSRuntime.InvokeAsync<object>("pdfDownload.downloadPdfPost", 
+                "/api/PdfExport/fir", 
+                firDraft,
+                filename);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error downloading PDF: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "Error generating PDF. Please try again.");
+        }
+    }
+
+    private async Task PrintFIR()
+    {
+        await JSRuntime.InvokeVoidAsync("window.print");
+    }
+
+    private async Task CopyToClipboard()
+    {
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", firDraft.AIDraftedFIR);
+        await JSRuntime.InvokeVoidAsync("alert", "FIR draft copied to clipboard!");
+    }
+
+    private async Task TranslateToEnglish()
+    {
+        var englishContent = await FIRService.TranslateToLanguageAsync(firDraft.AIDraftedFIR, "en");
+        firDraft.AIDraftedFIR = englishContent;
+        StateHasChanged();
+    }
+
+    private string GetEnumDisplayName<T>(T value) where T : Enum
+    {
+        var fieldInfo = value.GetType().GetField(value.ToString());
+        var attribute = fieldInfo?.GetCustomAttributes(typeof(System.ComponentModel.DataAnnotations.DisplayAttribute), false)
+            .FirstOrDefault() as System.ComponentModel.DataAnnotations.DisplayAttribute;
+        return attribute?.Name ?? value.ToString();
+    }
+
+    private string FormatLegalAnalysis(string analysis)
+    {
+        if (string.IsNullOrEmpty(analysis)) return "";
+        
+        return analysis
+            .Replace("\n", "<br/>")
+            .Replace("**", "")
+            .Replace("##", "");
+    }
+}

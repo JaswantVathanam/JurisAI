@@ -1,0 +1,1459 @@
+@page "/cybercrime"
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@using AILegalAsst.Components.Shared
+@inject CybercrimeService CybercrimeService
+@inject AuthenticationService AuthService
+@inject LanguageService LangService
+@inject LawService LawService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+@implements IDisposable
+
+<PageTitle>Cybercrime Focus - JurisAI</PageTitle>
+
+<link rel="stylesheet" href="cybercrime-enhancements.css" />
+<link rel="stylesheet" href="cybercrime-print.css" media="print" />
+<script src="app-utilities.js"></script>
+
+<CustomErrorBoundary ShowDetails="true" ShowReportButton="true">
+<div class="cybercrime-page cybercrime-page-v2">
+    <!-- Print-Only Header -->
+    <div class="print-only print-header">
+        <h1>Cybercrime Reports</h1>
+        <p class="print-meta">Generated: @DateTime.Now.ToString("MMMM dd, yyyy") | User: @currentUser?.Name</p>
+    </div>
+
+    <div class="page-header cybercrime-page-header-v2">
+        <div class="header-content header-content-v2">
+            <div class="header-icon header-icon-v2">
+                <i class="bi bi-shield-exclamation"></i>
+            </div>
+            <div class="header-text header-text-v2">
+                <h1>Cybercrime Focus</h1>
+                <p class="header-subtitle header-subtitle-v2">Report, Track & Combat Cybercrimes</p>
+            </div>
+        </div>
+        <div class="header-actions header-actions-v2 no-print">
+            <div class="export-section">
+                <button class="btn btn-export btn-export-v2" @onclick="ToggleExportMenu" disabled="@isExporting" aria-label="Export reports" aria-haspopup="menu" aria-expanded="@showExportMenu">
+                    <i class="bi bi-download"></i>
+                    <span>Export</span>
+                    <i class="bi bi-chevron-down ms-1"></i>
+                </button>
+                @if (showExportMenu)
+                {
+                    <div class="export-dropdown export-dropdown-v2" role="menu">
+                        <button class="dropdown-item export-option-v2" @onclick="@(() => ExportReports("csv"))" role="menuitem" tabindex="0">
+                            <i class="bi bi-filetype-csv"></i>
+                            <span>Export as CSV</span>
+                        </button>
+                        <button class="dropdown-item export-option-v2" @onclick="@(() => ExportReports("pdf"))" role="menuitem" tabindex="0">
+                            <i class="bi bi-file-earmark-pdf"></i>
+                            <span>Export as PDF</span>
+                        </button>
+                        <button class="dropdown-item export-option-v2" @onclick="@(() => ExportReports("json"))" role="menuitem" tabindex="0">
+                            <i class="bi bi-filetype-json"></i>
+                            <span>Export as JSON</span>
+                        </button>
+                    </div>
+                }
+            </div>
+            <button class="btn btn-print btn-print-v2" @onclick="PrintReports" disabled="@isPrinting" aria-label="Print reports">
+                <i class="bi bi-printer"></i>
+                <span>Print</span>
+            </button>
+        </div>
+    </div>
+
+    @if (currentUser == null)
+    {
+        <div class="error-container error-container-v2">
+            <p>Please log in to access this page.</p>
+        </div>
+    }
+    else if (currentUser.Role == UserRole.Citizen)
+    {
+        <div class="citizen-view citizen-view-v2">
+            <!-- Statistics Dashboard - Fixed Grid -->
+            @if (isLoading)
+            {
+                <div class="skeleton-stats-grid skeleton-stats-grid-v2" role="status" aria-label="Loading statistics">
+                    @for (int i = 0; i < 3; i++)
+                    {
+                        <div class="skeleton-stat-card skeleton-stat-card-v2">
+                            <div class="skeleton-stat-icon skeleton-stat-icon-v2"></div>
+                            <div class="skeleton-stat-content skeleton-stat-content-v2">
+                                <div class="skeleton-stat-value skeleton-stat-value-v2"></div>
+                                <div class="skeleton-stat-label skeleton-stat-label-v2"></div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="stats-grid-fixed stats-grid-v2">
+                    <div class="stat-card-fixed stat-card-v2">
+                        <div class="stat-icon-fixed stat-icon-v2">
+                            <i class="bi bi-file-text"></i>
+                        </div>
+                        <div class="stat-content-fixed stat-content-v2">
+                            <h3>@userReports.Count</h3>
+                            <p>My Reports</p>
+                        </div>
+                    </div>
+                    <div class="stat-card-fixed stat-card-v2">
+                        <div class="stat-icon-fixed stat-icon-v2">
+                            <i class="bi bi-clock-history"></i>
+                        </div>
+                        <div class="stat-content-fixed stat-content-v2">
+                            <h3>@userReports.Count(r => r.Status == ReportStatus.UnderReview || r.Status == ReportStatus.InvestigationStarted)</h3>
+                            <p>Active Cases</p>
+                        </div>
+                    </div>
+                    <div class="stat-card-fixed stat-card-v2">
+                        <div class="stat-icon-fixed stat-icon-v2">
+                            <i class="bi bi-check-circle"></i>
+                        </div>
+                        <div class="stat-content-fixed stat-content-v2">
+                            <h3>@userReports.Count(r => r.Status == ReportStatus.Closed)</h3>
+                            <p>Resolved</p>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Action Buttons -->
+            <div class="action-buttons action-buttons-v2">
+                <button class="btn-primary btn-primary-v2" @onclick="ShowReportForm">
+                    <i class="bi bi-plus-circle"></i> File New Report
+                </button>
+                <button class="btn-secondary btn-secondary-v2" @onclick='() => selectedView = "track"'>
+                    <i class="bi bi-search"></i> Track Report
+                </button>
+            </div>
+
+            @if (selectedView == "form")
+            {
+                <!-- Report Form -->
+                <div class="report-form-container report-form-container-v2">
+                    <h2 class="form-title-v2">File Cybercrime Report</h2>
+                    <form class="report-form report-form-v2" @onsubmit="SubmitReport">
+                        <div class="form-group form-group-v2">
+                            <label class="form-label-v2">Incident Type *</label>
+                            <select class="form-select-v2" @bind="newReport.IncidentType" required>
+                                <option value="">-- Select Type --</option>
+                                @foreach (CybercrimeType type in Enum.GetValues(typeof(CybercrimeType)))
+                                {
+                                    <option value="@type">@GetCrimeTypeName(type)</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="form-group form-group-v2">
+                            <label class="form-label-v2">Title *</label>
+                            <input type="text" class="form-input-v2" @bind="newReport.Title" placeholder="Brief description of incident" required />
+                        </div>
+
+                        <div class="form-group form-group-v2">
+                            <label class="form-label-v2">Detailed Description *</label>
+                            <textarea class="form-textarea-v2" @bind="newReport.Description" rows="5" placeholder="Provide detailed information about the incident..." required></textarea>
+                        </div>
+
+                        <div class="form-row form-row-v2">
+                            <div class="form-group form-group-v2">
+                                <label class="form-label-v2">Incident Date & Time *</label>
+                                <input type="datetime-local" class="form-input-v2" @bind="newReport.IncidentDate" required />
+                            </div>
+                            <div class="form-group form-group-v2">
+                                <label class="form-label-v2">Location</label>
+                                <input type="text" class="form-input-v2" @bind="newReport.Location" placeholder="City, State" />
+                            </div>
+                        </div>
+
+                        <div class="form-group form-group-v2">
+                            <label class="form-label-v2">Financial Loss (if any)</label>
+                            <input type="number" class="form-input-v2" @bind="newReport.FinancialLoss" placeholder="Amount in ₹" min="0" />
+                        </div>
+
+                        <div class="form-group form-group-v2">
+                            <label class="form-label-v2">Transaction Details (for financial frauds)</label>
+                            <textarea class="form-textarea-v2" @bind="newReport.TransactionDetails" rows="3" placeholder="UPI ID, Transaction ID, Bank details, etc."></textarea>
+                        </div>
+
+                        <div class="form-group form-group-v2">
+                            <label class="form-label-v2">Suspect Information (if known)</label>
+                            <input type="text" class="form-input-v2" @bind="newReport.SuspectName" placeholder="Name" />
+                            <input type="text" class="form-input-v2 mt-2" @bind="newReport.SuspectContact" placeholder="Phone/Email/Social Media Handle" />
+                        </div>
+
+                        <div class="form-actions form-actions-v2">
+                            <button type="submit" class="btn-primary btn-primary-v2">
+                                <i class="bi bi-check-circle"></i> Submit Report
+                            </button>
+                            <button type="button" class="btn-secondary btn-secondary-v2" @onclick="CancelReport">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            }
+            else if (selectedView == "track")
+            {
+                <!-- My Reports - Fixed Grid Layout -->
+                <div class="reports-container reports-container-v2">
+                    <h2 class="section-title-v2">My Reports</h2>
+                    @if (userReports.Any())
+                    {
+                        <div class="reports-grid reports-grid-v2">
+                            @foreach (var report in userReports)
+                            {
+                                <div class="report-card-fixed report-card-v2" @onclick="() => ViewReportDetails(report)">
+                                    <div class="report-card-header-fixed report-card-header-v2">
+                                        <span class="report-number-badge report-number-badge-v2">
+                                            <i class="bi bi-file-earmark-text"></i>
+                                            @report.ReportNumber
+                                        </span>
+                                        <span class="status-badge-fixed status-badge-v2 status-@report.Status.ToString().ToLower().Replace("_","")">
+                                            @report.Status.ToString().Replace("_", " ")
+                                        </span>
+                                    </div>
+                                    <div class="report-card-body report-card-body-v2">
+                                        <h3 class="report-title-v2">@report.Title</h3>
+                                        <p class="report-description-v2">@report.Description</p>
+                                        <div class="report-meta-grid report-meta-grid-v2">
+                                            <div class="report-meta-item report-meta-item-v2">
+                                                <i class="bi bi-calendar"></i>
+                                                <span>@report.ReportedDate.ToString("MMM dd")</span>
+                                            </div>
+                                            <div class="report-meta-item report-meta-item-v2">
+                                                <i class="bi bi-tag"></i>
+                                                <span>@GetCrimeTypeName(report.IncidentType)</span>
+                                            </div>
+                                            @if (report.FinancialLoss.HasValue)
+                                            {
+                                                <div class="report-meta-item report-meta-item-v2">
+                                                    <i class="bi bi-currency-rupee"></i>
+                                                    <span>₹@report.FinancialLoss.Value.ToString("N0")</span>
+                                                </div>
+                                            }
+                                            @if (report.IsUrgent)
+                                            {
+                                                <div class="report-meta-item report-meta-item-v2 urgent">
+                                                    <i class="bi bi-exclamation-triangle"></i>
+                                                    <span>Urgent</span>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="empty-state empty-state-v2">
+                            <i class="bi bi-inbox"></i>
+                            <p>No reports filed yet</p>
+                            <button class="btn-primary btn-primary-v2" @onclick="ShowReportForm">File Your First Report</button>
+                        </div>
+                    }
+                </div>
+            }
+
+            <!-- Resources Section -->
+            <div class="resources-section resources-section-v2">
+                <h2 class="section-title-v2">Helpful Resources</h2>
+                <div class="resource-grid resource-grid-v2">
+                    @foreach (var resource in emergencyResources.Take(3))
+                    {
+                        <div class="resource-card resource-card-v2 emergency">
+                            <div class="resource-icon resource-icon-v2">
+                                <i class="@resource.IconClass"></i>
+                            </div>
+                            <h3 class="resource-title-v2">@resource.Title</h3>
+                            <p class="resource-description-v2">@resource.Description</p>
+                            @if (!string.IsNullOrEmpty(resource.PhoneNumber))
+                            {
+                                <a href="tel:@resource.PhoneNumber" class="resource-link resource-link-v2">
+                                    <i class="bi bi-telephone"></i> @resource.PhoneNumber
+                                </a>
+                            }
+                            @if (!string.IsNullOrEmpty(resource.Link))
+                            {
+                                <a href="@resource.Link" target="_blank" class="resource-link resource-link-v2">
+                                    <i class="bi bi-box-arrow-up-right"></i> Visit Website
+                                </a>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else if (currentUser.Role == UserRole.Lawyer)
+    {
+        <div class="lawyer-view lawyer-view-v2">
+            <div class="page-header role-header-v2">
+                <div class="header-content header-content-v2">
+                    <div class="header-icon header-icon-v2 lawyer-icon">
+                        <i class="bi bi-briefcase"></i>
+                    </div>
+                    <div class="header-text header-text-v2">
+                        <h1>Cybercrime Legal Resources</h1>
+                        <p class="header-subtitle header-subtitle-v2">Legal Framework & Case Management</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Overview - Fixed Grid -->
+            @if (isLoading)
+            {
+                <div class="skeleton-stats-grid skeleton-stats-grid-v2" role="status" aria-label="Loading statistics">
+                    @for (int i = 0; i < 4; i++)
+                    {
+                        <div class="skeleton-stat-card skeleton-stat-card-v2">
+                            <div class="skeleton-stat-icon skeleton-stat-icon-v2"></div>
+                            <div class="skeleton-stat-content skeleton-stat-content-v2">
+                                <div class="skeleton-stat-value skeleton-stat-value-v2"></div>
+                                <div class="skeleton-stat-label skeleton-stat-label-v2"></div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="stats-grid-fixed stats-grid-v2">
+                    <div class="stat-card-fixed stat-card-v2">
+                        <div class="stat-icon-fixed stat-icon-v2">
+                            <i class="bi bi-file-text"></i>
+                        </div>
+                        <div class="stat-content-fixed stat-content-v2">
+                            <h3>@statistics.TotalReports</h3>
+                            <p>Total Reports</p>
+                        </div>
+                    </div>
+                    <div class="stat-card-fixed stat-card-v2">
+                        <div class="stat-icon-fixed stat-icon-v2">
+                            <i class="bi bi-clock-history"></i>
+                        </div>
+                        <div class="stat-content-fixed stat-content-v2">
+                            <h3>@statistics.ActiveInvestigations</h3>
+                            <p>Active Cases</p>
+                        </div>
+                    </div>
+                    <div class="stat-card-fixed stat-card-v2">
+                        <div class="stat-icon-fixed stat-icon-v2">
+                            <i class="bi bi-currency-rupee"></i>
+                        </div>
+                        <div class="stat-content-fixed stat-content-v2">
+                            <h3>₹@(statistics.TotalFinancialLoss / 100000)L</h3>
+                            <p>Financial Impact</p>
+                        </div>
+                    </div>
+                    <div class="stat-card-fixed stat-card-v2">
+                        <div class="stat-icon-fixed stat-icon-v2">
+                            <i class="bi bi-file-earmark-check"></i>
+                        </div>
+                        <div class="stat-content-fixed stat-content-v2">
+                            <h3>@statistics.FIRsFiled</h3>
+                            <p>FIRs Filed</p>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- AI Trend Insight -->
+            <div style="margin: 1rem 0; padding: 1rem; background: rgba(102, 126, 234, 0.08); border-radius: 12px; border: 1px solid rgba(102, 126, 234, 0.2);">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span style="font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;"><i class="bi bi-lightbulb" style="color: #667eea;"></i> AI Trend Insight</span>
+                    <button @onclick="EnhanceWithAIInsight" disabled="@isLoadingAiInsight" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; border-radius: 8px; border: none; background: linear-gradient(135deg, #667eea, #764ba2); color: white; cursor: pointer; display: flex; align-items: center; gap: 0.4rem;">
+                        @if (isLoadingAiInsight)
+                        {
+                            <i class="bi bi-hourglass-split"></i> <span>Analyzing...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-stars"></i> <span>@(string.IsNullOrEmpty(statistics.AiInsight) ? "Get AI Insight" : "Refresh Insight")</span>
+                        }
+                    </button>
+                </div>
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin: 0;">@(string.IsNullOrEmpty(statistics.AiInsight) ? "Click the button to generate AI-powered trend analysis." : statistics.AiInsight)</p>
+            </div>
+
+            <!-- IT Act Sections - Modern Card Grid -->
+            <div class="laws-section laws-section-v2">
+                <h2 class="section-title-v2"><i class="bi bi-journal-bookmark"></i> Applicable IT Act Sections</h2>
+                <div class="law-sections-grid law-sections-grid-v2">
+                    @foreach (var lawItem in itActSections)
+                    {
+                        <div class="law-section-card law-section-card-v2" @onclick="() => ViewLawDetails(lawItem)">
+                            <div class="law-card-header law-card-header-v2">
+                                <div class="section-number section-number-v2">
+                                    <i class="bi bi-file-earmark-text"></i>
+                                </div>
+                                <div class="section-title-area section-title-area-v2">
+                                    <h3>@lawItem.Title</h3>
+                                    @if (lawItem.IsCybercrime)
+                                    {
+                                        <span class="cybercrime-badge cybercrime-badge-v2">
+                                            <i class="bi bi-shield-exclamation"></i> Cybercrime
+                                        </span>
+                                    }
+                                </div>
+                            </div>
+                            <div class="law-card-body law-card-body-v2">
+                                <p>@lawItem.Content</p>
+                            </div>
+                            @if (!string.IsNullOrEmpty(lawItem.Punishment))
+                            {
+                                <div class="law-card-footer law-card-footer-v2">
+                                    <div class="punishment-badge punishment-badge-v2">
+                                        <i class="bi bi-exclamation-diamond"></i>
+                                        <span>@lawItem.Punishment</span>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Case Precedents for Cybercrime -->
+            <div class="precedents-section precedents-section-v2">
+                <h2 class="section-title-v2"><i class="bi bi-book"></i> Cybercrime Case Precedents</h2>
+                <p class="section-description section-description-v2">Notable judgments and precedents for cybercrime cases</p>
+                <button class="btn-secondary btn-secondary-v2" @onclick='() => NavigateTo("/precedents")'>
+                    <i class="bi bi-arrow-right-circle"></i> View All Precedents
+                </button>
+            </div>
+
+            <!-- Legal Resources -->
+            <div class="resources-section resources-section-v2">
+                <h2 class="section-title-v2"><i class="bi bi-folder"></i> Legal Resources</h2>
+                <div class="resource-grid resource-grid-v2">
+                    @foreach (var resource in legalResources)
+                    {
+                        <div class="resource-card resource-card-v2 emergency">
+                            <div class="resource-icon resource-icon-v2">
+                                <i class="@resource.IconClass"></i>
+                            </div>
+                            <h3 class="resource-title-v2">@resource.Title</h3>
+                            <p class="resource-description-v2">@resource.Description</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else if (currentUser.Role == UserRole.Police)
+    {
+        <div class="police-view police-view-v2">
+            <div class="page-header role-header-v2">
+                <div class="header-content header-content-v2">
+                    <div class="header-icon header-icon-v2 police-icon">
+                        <i class="bi bi-shield-check"></i>
+                    </div>
+                    <div class="header-text header-text-v2">
+                        <h1>Investigation Dashboard</h1>
+                        <p class="header-subtitle header-subtitle-v2">Manage & Track Cybercrime Investigations</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Dashboard - Fixed Grid -->
+            @if (isLoading)
+            {
+                <div class="skeleton-stats-grid skeleton-stats-grid-v2" role="status" aria-label="Loading statistics">
+                    @for (int i = 0; i < 4; i++)
+                    {
+                        <div class="skeleton-stat-card skeleton-stat-card-v2">
+                            <div class="skeleton-stat-icon skeleton-stat-icon-v2"></div>
+                            <div class="skeleton-stat-content skeleton-stat-content-v2">
+                                <div class="skeleton-stat-value skeleton-stat-value-v2"></div>
+                                <div class="skeleton-stat-label skeleton-stat-label-v2"></div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="stats-grid-fixed stats-grid-v2">
+                    <div class="stat-card-fixed stat-card-v2">
+                        <div class="stat-icon-fixed stat-icon-v2">
+                            <i class="bi bi-file-text"></i>
+                        </div>
+                        <div class="stat-content-fixed stat-content-v2">
+                            <h3>@statistics.TotalReports</h3>
+                            <p>Total Reports</p>
+                        </div>
+                    </div>
+                    <div class="stat-card-fixed stat-card-v2">
+                        <div class="stat-icon-fixed stat-icon-v2">
+                            <i class="bi bi-hourglass-split"></i>
+                        </div>
+                        <div class="stat-content-fixed stat-content-v2">
+                            <h3>@assignedReports.Count(r => r.Status == ReportStatus.UnderReview)</h3>
+                            <p>Pending Review</p>
+                        </div>
+                    </div>
+                    <div class="stat-card-fixed stat-card-v2">
+                        <div class="stat-icon-fixed stat-icon-v2">
+                            <i class="bi bi-search"></i>
+                        </div>
+                        <div class="stat-content-fixed stat-content-v2">
+                            <h3>@statistics.ActiveInvestigations</h3>
+                            <p>Active Investigations</p>
+                        </div>
+                    </div>
+                    <div class="stat-card-fixed stat-card-v2">
+                        <div class="stat-icon-fixed stat-icon-v2">
+                            <i class="bi bi-file-earmark-check"></i>
+                        </div>
+                        <div class="stat-content-fixed stat-content-v2">
+                            <h3>@statistics.FIRsFiled</h3>
+                            <p>FIRs Filed</p>
+                        </div>
+                    </div>
+                    <div class="stat-card-fixed stat-card-v2">
+                        <div class="stat-icon-fixed stat-icon-v2">
+                            <i class="bi bi-check-circle"></i>
+                        </div>
+                        <div class="stat-content-fixed stat-content-v2">
+                            <h3>@statistics.CasesClosed</h3>
+                            <p>Cases Closed</p>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Filter and Search -->
+            <div class="filter-bar filter-bar-v2 enhanced-filter-bar">
+                <div class="search-box search-box-v2">
+                    <i class="bi bi-search"></i>
+                    <input type="text" class="search-input-v2" @bind="searchTerm" @bind:event="oninput" @onkeyup="PerformSearch" 
+                           placeholder="Search by report number, name, or details..." 
+                           aria-label="Search reports by report number, name, or details" />
+                </div>
+                <select class="filter-select-v2" @bind="filterStatus" @bind:after="ApplyFilters" aria-label="Filter by status">
+                    <option value="">All Status</option>
+                    @foreach (ReportStatus status in Enum.GetValues(typeof(ReportStatus)))
+                    {
+                        <option value="@status">@status.ToString().Replace("_", " ")</option>
+                    }
+                </select>
+                <select class="filter-select-v2" @bind="filterType" @bind:after="ApplyFilters" aria-label="Filter by cybercrime type">
+                    <option value="">All Types</option>
+                    @foreach (CybercrimeType type in Enum.GetValues(typeof(CybercrimeType)))
+                    {
+                        <option value="@type">@GetCrimeTypeName(type)</option>
+                    }
+                </select>
+                <select class="filter-select-v2" @bind="sortColumn" @bind:after="ApplySorting" aria-label="Sort reports by">
+                    <option value="date">Sort by Date</option>
+                    <option value="status">Sort by Status</option>
+                    <option value="type">Sort by Type</option>
+                    <option value="urgent">Sort by Urgency</option>
+                </select>
+            </div>
+
+            <!-- Reports List - Fixed Grid -->
+            <div class="reports-container reports-container-v2">
+                @if (isLoading)
+                {
+                    <div class="skeleton-reports-grid skeleton-reports-grid-v2" role="status" aria-label="Loading reports">
+                        @for (int i = 0; i < 6; i++)
+                        {
+                            <div class="skeleton-report-card skeleton-report-card-v2">
+                                <div class="skeleton-report-header skeleton-report-header-v2"></div>
+                                <div class="skeleton-report-title skeleton-report-title-v2"></div>
+                                <div class="skeleton-report-text skeleton-report-text-v2"></div>
+                                <div class="skeleton-report-meta skeleton-report-meta-v2">
+                                    <div class="skeleton-meta-item skeleton-meta-item-v2"></div>
+                                    <div class="skeleton-meta-item skeleton-meta-item-v2"></div>
+                                    <div class="skeleton-meta-item skeleton-meta-item-v2"></div>
+                                </div>
+                                <div class="skeleton-report-status skeleton-report-status-v2"></div>
+                            </div>
+                        }
+                    </div>
+                }
+                else if (filteredReports.Any())
+                {
+                    <div class="reports-grid reports-grid-v2">
+                        @foreach (var report in filteredReports)
+                        {
+                            <div class="report-card-fixed report-card-v2 @(report.IsUrgent ? "urgent" : "")" 
+                                 @onclick="() => ViewReportDetails(report)"
+                                 @onkeydown="@((e) => HandleKeyPress(e, () => ViewReportDetails(report)))"
+                                 tabindex="0"
+                                 role="article"
+                                 aria-label="@($"Cybercrime report {report.ReportNumber}: {report.Title}")">
+                                <div class="report-header-fixed report-card-header-v2">
+                                    <div class="report-number-badge report-number-badge-v2">
+                                        <i class="bi bi-file-earmark-text"></i>
+                                        <span>@report.ReportNumber</span>
+                                    </div>
+                                    @if (report.IsUrgent)
+                                    {
+                                        <span class="urgent-badge urgent-badge-v2" aria-label="Urgent report">
+                                            <i class="bi bi-exclamation-triangle-fill"></i>
+                                        </span>
+                                    }
+                                </div>
+                                
+                                <div class="report-card-body report-card-body-v2">
+                                    <h3 class="report-title-v2">@report.Title</h3>
+                                    <p class="report-description-v2">@report.Description</p>
+                                    
+                                    <div class="report-meta-grid report-meta-grid-v2">
+                                        <div class="meta-item report-meta-item-v2">
+                                            <i class="bi bi-calendar3"></i>
+                                            <span>@report.ReportedDate.ToString("MMM dd, yyyy")</span>
+                                        </div>
+                                        <div class="meta-item report-meta-item-v2">
+                                            <i class="bi bi-tag"></i>
+                                            <span>@GetCrimeTypeName(report.IncidentType)</span>
+                                        </div>
+                                        <div class="meta-item report-meta-item-v2">
+                                            <i class="bi bi-person"></i>
+                                            <span>@report.VictimName</span>
+                                        </div>
+                                        @if (report.FinancialLoss.HasValue)
+                                        {
+                                            <div class="meta-item report-meta-item-v2 loss">
+                                                <i class="bi bi-currency-rupee"></i>
+                                                <span>₹@report.FinancialLoss.Value.ToString("N0")</span>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                                
+                                <div class="report-card-footer report-card-footer-v2">
+                                    <span class="status-badge-fixed status-badge-v2 status-@report.Status.ToString().ToLower()">
+                                        @report.Status.ToString().Replace("_", " ")
+                                    </span>
+                                    @if (!string.IsNullOrEmpty(report.FIRNumber))
+                                    {
+                                        <span class="fir-badge-fixed fir-badge-v2">
+                                            <i class="bi bi-file-earmark-check-fill"></i> @report.FIRNumber
+                                        </span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="empty-state empty-state-v2">
+                        <i class="bi bi-inbox"></i>
+                        <p>No reports found matching your filters</p>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <!-- Report Details Modal - Enhanced Glassmorphic -->
+    @if (selectedReport != null)
+    {
+        <div class="modal-overlay-glass modal-overlay-v2" @onclick="CloseModal">
+            <div class="report-modal report-detail-modal-v2" @onclick:stopPropagation="true">
+                <button class="report-close-btn modal-close-btn-v2" @onclick="CloseModal">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+                
+                <div class="report-modal-header modal-header-v2">
+                    <div class="report-title-section modal-title-section-v2">
+                        @if (isEditingReport && (currentUser?.Role == UserRole.Police || currentUser?.Role == UserRole.Admin))
+                        {
+                            <select class="form-control form-select-v2 status-select" @bind="selectedReport.Status">
+                                <option value="@ReportStatus.Submitted">Submitted</option>
+                                <option value="@ReportStatus.UnderReview">Under Review</option>
+                                <option value="@ReportStatus.InvestigationStarted">Investigation Started</option>
+                                <option value="@ReportStatus.EvidenceCollected">Evidence Collected</option>
+                                <option value="@ReportStatus.FIRFiled">FIR Filed</option>
+                                <option value="@ReportStatus.Closed">Closed</option>
+                            </select>
+                        }
+                        else
+                        {
+                            <div class="report-status-badge status-badge-v2 status-@selectedReport.Status.ToString().ToLower()">
+                                @selectedReport.Status.ToString().Replace("_", " ")
+                            </div>
+                        }
+                        <h1 class="modal-title-v2">@selectedReport.Title</h1>
+                        <p class="report-id modal-subtitle-v2">Report #@selectedReport.ReportNumber</p>
+                    </div>
+                    @if (currentUser?.Role == UserRole.Police || currentUser?.Role == UserRole.Admin)
+                    {
+                        <div class="report-actions modal-actions-v2">
+                            <button class="btn-glass btn-action-v2" @onclick="ToggleEditMode">
+                                <i class="bi @(isEditingReport ? "bi-x-lg" : "bi-pencil-square")"></i>
+                                @(isEditingReport ? "Cancel" : "Edit Details")
+                            </button>
+                            @if (isEditingReport)
+                            {
+                                <button class="btn-glass btn-save btn-save-v2" @onclick="SaveReportChanges">
+                                    <i class="bi bi-check-lg"></i>
+                                    Save Changes
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="report-modal-body modal-body-v2">
+                    <div class="report-details report-details-v2">
+                        <div class="report-info-grid report-info-grid-v2">
+                            <div class="info-card info-card-v2">
+                                <div class="info-icon info-icon-v2">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                </div>
+                                <div class="info-content info-content-v2">
+                                    <label class="info-label-v2">Incident Type</label>
+                                    <p class="info-value-v2">@GetCrimeTypeName(selectedReport.IncidentType)</p>
+                                </div>
+                            </div>
+                            <div class="info-card info-card-v2">
+                                <div class="info-icon info-icon-v2">
+                                    <i class="bi bi-calendar-event"></i>
+                                </div>
+                                <div class="info-content info-content-v2">
+                                    <label class="info-label-v2">Incident Date</label>
+                                    <p class="info-value-v2">@selectedReport.IncidentDate.ToString("MMM dd, yyyy hh:mm tt")</p>
+                                </div>
+                            </div>
+                            <div class="info-card info-card-v2">
+                                <div class="info-icon info-icon-v2">
+                                    <i class="bi bi-calendar-check"></i>
+                                </div>
+                                <div class="info-content info-content-v2">
+                                    <label class="info-label-v2">Reported Date</label>
+                                    <p class="info-value-v2">@selectedReport.ReportedDate.ToString("MMM dd, yyyy hh:mm tt")</p>
+                                </div>
+                            </div>
+                            @if (!string.IsNullOrEmpty(selectedReport.Location))
+                            {
+                                <div class="info-card info-card-v2">
+                                    <div class="info-icon info-icon-v2">
+                                        <i class="bi bi-geo-alt"></i>
+                                    </div>
+                                    <div class="info-content info-content-v2">
+                                        <label class="info-label-v2">Location</label>
+                                        <p class="info-value-v2">@selectedReport.Location</p>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="report-section detail-section-v2">
+                            <h3 class="detail-section-title-v2"><i class="bi bi-file-text"></i> Description</h3>
+                            <div class="section-content section-content-v2">
+                                @if (isEditingReport && (currentUser?.Role == UserRole.Police || currentUser?.Role == UserRole.Admin))
+                                {
+                                    <textarea class="form-control form-textarea-v2" rows="5" @bind="selectedReport.Description" 
+                                              placeholder="Enter detailed description of the incident..."></textarea>
+                                }
+                                else
+                                {
+                                    <p>@selectedReport.Description</p>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="report-section detail-section-v2">
+                            <h3 class="detail-section-title-v2"><i class="bi bi-person"></i> Victim Information</h3>
+                            <div class="report-info-grid report-info-grid-v2 small">
+                                <div class="info-card info-card-v2">
+                                    <div class="info-icon info-icon-v2">
+                                        <i class="bi bi-person-badge"></i>
+                                    </div>
+                                    <div class="info-content info-content-v2">
+                                        <label class="info-label-v2">Name</label>
+                                        <p class="info-value-v2">@selectedReport.VictimName</p>
+                                    </div>
+                                </div>
+                                <div class="info-card info-card-v2">
+                                    <div class="info-icon info-icon-v2">
+                                        <i class="bi bi-envelope"></i>
+                                    </div>
+                                    <div class="info-content info-content-v2">
+                                        <label class="info-label-v2">Email</label>
+                                        <p class="info-value-v2">@selectedReport.VictimEmail</p>
+                                    </div>
+                                </div>
+                                <div class="info-card info-card-v2">
+                                    <div class="info-icon info-icon-v2">
+                                        <i class="bi bi-telephone"></i>
+                                    </div>
+                                    <div class="info-content info-content-v2">
+                                        <label class="info-label-v2">Phone</label>
+                                        <p class="info-value-v2">@selectedReport.VictimPhone</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if (selectedReport.FinancialLoss.HasValue || !string.IsNullOrEmpty(selectedReport.TransactionDetails))
+                        {
+                            <div class="report-section detail-section-v2 highlight">
+                                <h3 class="detail-section-title-v2"><i class="bi bi-currency-rupee"></i> Financial Details</h3>
+                                <div class="section-content section-content-v2">
+                                    @if (selectedReport.FinancialLoss.HasValue)
+                                    {
+                                        <div class="financial-loss financial-loss-v2">
+                                            <span class="label">Financial Loss:</span>
+                                            <span class="amount amount-v2">₹@selectedReport.FinancialLoss.Value.ToString("N2")</span>
+                                        </div>
+                                    }
+                                    @if (!string.IsNullOrEmpty(selectedReport.TransactionDetails))
+                                    {
+                                        <p><strong>Transaction Details:</strong> @selectedReport.TransactionDetails</p>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(selectedReport.SuspectName) || !string.IsNullOrEmpty(selectedReport.SuspectContact))
+                        {
+                            <div class="report-section detail-section-v2">
+                                <h3 class="detail-section-title-v2"><i class="bi bi-person-x"></i> Suspect Information</h3>
+                                <div class="section-content section-content-v2">
+                                    @if (!string.IsNullOrEmpty(selectedReport.SuspectName))
+                                    {
+                                        <p><strong>Name:</strong> @selectedReport.SuspectName</p>
+                                    }
+                                    @if (!string.IsNullOrEmpty(selectedReport.SuspectContact))
+                                    {
+                                        <p><strong>Contact:</strong> @selectedReport.SuspectContact</p>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        @if (selectedReport.ApplicableSections.Any())
+                        {
+                            <div class="report-section detail-section-v2">
+                                <h3 class="detail-section-title-v2"><i class="bi bi-journal-bookmark"></i> Applicable Legal Sections</h3>
+                                <div class="section-badges section-badges-v2">
+                                    @foreach (var lawSection in selectedReport.ApplicableSections)
+                                    {
+                                        <span class="section-badge section-badge-v2">@lawSection</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(selectedReport.FIRNumber) || (isEditingReport && (currentUser?.Role == UserRole.Police || currentUser?.Role == UserRole.Admin)))
+                        {
+                            <div class="report-section detail-section-v2 fir-section fir-section-v2">
+                                <div class="fir-badge fir-badge-v2">
+                                    <i class="bi bi-file-earmark-check-fill"></i>
+                                    <span>FIR @(string.IsNullOrEmpty(selectedReport.FIRNumber) ? "Details" : "Filed")</span>
+                                </div>
+                                <div class="fir-details fir-details-v2">
+                                    <div class="fir-item fir-item-v2">
+                                        <span class="label">FIR Number:</span>
+                                        @if (isEditingReport && (currentUser?.Role == UserRole.Police || currentUser?.Role == UserRole.Admin))
+                                        {
+                                            <input type="text" class="form-control-inline form-input-v2" @bind="selectedReport.FIRNumber" 
+                                                   placeholder="Enter FIR number" />
+                                        }
+                                        else
+                                        {
+                                            <span class="value">@selectedReport.FIRNumber</span>
+                                        }
+                                    </div>
+                                    <div class="fir-item fir-item-v2">
+                                        <span class="label">Filed Date:</span>
+                                        @if (isEditingReport && (currentUser?.Role == UserRole.Police || currentUser?.Role == UserRole.Admin))
+                                        {
+                                            <input type="date" class="form-control-inline form-input-v2" 
+                                                   value="@selectedReport.FIRFiledDate?.ToString("yyyy-MM-dd")"
+                                                   @onchange="@((e) => selectedReport.FIRFiledDate = DateTime.Parse(e.Value?.ToString() ?? DateTime.Now.ToString()))" />
+                                        }
+                                        else
+                                        {
+                                            <span class="value">@selectedReport.FIRFiledDate?.ToString("MMM dd, yyyy")</span>
+                                        }
+                                    </div>
+                                    <div class="fir-item fir-item-v2">
+                                        <span class="label">Police Station:</span>
+                                        @if (isEditingReport && (currentUser?.Role == UserRole.Police || currentUser?.Role == UserRole.Admin))
+                                        {
+                                            <input type="text" class="form-control-inline form-input-v2" @bind="selectedReport.PoliceStationName" 
+                                                   placeholder="Enter police station name" />
+                                        }
+                                        else
+                                        {
+                                            <span class="value">@selectedReport.PoliceStationName</span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(selectedReport.AssignedOfficerName) || (isEditingReport && (currentUser?.Role == UserRole.Police || currentUser?.Role == UserRole.Admin)))
+                        {
+                            <div class="report-section detail-section-v2">
+                                <h3 class="detail-section-title-v2"><i class="bi bi-shield-check"></i> Assigned Officer</h3>
+                                <div class="section-content section-content-v2">
+                                    @if (isEditingReport && (currentUser?.Role == UserRole.Police || currentUser?.Role == UserRole.Admin))
+                                    {
+                                        <input type="text" class="form-control form-input-v2" @bind="selectedReport.AssignedOfficerName" 
+                                               placeholder="Enter assigned officer name" />
+                                    }
+                                    else
+                                    {
+                                        <p>@selectedReport.AssignedOfficerName</p>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        @if (selectedReport.Updates.Any())
+                        {
+                            <div class="report-section detail-section-v2">
+                                <h3 class="detail-section-title-v2"><i class="bi bi-clock-history"></i> Investigation Updates</h3>
+                                <div class="timeline timeline-v2">
+                                    @foreach (var update in selectedReport.Updates.OrderByDescending(u => u.UpdateDate))
+                                    {
+                                        <div class="timeline-item timeline-item-v2">
+                                            <div class="timeline-marker timeline-marker-v2"></div>
+                                            <div class="timeline-content timeline-content-v2">
+                                                <div class="timeline-header timeline-header-v2">
+                                                    <span class="timeline-date timeline-date-v2">@update.UpdateDate.ToString("MMM dd, yyyy")</span>
+                                                    <span class="timeline-author timeline-author-v2">@update.UpdatedBy</span>
+                                                </div>
+                                                <p>@update.Message</p>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        @if (currentUser?.Role == UserRole.Police)
+                        {
+                            <div class="detail-section detail-section-v2">
+                                <h4 class="detail-section-title-v2">Investigation Actions</h4>
+                                <div class="action-buttons action-buttons-v2">
+                                    @if (selectedReport.Status == ReportStatus.UnderReview)
+                                    {
+                                        <button class="btn-primary btn-primary-v2" @onclick="StartInvestigation">
+                                            <i class="bi bi-play-circle"></i> Start Investigation
+                                        </button>
+                                    }
+                                    @if (selectedReport.Status == ReportStatus.InvestigationStarted && string.IsNullOrEmpty(selectedReport.FIRNumber))
+                                    {
+                                        <button class="btn-primary btn-primary-v2" @onclick="ShowFileFIRForm">
+                                            <i class="bi bi-file-earmark-plus"></i> File FIR
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Law Details Modal -->
+    @if (selectedLaw != null)
+    {
+        <div class="modal-overlay modal-overlay-v2" @onclick="CloseLawModal">
+            <div class="modal-content law-modal-v2" @onclick:stopPropagation="true">
+                <div class="modal-header modal-header-v2">
+                    <h2 class="modal-title-v2">@selectedLaw.Title</h2>
+                    <button class="close-btn modal-close-btn-v2" @onclick="CloseLawModal">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <div class="modal-body modal-body-v2">
+                    <div class="law-details law-details-v2">
+                        <div class="law-badges law-badges-v2">
+                            <span class="law-badge law-badge-v2">@selectedLaw.Category</span>
+                            @if (selectedLaw.IsCybercrime)
+                            {
+                                <span class="law-badge law-badge-v2 cybercrime">Cybercrime</span>
+                            }
+                        </div>
+                        <div class="law-section law-detail-section-v2">
+                            <h4 class="detail-section-title-v2">Content</h4>
+                            <p>@selectedLaw.Content</p>
+                        </div>
+                        @if (!string.IsNullOrEmpty(selectedLaw.Explanation))
+                        {
+                            <div class="law-section law-detail-section-v2">
+                                <h4 class="detail-section-title-v2">Explanation</h4>
+                                <p>@selectedLaw.Explanation</p>
+                            </div>
+                        }
+                        @if (!string.IsNullOrEmpty(selectedLaw.Punishment))
+                        {
+                            <div class="law-section law-detail-section-v2 highlight">
+                                <h4 class="detail-section-title-v2">Punishment</h4>
+                                <p>@selectedLaw.Punishment</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Toast Notification -->
+    @if (showToast)
+    {
+        <div class="toast-notification toast-notification-v2" role="alert" aria-live="polite">
+            <i class="bi bi-check-circle-fill"></i>
+            <span>@toastMessage</span>
+        </div>
+    }
+</div>
+</CustomErrorBoundary>
+
+@code {
+    private User? currentUser;
+    private string selectedView = "track";
+    private CybercrimeReport newReport = new();
+    private List<CybercrimeReport> allReports = new();
+    private List<CybercrimeReport> userReports = new();
+    private List<CybercrimeReport> assignedReports = new();
+    private List<CybercrimeReport> filteredReports = new();
+    private List<CybercrimeResource> emergencyResources = new();
+    private List<CybercrimeResource> legalResources = new();
+    private List<LawSection> itActSections = new();
+    private CybercrimeStatistics statistics = new();
+    private bool isLoadingAiInsight = false;
+    private CybercrimeReport? selectedReport;
+    private LawSection? selectedLaw;
+    
+    private string searchTerm = string.Empty;
+    private string filterStatus = string.Empty;
+    private string filterType = string.Empty;
+
+    // Enhancement state variables
+    private bool isLoading = false;
+    private bool isExporting = false;
+    private bool isPrinting = false;
+    private bool showExportMenu = false;
+    private bool showToast = false;
+    private string toastMessage = string.Empty;
+    private string sortColumn = "date";
+    private bool sortAscending = false;
+    
+    // Edit mode state variables
+    private bool isEditingReport = false;
+    private CybercrimeReport? originalReport; // Store original state for cancel operation
+
+    protected override async Task OnInitializedAsync()
+    {
+        LangService.OnLanguageChanged += OnLanguageChanged;
+        currentUser = AuthService.GetCurrentUser();
+        isLoading = true;
+        await Task.Delay(300);
+        LoadData();
+        isLoading = false;
+    }
+
+    private async Task EnhanceWithAIInsight()
+    {
+        isLoadingAiInsight = true;
+        try
+        {
+            var insight = await CybercrimeService.GetTrendInsightAsync(statistics);
+            if (!string.IsNullOrEmpty(insight))
+            {
+                statistics.AiInsight = insight;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"AI insight load failed: {ex.Message}");
+        }
+        finally
+        {
+            isLoadingAiInsight = false;
+        }
+    }
+
+    private void LoadData()
+    {
+        allReports = CybercrimeService.GetAllReports();
+        statistics = CybercrimeService.GetStatistics();
+        emergencyResources = CybercrimeService.GetEmergencyResources();
+        legalResources = CybercrimeService.GetResourcesByCategory("Legal");
+        
+        // Get IT Act sections using LawType enum
+        var itActLaw = LawService.GetAllLaws().FirstOrDefault(l => l.Title.Contains("Information Technology Act"));
+        itActSections = itActLaw?.Sections ?? new List<LawSection>();
+
+        if (currentUser != null)
+        {
+            if (currentUser.Role == UserRole.Citizen)
+            {
+                userReports = CybercrimeService.GetReportsByUser(currentUser.Id);
+            }
+            else if (currentUser.Role == UserRole.Police)
+            {
+                assignedReports = CybercrimeService.GetReportsByOfficer(currentUser.Id);
+                filteredReports = allReports;
+            }
+        }
+    }
+
+    private void ShowReportForm()
+    {
+        selectedView = "form";
+        newReport = new CybercrimeReport
+        {
+            VictimUserId = currentUser?.Id ?? 0,
+            VictimName = currentUser?.Name ?? string.Empty,
+            VictimEmail = currentUser?.Email ?? string.Empty,
+            VictimPhone = string.Empty
+        };
+    }
+
+    private void SubmitReport()
+    {
+        var createdReport = CybercrimeService.CreateReport(newReport);
+        userReports.Insert(0, createdReport);
+        selectedView = "track";
+        newReport = new();
+    }
+
+    private void CancelReport()
+    {
+        selectedView = "track";
+        newReport = new();
+    }
+
+    private void ViewReportDetails(CybercrimeReport report)
+    {
+        selectedReport = report;
+    }
+
+    private void CloseModal()
+    {
+        selectedReport = null;
+        isEditingReport = false;
+        originalReport = null;
+    }
+
+    private void ToggleEditMode()
+    {
+        if (!isEditingReport)
+        {
+            // Entering edit mode - save original state
+            originalReport = new CybercrimeReport
+            {
+                Id = selectedReport!.Id,
+                Title = selectedReport.Title,
+                Description = selectedReport.Description,
+                Status = selectedReport.Status,
+                AssignedOfficerName = selectedReport.AssignedOfficerName,
+                FIRNumber = selectedReport.FIRNumber,
+                FIRFiledDate = selectedReport.FIRFiledDate,
+                PoliceStationName = selectedReport.PoliceStationName
+            };
+            isEditingReport = true;
+        }
+        else
+        {
+            // Canceling edit - restore original state
+            if (originalReport != null && selectedReport != null)
+            {
+                selectedReport.Title = originalReport.Title;
+                selectedReport.Description = originalReport.Description;
+                selectedReport.Status = originalReport.Status;
+                selectedReport.AssignedOfficerName = originalReport.AssignedOfficerName;
+                selectedReport.FIRNumber = originalReport.FIRNumber;
+                selectedReport.FIRFiledDate = originalReport.FIRFiledDate;
+                selectedReport.PoliceStationName = originalReport.PoliceStationName;
+            }
+            isEditingReport = false;
+            originalReport = null;
+        }
+    }
+
+    private void SaveReportChanges()
+    {
+        if (selectedReport == null) return;
+
+        // Update the report in the service
+        CybercrimeService.UpdateReport(selectedReport);
+        
+        // Reload data to reflect changes
+        LoadData();
+        
+        // Exit edit mode
+        isEditingReport = false;
+        originalReport = null;
+        
+        // Show success toast
+        ShowToast("Report updated successfully!");
+    }
+
+    private void ViewLawDetails(LawSection lawSection)
+    {
+        selectedLaw = lawSection;
+    }
+
+    private void CloseLawModal()
+    {
+        selectedLaw = null;
+    }
+
+    private void StartInvestigation()
+    {
+        if (selectedReport != null && currentUser != null)
+        {
+            CybercrimeService.UpdateReportStatus(
+                selectedReport.Id,
+                ReportStatus.InvestigationStarted,
+                currentUser.Name,
+                "Investigation has been initiated. Evidence collection in progress."
+            );
+            LoadData();
+            CloseModal();
+        }
+    }
+
+    private void ShowFileFIRForm()
+    {
+        // In a real app, this would show a form to collect FIR details
+        if (selectedReport != null)
+        {
+            var firNumber = $"FIR-{DateTime.Now.Year}-{new Random().Next(1000, 9999)}";
+            CybercrimeService.FileFIR(selectedReport.Id, firNumber, "Cyber Crime Cell, Mumbai");
+            LoadData();
+            selectedReport = CybercrimeService.GetReportById(selectedReport.Id);
+        }
+    }
+
+    private void PerformSearch()
+    {
+        ApplyFilters();
+    }
+
+    private void ApplyFilters()
+    {
+        filteredReports = CybercrimeService.SearchReports(
+            searchTerm,
+            string.IsNullOrEmpty(filterType) ? null : Enum.Parse<CybercrimeType>(filterType),
+            string.IsNullOrEmpty(filterStatus) ? null : Enum.Parse<ReportStatus>(filterStatus)
+        );
+    }
+
+    private void NavigateTo(string url)
+    {
+        // Navigation would be handled by NavigationManager in a real scenario
+    }
+
+    private string GetCrimeTypeName(CybercrimeType type)
+    {
+        return type switch
+        {
+            CybercrimeType.OnlineFraud => "Online Fraud",
+            CybercrimeType.IdentityTheft => "Identity Theft",
+            CybercrimeType.Cyberstalking => "Cyber Stalking",
+            CybercrimeType.DataBreach => "Data Breach",
+            CybercrimeType.SocialMediaAbuse => "Social Media Abuse",
+            CybercrimeType.OnlineHarassment => "Online Harassment",
+            CybercrimeType.ChildPornography => "Child Pornography",
+            CybercrimeType.Cyberbullying => "Cyber Bullying",
+            CybercrimeType.BankingFraud => "Banking Fraud",
+            CybercrimeType.CreditCardFraud => "Credit Card Fraud",
+            CybercrimeType.UPIFraud => "UPI Fraud",
+            CybercrimeType.EcommerceScam => "E-commerce Scam",
+            CybercrimeType.JobScam => "Job Scam",
+            CybercrimeType.MatrimonialScam => "Matrimonial Scam",
+            CybercrimeType.Ransomware => "Ransomware",
+            _ => type.ToString()
+        };
+    }
+
+    // Enhancement methods
+    private void ToggleExportMenu()
+    {
+        showExportMenu = !showExportMenu;
+    }
+
+    private async Task ExportReports(string format)
+    {
+        isExporting = true;
+        showExportMenu = false;
+        
+        try
+        {
+            if (format == "csv")
+            {
+                await ExportToCsv();
+            }
+            else if (format == "pdf")
+            {
+                await ExportToPdf();
+            }
+            else if (format == "json")
+            {
+                await ExportToJson();
+            }
+            
+            ShowToast($"Reports exported successfully as {format.ToUpper()}!");
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Export failed: {ex.Message}");
+        }
+        finally
+        {
+            isExporting = false;
+        }
+    }
+
+    private async Task ExportToCsv()
+    {
+        var csv = "Report Number,Title,Type,Status,Victim Name,Date,Financial Loss,FIR Number\n";
+        foreach (var report in filteredReports)
+        {
+            csv += $"\"{report.ReportNumber}\",\"{report.Title}\",\"{GetCrimeTypeName(report.IncidentType)}\",\"{report.Status}\",\"{report.VictimName}\",\"{report.ReportedDate:yyyy-MM-dd}\",\"{report.FinancialLoss}\",\"{report.FIRNumber}\"\n";
+        }
+        
+        var bytes = System.Text.Encoding.UTF8.GetBytes(csv);
+        var base64 = Convert.ToBase64String(bytes);
+        await JSRuntime.InvokeVoidAsync("downloadFile", "cybercrime-reports.csv", "data:text/csv;base64," + base64);
+    }
+
+    private async Task ExportToPdf()
+    {
+        var html = "<html><head><style>" +
+            "body { font-family: Arial, sans-serif; } " +
+            "table { width: 100%; border-collapse: collapse; } " +
+            "th, td { border: 1px solid #ddd; padding: 8px; text-align: left; } " +
+            "th { background-color: #4CAF50; color: white; } " +
+            ".urgent { background-color: #ffebee; }" +
+            "</style></head><body>" +
+            "<h1>Cybercrime Reports</h1>" +
+            "<p>Generated: " + DateTime.Now.ToString("MMMM dd, yyyy") + "</p>" +
+            "<table><tr>" +
+            "<th>Report #</th>" +
+            "<th>Title</th>" +
+            "<th>Type</th>" +
+            "<th>Status</th>" +
+            "<th>Date</th>" +
+            "<th>Financial Loss</th>" +
+            "</tr>";
+
+        foreach (var report in filteredReports)
+        {
+            var rowClass = report.IsUrgent ? " class=\"urgent\"" : "";
+            html += "<tr" + rowClass + ">" +
+                "<td>" + report.ReportNumber + "</td>" +
+                "<td>" + report.Title + "</td>" +
+                "<td>" + GetCrimeTypeName(report.IncidentType) + "</td>" +
+                "<td>" + report.Status.ToString().Replace("_", " ") + "</td>" +
+                "<td>" + report.ReportedDate.ToString("MMM dd, yyyy") + "</td>" +
+                "<td>" + (report.FinancialLoss.HasValue ? "₹" + report.FinancialLoss.Value.ToString("N0") : "N/A") + "</td>" +
+                "</tr>";
+        }
+
+        html += "</table></body></html>";
+        
+        var bytes = System.Text.Encoding.UTF8.GetBytes(html);
+        var base64 = Convert.ToBase64String(bytes);
+        await JSRuntime.InvokeVoidAsync("downloadFile", "cybercrime-reports.html", "data:text/html;base64," + base64);
+    }
+
+    private async Task ExportToJson()
+    {
+        var reportData = filteredReports.Select(r => new
+        {
+            r.ReportNumber,
+            r.Title,
+            Type = GetCrimeTypeName(r.IncidentType),
+            Status = r.Status.ToString(),
+            r.VictimName,
+            r.VictimEmail,
+            r.VictimPhone,
+            r.Description,
+            ReportedDate = r.ReportedDate.ToString("yyyy-MM-dd"),
+            r.FinancialLoss,
+            r.FIRNumber,
+            r.IsUrgent
+        });
+        
+        var json = System.Text.Json.JsonSerializer.Serialize(reportData, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+        var base64 = Convert.ToBase64String(bytes);
+        await JSRuntime.InvokeVoidAsync("downloadFile", "cybercrime-reports.json", "data:application/json;base64," + base64);
+    }
+
+    private async Task PrintReports()
+    {
+        isPrinting = true;
+        await JSRuntime.InvokeVoidAsync("window.print");
+        isPrinting = false;
+        ShowToast("Print dialog opened!");
+    }
+
+    private void ApplySorting()
+    {
+        filteredReports = sortColumn switch
+        {
+            "date" => sortAscending ? 
+                filteredReports.OrderBy(r => r.ReportedDate).ToList() : 
+                filteredReports.OrderByDescending(r => r.ReportedDate).ToList(),
+            "status" => sortAscending ? 
+                filteredReports.OrderBy(r => r.Status).ToList() : 
+                filteredReports.OrderByDescending(r => r.Status).ToList(),
+            "type" => sortAscending ? 
+                filteredReports.OrderBy(r => r.IncidentType).ToList() : 
+                filteredReports.OrderByDescending(r => r.IncidentType).ToList(),
+            "urgent" => sortAscending ? 
+                filteredReports.OrderBy(r => r.IsUrgent).ToList() : 
+                filteredReports.OrderByDescending(r => r.IsUrgent).ToList(),
+            _ => filteredReports
+        };
+        sortAscending = !sortAscending;
+    }
+
+    private void HandleKeyPress(KeyboardEventArgs e, Action action)
+    {
+        if (e.Key == "Enter" || e.Key == " ")
+        {
+            action.Invoke();
+        }
+    }
+
+    private void ShowToast(string message)
+    {
+        toastMessage = message;
+        showToast = true;
+        StateHasChanged();
+        Task.Delay(3000).ContinueWith(_ => HideToast());
+    }
+
+    private void HideToast()
+    {
+        showToast = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnLanguageChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        LangService.OnLanguageChanged -= OnLanguageChanged;
+    }
+}

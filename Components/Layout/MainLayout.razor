@@ -1,0 +1,140 @@
+﻿@inherits LayoutComponentBase
+@using AILegalAsst.Services
+@using AILegalAsst.Components.Shared
+@inject AuthenticationService AuthService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject ThemeService ThemeService
+@inject LanguageService LanguageService
+@implements IDisposable
+
+@if (AuthService.IsAuthenticated())
+{
+    <NavBar />
+}
+
+<main>
+    @Body
+</main>
+
+<!-- Chat Widget - Show on all pages except AI Chat page -->
+@if (AuthService.IsAuthenticated() && !IsAIChatPage())
+{
+    <ChatWidget />
+}
+
+<div id="blazor-error-ui" class="blazor-error-boundary" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private bool _subscribedToNavigation;
+    private bool _themeInitialized = false;
+    private string? _lastAppliedTheme = null;
+
+    protected override void OnInitialized()
+    {
+        if (AuthService.IsAuthenticated())
+        {
+            NavigationManager.LocationChanged += OnLocationChanged;
+            _subscribedToNavigation = true;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Initialize on first render
+            await InitializeUserPreferencesAsync();
+            _themeInitialized = true;
+        }
+        else if (_themeInitialized)
+        {
+            // Verify theme is still applied (only re-apply if changed)
+            await EnsureThemeAppliedAsync();
+        }
+
+        if (AuthService.IsAuthenticated() && !_subscribedToNavigation)
+        {
+            NavigationManager.LocationChanged += OnLocationChanged;
+            _subscribedToNavigation = true;
+        }
+    }
+
+    private async void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        // Re-apply theme on navigation if needed
+        if (_themeInitialized)
+        {
+            await InvokeAsync(async () => 
+            {
+                await EnsureThemeAppliedAsync();
+                StateHasChanged();
+            });
+        }
+    }
+
+    private async Task InitializeUserPreferencesAsync()
+    {
+        if (!AuthService.IsAuthenticated())
+        {
+            return;
+        }
+
+        var currentUser = AuthService.GetCurrentUser();
+        if (currentUser == null)
+        {
+            return;
+        }
+
+        try
+        {
+            // Initialize theme for current user
+            await ThemeService.InitializeThemeAsync(currentUser.Id);
+            _lastAppliedTheme = ThemeService.CurrentTheme;
+            
+            // Initialize language for current user
+            await LanguageService.InitializeLanguageAsync(currentUser.Id);
+            
+            Console.WriteLine($"✓ Preferences initialized: Theme={ThemeService.CurrentTheme}, Language={LanguageService.CurrentLanguage}, User={currentUser.Name}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Error initializing preferences: {ex.Message}");
+        }
+    }
+
+    private async Task EnsureThemeAppliedAsync()
+    {
+        if (!AuthService.IsAuthenticated())
+        {
+            return;
+        }
+
+        var currentTheme = ThemeService.CurrentTheme;
+        
+        // Only re-apply if theme changed
+        if (_lastAppliedTheme != currentTheme)
+        {
+            await ThemeService.ApplyThemeAsync();
+            _lastAppliedTheme = currentTheme;
+            Console.WriteLine($"✓ Theme re-applied: {currentTheme}");
+        }
+    }
+
+    private bool IsAIChatPage()
+    {
+        return NavigationManager.Uri.Contains("/ai-chat");
+    }
+
+    public void Dispose()
+    {
+        if (_subscribedToNavigation)
+        {
+            NavigationManager.LocationChanged -= OnLocationChanged;
+        }
+    }
+}

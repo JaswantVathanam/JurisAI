@@ -1,0 +1,423 @@
+@page "/caseiq/{CaseId:int}"
+@rendermode InteractiveServer
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@using AILegalAsst.Components.Shared
+@using System.Collections.Generic
+@using System.Linq
+
+<link rel="stylesheet" href="caseiq.css" />
+
+@inject NavigationManager Navigation
+@inject CaseIQService CaseIQService
+@inject InvestigationWorkflowService WorkflowService
+@inject AuthenticationService AuthService
+@inject LanguageService LangService
+@inject ILogger<CaseIQ> Logger
+
+<PageTitle>CaseIQ - @LangService.T("caseiq")</PageTitle>
+
+<CustomErrorBoundary>
+    <div class="caseiq-container">
+        @if (!hasAccess)
+        {
+            <!-- Access Denied for non-Police users -->
+            <div class="access-denied-container glass-card">
+                <div class="access-denied-icon">
+                    <i class="bi bi-shield-lock"></i>
+                </div>
+                <h2>Access Restricted</h2>
+                <p class="access-message">@accessDenialReason</p>
+                <div class="access-info">
+                    <h4><i class="bi bi-info-circle"></i> About CaseIQ</h4>
+                    <p>
+                        CaseIQ is an AI-powered investigation assistant designed specifically for <strong>Police Investigation Officers</strong> 
+                        to assist with cybercrime investigations, similar to Maharashtra Police's MahaCrimeOS AI.
+                    </p>
+                    <ul>
+                        <li>AI-powered investigation workflow suggestions</li>
+                        <li>Automated legal notice generation for banks and telecom providers</li>
+                        <li>CDR (Call Detail Records) analysis</li>
+                        <li>Evidence tracking and chain of custody management</li>
+                        <li>Compliance with Indian Cyber Crime Coordination Centre (I4C) guidelines</li>
+                    </ul>
+                    <p class="reference-note">
+                        <i class="bi bi-link-45deg"></i> Based on 
+                        <a href="https://news.microsoft.com/source/asia/features/a-race-against-time-maharashtra-police-get-an-ai-copilot-to-fight-cybercrime/" target="_blank">
+                            Maharashtra Police AI Copilot for Cybercrime
+                        </a>
+                    </p>
+                </div>
+                <button class="btn btn-primary" @onclick="GoBack">
+                    <i class="bi bi-arrow-left"></i> Go Back
+                </button>
+            </div>
+        }
+        else if (isLoading)
+        {
+            <div class="loading-container">
+                <div class="spinner"></div>
+                <p>@LangService.T("loading_investigation_session")</p>
+            </div>
+        }
+        else if (currentSession == null)
+        {
+            <div class="alert alert-warning">
+                <h4>@LangService.T("no_active_session")</h4>
+                <p>@LangService.T("start_investigation_to_begin")</p>
+                <button class="btn btn-primary" @onclick="StartNewSession">
+                    @LangService.T("start_investigation")
+                </button>
+            </div>
+        }
+        else
+        {
+            <!-- Header Section -->
+            <div class="caseiq-header glass-card">
+                <div class="header-content">
+                    <div class="header-left">
+                        <button class="btn btn-link" @onclick="GoBack">
+                            <i class="bi bi-arrow-left"></i> @LangService.T("back")
+                        </button>
+                        <h1><i class="bi bi-robot"></i> CaseIQ</h1>
+                        <p class="case-info">Case #@currentSession.Case?.CaseNumber - @currentSession.Case?.Title</p>
+                        <span class="ai-badge"><i class="bi bi-cpu"></i> AI-Powered</span>
+                    </div>
+                    <div class="header-right">
+                        <div class="session-badge">
+                            <span class="badge bg-info">@currentSession.CurrentStage</span>
+                            <span class="badge @GetStatusBadgeClass()">@currentSession.Status</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="caseiq-content">
+                <!-- Progress Section -->
+                <div class="progress-section glass-card">
+                    <h3>@LangService.T("investigation_progress")</h3>
+                    <div class="progress-info">
+                        <div class="progress-bar-container">
+                            <div class="progress">
+                                <div class="progress-bar" style="width: @currentSession.GetProgressPercentage()%"></div>
+                            </div>
+                            <span class="progress-text">@currentSession.CompletedActionsCount / @currentSession.TotalActionsCount @LangService.T("actions_completed")</span>
+                        </div>
+                        <div class="stage-info">
+                            <p><strong>@LangService.T("current_stage"):</strong> @currentSession.CurrentStage</p>
+                            @if (currentSession.EstimatedCompletionDate.HasValue)
+                            {
+                                <p><strong>@LangService.T("estimated_completion"):</strong> @currentSession.EstimatedCompletionDate.Value.ToShortDateString()</p>
+                            }
+                        </div>
+                    </div>
+
+                    @if (workflowProgress != null && canProgress.Item1)
+                    {
+                        <button class="btn btn-success mt-3" @onclick="ProgressStage">
+                            <i class="bi bi-arrow-right-circle"></i> @LangService.T("progress_to_next_stage")
+                        </button>
+                    }
+                </div>
+
+                <!-- Main Content Area -->
+                <div class="row">
+                    <!-- Suggestions Column -->
+                    <div class="col-lg-6">
+                        <div class="suggestions-section glass-card">
+                            <div class="section-header">
+                                <h3>@LangService.T("ai_suggestions")</h3>
+                                <button class="btn btn-sm btn-primary" @onclick="RefreshSuggestions" disabled="@isGeneratingSuggestions">
+                                    <i class="bi bi-arrow-clockwise"></i> @LangService.T("refresh")
+                                </button>
+                            </div>
+
+                            @if (isGeneratingSuggestions)
+                            {
+                                <div class="loading-spinner">
+                                    <p>@LangService.T("generating_suggestions")</p>
+                                </div>
+                            }
+                            else if (pendingSuggestions == null || !pendingSuggestions.Any())
+                            {
+                                <div class="no-suggestions">
+                                    <p>@LangService.T("no_pending_suggestions")</p>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="suggestions-list">
+                                    @foreach (var suggestion in pendingSuggestions.OrderByDescending(s => s.Priority))
+                                    {
+                                        <CopilotSuggestionCard 
+                                            Suggestion="@suggestion"
+                                            OnAccept="@((s) => AcceptSuggestion(s))"
+                                            OnReject="@((s) => RejectSuggestion(s))" />
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Action Items Column -->
+                    <div class="col-lg-6">
+                        <div class="actions-section glass-card">
+                            <div class="section-header">
+                                <h3>@LangService.T("action_items")</h3>
+                                <span class="badge bg-warning">@pendingActionCount</span>
+                            </div>
+
+                            @if (allActions == null || !allActions.Any())
+                            {
+                                <div class="no-actions">
+                                    <p>@LangService.T("no_action_items")</p>
+                                </div>
+                            }
+                            else
+                            {
+                                <ActionItemsList 
+                                    Actions="@allActions"
+                                    OnStatusChange="UpdateActionStatusCallback" />
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notes Section -->
+                <div class="notes-section glass-card">
+                    <h3>@LangService.T("investigation_notes")</h3>
+                    <textarea class="form-control" placeholder="@LangService.T("enter_notes_here")" 
+                        @bind="currentSession.Notes" rows="4"></textarea>
+                    <button class="btn btn-sm btn-info mt-2" @onclick="SaveNotes">
+                        <i class="bi bi-save"></i> @LangService.T("save_notes")
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</CustomErrorBoundary>
+
+@code {
+    [Parameter]
+    public int CaseId { get; set; }
+
+    private InvestigationSession? currentSession;
+    private List<CopilotSuggestion>? pendingSuggestions;
+    private List<InvestigationAction>? allActions;
+    private WorkflowProgress? workflowProgress;
+    private (bool, string) canProgress = (false, "");
+    
+    private bool isLoading = true;
+    private bool isGeneratingSuggestions = false;
+    private int pendingActionCount = 0;
+    
+    private User? currentUser;
+    
+    // Access control
+    private bool hasAccess = false;
+    private string accessDenialReason = string.Empty;
+    
+    // AI Chat
+    private string copilotQuestion = string.Empty;
+    private string copilotAnswer = string.Empty;
+    private bool isAskingCopilot = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        LangService.OnLanguageChanged += OnLanguageChanged;
+        
+        currentUser = AuthService.GetCurrentUser();
+        if (currentUser == null)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+        
+        // Check access - CaseIQ is for Police only
+        hasAccess = CaseIQService.HasAccess(currentUser);
+        if (!hasAccess)
+        {
+            accessDenialReason = CaseIQService.GetAccessDenialReason(currentUser);
+            isLoading = false;
+            return;
+        }
+
+        await LoadSessionData();
+        isLoading = false;
+    }
+
+    private async Task LoadSessionData()
+    {
+        try
+        {
+            currentSession = await CaseIQService.GetActiveSessionAsync(CaseId);
+            
+            if (currentSession != null)
+            {
+                pendingSuggestions = await CaseIQService.GetAcceptedSuggestionsAsync(currentSession.Id);
+                allActions = await CaseIQService.GetAllActionsAsync(currentSession.Id);
+                workflowProgress = await WorkflowService.GetProgressAsync(currentSession.Id);
+                canProgress = await WorkflowService.CanProgressStageAsync(currentSession.Id);
+                pendingActionCount = allActions?.Count(a => a.Status != "Completed") ?? 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError($"Error loading session data: {ex.Message}");
+        }
+    }
+
+    private async Task StartNewSession()
+    {
+        if (currentUser == null) return;
+
+        try
+        {
+            currentSession = await CaseIQService.StartInvestigationSessionAsync(CaseId, currentUser.Id);
+            
+            if (currentSession != null)
+            {
+                isGeneratingSuggestions = true;
+                pendingSuggestions = await CaseIQService.GenerateSuggestionsAsync(currentSession);
+                
+                currentSession.TotalActionsCount = pendingSuggestions?.Count ?? 0;
+                isGeneratingSuggestions = false;
+                
+                allActions = new List<InvestigationAction>();
+                workflowProgress = await WorkflowService.GetProgressAsync(currentSession.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError($"Error starting session: {ex.Message}");
+        }
+    }
+
+    private async Task RefreshSuggestions()
+    {
+        if (currentSession == null) return;
+
+        try
+        {
+            isGeneratingSuggestions = true;
+            pendingSuggestions = await CaseIQService.GenerateSuggestionsAsync(currentSession);
+            isGeneratingSuggestions = false;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError($"Error refreshing suggestions: {ex.Message}");
+            isGeneratingSuggestions = false;
+        }
+    }
+
+    private async Task AcceptSuggestion(int suggestionId)
+    {
+        if (currentSession == null) return;
+
+        try
+        {
+            var actionItem = await CaseIQService.AcceptSuggestionAsync(suggestionId, currentSession.Id);
+            if (actionItem != null)
+            {
+                allActions?.Add(actionItem);
+                currentSession.TotalActionsCount += 1;
+                await LoadSessionData();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError($"Error accepting suggestion: {ex.Message}");
+        }
+    }
+
+    private async Task RejectSuggestion(int suggestionId)
+    {
+        try
+        {
+            await CaseIQService.RejectSuggestionAsync(suggestionId, "User rejected");
+            await LoadSessionData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError($"Error rejecting suggestion: {ex.Message}");
+        }
+    }
+
+    private async Task UpdateActionStatusCallback((int ActionId, string Status) args)
+    {
+        await UpdateActionStatus(args.ActionId, args.Status);
+    }
+
+    private async Task UpdateActionStatus(int actionId, string status)
+    {
+        try
+        {
+            await CaseIQService.UpdateActionStatusAsync(actionId, status);
+            await LoadSessionData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError($"Error updating action status: {ex.Message}");
+        }
+    }
+
+    private async Task ProgressStage()
+    {
+        if (currentSession == null) return;
+
+        try
+        {
+            var nextStages = WorkflowService.GetAvailableNextStages(currentSession.CurrentStage);
+            if (nextStages.Any())
+            {
+                await WorkflowService.ProgressStageAsync(currentSession.Id, nextStages.First());
+                await LoadSessionData();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError($"Error progressing stage: {ex.Message}");
+        }
+    }
+
+    private async Task SaveNotes()
+    {
+        if (currentSession == null) return;
+
+        try
+        {
+            // In a real implementation, this would save to database
+            Logger.LogInformation($"Notes saved: {currentSession.Notes}");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError($"Error saving notes: {ex.Message}");
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/cases");
+    }
+
+    private string GetStatusBadgeClass()
+    {
+        return currentSession?.Status switch
+        {
+            "Active" => "bg-success",
+            "Paused" => "bg-warning",
+            "Completed" => "bg-info",
+            _ => "bg-secondary"
+        };
+    }
+
+    private void OnLanguageChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        LangService.OnLanguageChanged -= OnLanguageChanged;
+    }
+}

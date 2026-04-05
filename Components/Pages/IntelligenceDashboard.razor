@@ -1,0 +1,494 @@
+@page "/intelligence"
+@rendermode InteractiveServer
+
+@using AILegalAsst.Services
+@using AILegalAsst.Models
+@using AILegalAsst.Components.Shared
+
+@inject IntelligenceGatheringService IntelligenceGatheringService
+@inject PhoneIntelligenceService PhoneIntelligenceService
+@inject SuspectNetworkService SuspectNetworkService
+@inject AzureMapsService MapsService
+@inject NavigationManager NavManager
+@inject ILogger<IntelligenceDashboard> Logger
+
+<div class="intelligence-dashboard-container">
+    <div class="dashboard-header glass-card-header">
+        <h1>Intelligence Dashboard</h1>
+        
+        <div class="search-section">
+            <div class="search-input-group">
+                <input type="text" class="form-control search-input" placeholder="Enter phone number" @bind="searchPhoneNumber" disabled="@isLoading" />
+                <button class="btn btn-primary" @onclick="SearchIntelligence" disabled="@isLoading">
+                    @if (isLoading) {
+                        <span>Searching...</span>
+                    } else {
+                        <span>Search</span>
+                    }
+                </button>
+            </div>
+            
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger mt-3">@errorMessage</div>
+            }
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="loading-state glass-card">
+            <p>Gathering Intelligence...</p>
+        </div>
+    }
+    
+    @if (intelligenceRecord != null && !isLoading)
+    {
+        <!-- Risk Summary Cards -->
+        <div class="intel-stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon @GetRiskColorClass(intelligenceRecord.RiskLevel)">
+                    <i class="bi bi-exclamation-triangle"></i>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-value">@(intelligenceRecord.RiskLevel ?? "Unknown")</span>
+                    <span class="stat-label">Risk Level</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon blue">
+                    <i class="bi bi-speedometer2"></i>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-value">@(intelligenceRecord.Assessment?.RiskScore ?? 0)/100</span>
+                    <span class="stat-label">Risk Score</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon purple">
+                    <i class="bi bi-telephone"></i>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-value">@(intelligenceRecord.TelecomData?.TotalCalls ?? 0)</span>
+                    <span class="stat-label">Total Calls</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon orange">
+                    <i class="bi bi-bank"></i>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-value">@(intelligenceRecord.BankingData?.SuspiciousTransactionCount ?? 0)</span>
+                    <span class="stat-label">Suspicious Txns</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="intel-tabs">
+            <button class="tab-btn @(activeTab == "overview" ? "active" : "")" @onclick='() => activeTab = "overview"'>
+                <i class="bi bi-grid"></i> Overview
+            </button>
+            <button class="tab-btn @(activeTab == "telecom" ? "active" : "")" @onclick='() => activeTab = "telecom"'>
+                <i class="bi bi-phone"></i> Telecom
+            </button>
+            <button class="tab-btn @(activeTab == "map" ? "active" : "")" @onclick="ActivateMapTab">
+                <i class="bi bi-geo-alt"></i> Location Map
+            </button>
+            <button class="tab-btn @(activeTab == "financial" ? "active" : "")" @onclick='() => activeTab = "financial"'>
+                <i class="bi bi-currency-rupee"></i> Financial
+            </button>
+            <button class="tab-btn @(activeTab == "police" ? "active" : "")" @onclick='() => activeTab = "police"'>
+                <i class="bi bi-shield"></i> Police Records
+            </button>
+        </div>
+
+        <div class="tab-content">
+            @if (activeTab == "overview")
+            {
+                <div class="glass-panel">
+                    <h3><i class="bi bi-person-badge"></i> Subject Overview</h3>
+                    <div class="overview-grid">
+                        <div class="detail-item">
+                            <span class="label">Phone Number</span>
+                            <span class="value">@intelligenceRecord.PhoneNumber</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Suspect Name</span>
+                            <span class="value">@(intelligenceRecord.SuspectName ?? "Not Identified")</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Provider</span>
+                            <span class="value">@(intelligenceRecord.TelecomData?.Provider ?? "N/A")</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Last Known Location</span>
+                            <span class="value">@(intelligenceRecord.TelecomData?.LastKnownLocation ?? "Unknown")</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Trust Score</span>
+                            <span class="value">@(intelligenceRecord.TrustScore?.ToString("F1") ?? "N/A") / 100</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Related Cases</span>
+                            <span class="value">@intelligenceRecord.RelatedCaseIds.Count</span>
+                        </div>
+                    </div>
+
+                    @if (intelligenceRecord.PoliceData != null)
+                    {
+                        <div class="alert-badges">
+                            @if (intelligenceRecord.PoliceData.IsWanted)
+                            {
+                                <span class="alert-badge danger"><i class="bi bi-exclamation-octagon"></i> WANTED</span>
+                            }
+                            @if (intelligenceRecord.PoliceData.IsAbsconder)
+                            {
+                                <span class="alert-badge warning"><i class="bi bi-person-x"></i> ABSCONDER</span>
+                            }
+                            @if (intelligenceRecord.PoliceData.IsDangerous)
+                            {
+                                <span class="alert-badge danger"><i class="bi bi-shield-exclamation"></i> DANGEROUS</span>
+                            }
+                            @if (intelligenceRecord.BankingData?.HasAccountFreeze == true)
+                            {
+                                <span class="alert-badge info"><i class="bi bi-lock"></i> Account Frozen</span>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (activeTab == "telecom")
+            {
+                <div class="glass-panel">
+                    <h3><i class="bi bi-phone"></i> Telecom Intelligence</h3>
+                    @if (intelligenceRecord.TelecomData != null)
+                    {
+                        <div class="overview-grid">
+                            <div class="detail-item">
+                                <span class="label">Subscriber</span>
+                                <span class="value">@(intelligenceRecord.TelecomData.SubscriberName ?? "N/A")</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Address</span>
+                                <span class="value">@(intelligenceRecord.TelecomData.SubscriberAddress ?? "N/A")</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Total Calls</span>
+                                <span class="value">@intelligenceRecord.TelecomData.TotalCalls</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Total SMS</span>
+                                <span class="value">@intelligenceRecord.TelecomData.TotalSMSs</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Tower Hits</span>
+                                <span class="value">@intelligenceRecord.TelecomData.TowerLocations.Count</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Latest Activity</span>
+                                <span class="value">@(intelligenceRecord.TelecomData.LatestActivityDate?.ToString("dd MMM yyyy HH:mm") ?? "N/A")</span>
+                            </div>
+                        </div>
+
+                        @if (intelligenceRecord.TelecomData.FrequentContacts.Any())
+                        {
+                            <h4 class="mt-3"><i class="bi bi-people"></i> Frequent Contacts</h4>
+                            <div class="contact-list">
+                                @foreach (var contact in intelligenceRecord.TelecomData.FrequentContacts)
+                                {
+                                    <span class="contact-chip">
+                                        <i class="bi bi-telephone"></i> @contact
+                                    </span>
+                                }
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="no-data">No telecom data available</p>
+                    }
+                </div>
+            }
+
+            @if (activeTab == "map")
+            {
+                <div class="glass-panel">
+                    <div class="map-header">
+                        <h3><i class="bi bi-geo-alt-fill"></i> Geographic Intelligence</h3>
+                        <button class="btn-glass btn-sm" @onclick="PlotIntelligenceLocations">
+                            <i class="bi bi-arrow-repeat"></i> Refresh
+                        </button>
+                    </div>
+                    <AzureMapViewer @ref="intelMapViewer"
+                                    Height="450px"
+                                    ShowControls="true"
+                                    ShowStyleSelector="true" />
+                    @if (intelligenceRecord.TelecomData?.TowerLocations?.Any() == true)
+                    {
+                        <div class="tower-summary mt-3">
+                            <h5><i class="bi bi-broadcast-pin"></i> Cell Tower Hits (@intelligenceRecord.TelecomData.TowerLocations.Count)</h5>
+                            <div class="tower-chips">
+                                @foreach (var tower in intelligenceRecord.TelecomData.TowerLocations.Take(10))
+                                {
+                                    <span class="tower-chip" @onclick="() => FocusOnTower(tower)">
+                                        <i class="bi bi-broadcast"></i> @(tower.Location ?? tower.TowerId)
+                                        <small>@tower.DetectionDateTime.ToString("HH:mm")</small>
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (activeTab == "financial")
+            {
+                <div class="glass-panel">
+                    <h3><i class="bi bi-currency-rupee"></i> Financial Intelligence</h3>
+                    @if (intelligenceRecord.BankingData != null)
+                    {
+                        <div class="overview-grid">
+                            <div class="detail-item">
+                                <span class="label">Primary Bank</span>
+                                <span class="value">@(intelligenceRecord.BankingData.PrimaryBank ?? "N/A")</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Income (30d)</span>
+                                <span class="value">₹@intelligenceRecord.BankingData.TotalIncomeLast30Days.ToString("N0")</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Expense (30d)</span>
+                                <span class="value">₹@intelligenceRecord.BankingData.TotalExpenseLast30Days.ToString("N0")</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Avg Transaction</span>
+                                <span class="value">₹@intelligenceRecord.BankingData.AverageTransactionAmount.ToString("N0")</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Suspicious Txns</span>
+                                <span class="value danger">@intelligenceRecord.BankingData.SuspiciousTransactionCount</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Accounts</span>
+                                <span class="value">@intelligenceRecord.BankingData.Accounts.Count</span>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="no-data">No financial data available</p>
+                    }
+                </div>
+            }
+
+            @if (activeTab == "police")
+            {
+                <div class="glass-panel">
+                    <h3><i class="bi bi-shield"></i> Police Records</h3>
+                    @if (intelligenceRecord.PoliceData != null)
+                    {
+                        <div class="overview-grid">
+                            <div class="detail-item">
+                                <span class="label">Total Arrests</span>
+                                <span class="value">@intelligenceRecord.PoliceData.TotalArrests</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Total Cases</span>
+                                <span class="value">@intelligenceRecord.PoliceData.TotalCases</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Criminal Specialty</span>
+                                <span class="value">@(intelligenceRecord.PoliceData.CriminalSpecialty ?? "None")</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Known Associates</span>
+                                <span class="value">@intelligenceRecord.PoliceData.KnownAssociates.Count</span>
+                            </div>
+                        </div>
+
+                        @if (intelligenceRecord.PoliceData.ChargesAgainstSuspect.Any())
+                        {
+                            <h4 class="mt-3"><i class="bi bi-file-text"></i> Charges</h4>
+                            <div class="charges-list">
+                                @foreach (var charge in intelligenceRecord.PoliceData.ChargesAgainstSuspect)
+                                {
+                                    <span class="charge-badge">@charge</span>
+                                }
+                            </div>
+                        }
+
+                        @if (intelligenceRecord.PoliceData.KnownCrimeMethods.Any())
+                        {
+                            <h4 class="mt-3"><i class="bi bi-tools"></i> Known Methods (Modus Operandi)</h4>
+                            <div class="charges-list">
+                                @foreach (var method in intelligenceRecord.PoliceData.KnownCrimeMethods)
+                                {
+                                    <span class="method-badge">@method</span>
+                                }
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="no-data">No police records available</p>
+                    }
+                </div>
+            }
+        </div>
+    }
+    
+    @if (intelligenceRecord == null && !isLoading)
+    {
+        <div class="no-data-state glass-card">
+            <p>Enter a phone number to start your investigation</p>
+        </div>
+    }
+</div>
+
+@code {
+    private IntelligenceRecord? intelligenceRecord = null;
+    private string searchPhoneNumber = string.Empty;
+    private bool isLoading = false;
+    private string errorMessage = string.Empty;
+    private string activeTab = "overview";
+    private AzureMapViewer? intelMapViewer;
+
+    private async Task SearchIntelligence()
+    {
+        if (string.IsNullOrWhiteSpace(searchPhoneNumber))
+        {
+            errorMessage = "Please enter a phone number";
+            return;
+        }
+
+        isLoading = true;
+        errorMessage = string.Empty;
+        intelligenceRecord = null;
+        activeTab = "overview";
+
+        try
+        {
+            var cleanPhone = System.Text.RegularExpressions.Regex.Replace(searchPhoneNumber, @"[^\d]", "");
+            
+            if (cleanPhone.Length < 10)
+            {
+                errorMessage = "Phone number must be at least 10 digits";
+                isLoading = false;
+                return;
+            }
+
+            var officerId = "OFFICER_001";
+            var firNumber = "FIR/2024/001";
+            var startDate = DateTime.Now.AddDays(-30);
+            var endDate = DateTime.Now;
+
+            var result = await IntelligenceGatheringService.GatherPhoneIntelligenceAsync(
+                cleanPhone, 
+                firNumber, 
+                officerId,
+                startDate,
+                endDate
+            );
+
+            if (result.IsSuccess)
+            {
+                intelligenceRecord = result.Data;
+            }
+            else
+            {
+                errorMessage = result.ErrorMessage ?? "Failed to gather intelligence";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error searching intelligence");
+            errorMessage = "An error occurred while searching. Please try again.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ActivateMapTab()
+    {
+        activeTab = "map";
+        // Small delay to let the map render before plotting
+        await Task.Delay(300);
+        await PlotIntelligenceLocations();
+    }
+
+    private async Task PlotIntelligenceLocations()
+    {
+        if (intelMapViewer == null || intelligenceRecord == null) return;
+
+        try
+        {
+            await intelMapViewer.ClearMarkersAsync();
+
+            // Plot tower locations from telecom data
+            if (intelligenceRecord.TelecomData?.TowerLocations?.Any() == true)
+            {
+                foreach (var tower in intelligenceRecord.TelecomData.TowerLocations)
+                {
+                    if (tower.Latitude.HasValue && tower.Longitude.HasValue)
+                    {
+                        var loc = new LocationData
+                        {
+                            Latitude = tower.Latitude.Value,
+                            Longitude = tower.Longitude.Value,
+                            Address = tower.Location ?? tower.TowerId ?? "Cell Tower",
+                            City = $"Signal: {tower.SignalStrength}dBm"
+                        };
+                        await intelMapViewer.AddMarkerAsync(loc,
+                            $"Tower {tower.TowerId} — {tower.DetectionDateTime:dd MMM HH:mm}", "#00d4ff");
+                    }
+                }
+            }
+
+            // Plot last known location
+            if (!string.IsNullOrEmpty(intelligenceRecord.TelecomData?.LastKnownLocation))
+            {
+                var loc = await MapsService.GeocodeAddressAsync(intelligenceRecord.TelecomData.LastKnownLocation);
+                if (loc != null)
+                {
+                    await intelMapViewer.AddMarkerAsync(loc, "Last Known Location", "#ff6b6b");
+                    await intelMapViewer.CenterMapAsync(loc.Latitude, loc.Longitude, 12);
+                }
+            }
+
+            // Plot subscriber address
+            if (!string.IsNullOrEmpty(intelligenceRecord.TelecomData?.SubscriberAddress))
+            {
+                var loc = await MapsService.GeocodeAddressAsync(intelligenceRecord.TelecomData.SubscriberAddress);
+                if (loc != null)
+                {
+                    await intelMapViewer.AddMarkerAsync(loc, "Subscriber Address", "#ffc107");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to plot intelligence locations on map");
+        }
+    }
+
+    private async Task FocusOnTower(TowerLocation tower)
+    {
+        if (intelMapViewer != null && tower.Latitude.HasValue && tower.Longitude.HasValue)
+        {
+            await intelMapViewer.CenterMapAsync(tower.Latitude.Value, tower.Longitude.Value, 15);
+        }
+    }
+
+    private string GetRiskColorClass(string? riskLevel) => riskLevel?.ToLower() switch
+    {
+        "critical" => "red",
+        "high" => "orange",
+        "medium" => "yellow",
+        "low" => "green",
+        _ => "blue"
+    };
+}

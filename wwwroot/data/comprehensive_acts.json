@@ -1,0 +1,254 @@
+[
+  {
+    "actId": "BNS-2023",
+    "title": "Bharatiya Nyaya Sanhita (BNS), 2023",
+    "yearEnacted": 2023,
+    "category": "Criminal",
+    "description": "Replaces the Indian Penal Code (IPC) 1860. The new criminal code of India effective from 1 July 2024, modernizing criminal law provisions.",
+    "totalSections": 358,
+    "source": "Gazette of India, Act No. 45 of 2023",
+    "sections": [
+      { "sectionNumber": "100", "title": "Murder", "content": "Whoever commits murder shall be punished with death or imprisonment for life, and shall also be liable to fine.", "punishment": "Death or life imprisonment and fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "101", "title": "Culpable homicide not amounting to murder", "content": "Whoever commits culpable homicide not amounting to murder shall be punished with imprisonment for life, or imprisonment up to 10 years, and fine.", "punishment": "Life imprisonment or up to 10 years and fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "109", "title": "Attempt to murder", "content": "Whoever attempts to commit murder and causes hurt to any person, shall be punished with imprisonment up to life and fine.", "punishment": "Up to life imprisonment and fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "115", "title": "Voluntarily causing hurt", "content": "Whoever voluntarily causes hurt shall be punished with imprisonment up to one year, or fine up to ten thousand rupees, or both.", "punishment": "Up to 1 year or fine up to Rs. 10,000 or both", "isBailable": true, "isCognizable": false },
+      { "sectionNumber": "117", "title": "Voluntarily causing grievous hurt", "content": "Whoever voluntarily causes grievous hurt shall be punished with imprisonment up to seven years and fine.", "punishment": "Up to 7 years and fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "118", "title": "Voluntarily causing hurt by dangerous weapons", "content": "Whoever causes hurt by means of any instrument for shooting, stabbing or cutting, or any instrument which, used as a weapon of offence, is likely to cause death.", "punishment": "Up to 3 years or fine or both", "isBailable": true, "isCognizable": true },
+      { "sectionNumber": "140", "title": "Kidnapping", "content": "Whoever kidnaps any person from India or from lawful guardianship shall be punished.", "punishment": "Up to 7 years and fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "143", "title": "Kidnapping for ransom", "content": "Whoever kidnaps or abducts any person and threatens to cause death or hurt, or to keep such person in confinement to obtain ransom.", "punishment": "Death or life imprisonment and fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "63", "title": "Rape", "content": "A man is said to commit rape if he penetrates the vagina, mouth, urethra, or anus of a woman with his penis or any object without consent, or with consent obtained by fear, fraud, or when she is unable to communicate consent.", "punishment": "Not less than 10 years up to life imprisonment and fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "64", "title": "Punishment for rape", "content": "Whoever commits rape shall be punished with rigorous imprisonment for a term not less than ten years, but which may extend to imprisonment for life, and shall also be liable to fine.", "punishment": "RI not less than 10 years, may extend to life imprisonment and fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "70", "title": "Gang rape", "content": "Where a woman is raped by one or more persons constituting a group or acting in furtherance of a common intention, each shall be deemed to have committed the offence of rape.", "punishment": "RI not less than 20 years, may extend to life imprisonment and fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "303", "title": "Theft", "content": "Whoever intending to take dishonestly any movable property out of the possession of any person without that person's consent, moves that property, is said to commit theft.", "punishment": "Up to 3 years or fine or both", "isBailable": true, "isCognizable": false },
+      { "sectionNumber": "308", "title": "Extortion", "content": "Whoever intentionally puts any person in fear of any injury to that person or to any other and thereby dishonestly induces the person to deliver to any person property or valuable security, commits extortion.", "punishment": "Up to 3 years or fine or both", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "309", "title": "Robbery", "content": "In all robbery there is either theft or extortion. When theft is robbery: if the offender causes or attempts to cause death, hurt, or wrongful restraint, or fear of instant death, hurt, or wrongful restraint.", "punishment": "RI up to 10 years and fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "310", "title": "Dacoity", "content": "When five or more persons conjointly commit or attempt to commit robbery, every person so committing, attempting, or aiding is said to commit dacoity.", "punishment": "RI up to life imprisonment and fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "316", "title": "Criminal breach of trust", "content": "Whoever, being entrusted with property or dominion over property, dishonestly misappropriates or converts to his own use that property, or dishonestly uses or disposes of that property in violation of any direction of law.", "punishment": "Up to 5 years or fine or both", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "318", "title": "Cheating", "content": "Whoever, by deceiving any person, fraudulently or dishonestly induces the person to deliver any property to any person, or to consent that any person shall retain any property, is said to cheat.", "punishment": "Up to 3 years or fine or both", "isBailable": true, "isCognizable": false },
+      { "sectionNumber": "319", "title": "Cheating by personation", "content": "Whoever cheats by pretending to be some other person, or by knowingly substituting one person for another, or representing that he or any other person is a person other than he or such other person really is.", "punishment": "Up to 5 years or fine or both", "isBailable": true, "isCognizable": false },
+      { "sectionNumber": "329", "title": "Criminal trespass", "content": "Whoever enters into or upon property in the possession of another with intent to commit an offence or to intimidate, insult, or annoy any person in possession of such property.", "punishment": "Up to 3 months or fine up to Rs. 5,000 or both", "isBailable": true, "isCognizable": false },
+      { "sectionNumber": "351", "title": "Criminal intimidation", "content": "Whoever threatens another with any injury to his person, reputation, or property, or to the person or reputation of anyone in whom that person is interested, with intent to cause alarm, or to cause that person to do or omit to do any act.", "punishment": "Up to 2 years or fine or both", "isBailable": true, "isCognizable": false },
+      { "sectionNumber": "356", "title": "Defamation", "content": "Whoever by words either spoken or intended to be read, or by signs or by visible representations, makes or publishes any imputation concerning any person intending to harm the reputation of such person, is said to defame that person.", "punishment": "Up to 2 years or fine or both", "isBailable": true, "isCognizable": false }
+    ]
+  },
+  {
+    "actId": "BNSS-2023",
+    "title": "Bharatiya Nagarik Suraksha Sanhita (BNSS), 2023",
+    "yearEnacted": 2023,
+    "category": "Procedure",
+    "description": "Replaces the Code of Criminal Procedure (CrPC) 1973. New procedural law for investigation, inquiry, and trial of criminal offences, effective from 1 July 2024.",
+    "totalSections": 531,
+    "source": "Gazette of India, Act No. 46 of 2023",
+    "sections": [
+      { "sectionNumber": "173", "title": "Information in cognizable cases (FIR)", "content": "Every information relating to the commission of a cognizable offence, given orally or in writing, to an officer in charge of a police station, shall be registered as FIR. Information may also be given by electronic communication. An informant shall be given a copy of the FIR free of cost.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "35", "title": "Arrest by police without warrant", "content": "Any police officer may without warrant arrest any person who has been concerned in any cognizable offence, or against whom a reasonable complaint or credible information has been received, or reasonable suspicion exists. Police officer must inform grounds of arrest and right to bail.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "36", "title": "Arrest — how made", "content": "In making an arrest the police officer shall actually touch or confine the body of the person unless there be a submission to custody. No woman shall be arrested after sunset and before sunrise except in exceptional circumstances, with prior permission of Judicial Magistrate.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "37", "title": "Rights of arrested person", "content": "Every arrested person shall have the right to inform a person nominated by him of his arrest. The police officer shall inform the arrested person of his right to have a legal practitioner of his choice during interrogation. Arrested person must be produced before Magistrate within 24 hours.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "187", "title": "Procedure when investigation cannot be completed in 24 hours", "content": "Whenever investigation cannot be completed within 24 hours, if the accused is not released on bail, the officer shall transmit to the nearest Judicial Magistrate a copy of the entries in diary and produce the accused. No Magistrate shall authorise detention in police custody for more than 15 days in the whole.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "480", "title": "Bail in bailable offences", "content": "When any person accused of a bailable offence is arrested without warrant, and is prepared to give bail, such person shall be released on bail. An officer in charge of a police station shall have discretion to release on bail any person accused of a bailable offence.", "punishment": "", "isBailable": true, "isCognizable": true },
+      { "sectionNumber": "482", "title": "Bail in non-bailable offences", "content": "When any person accused of a non-bailable offence is arrested or detained, he may be released on bail by the court. If there are reasonable grounds for believing that the accused is not guilty, he may be released on bail. Where a person under 16 years, a woman, or a sick/infirm person is accused, the court may order release on bail.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "193", "title": "Police report on completion of investigation", "content": "Every investigation shall be completed without unnecessary delay. On completion, the officer shall file a police report (chargesheet) before the Magistrate setting forth names of parties, nature of information, and whether an offence appears to have been committed.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "230", "title": "Framing of charge", "content": "If, after considering the police report, examination of accused, and hearing of prosecution and accused, the Magistrate is of opinion that there is ground for presuming that the accused has committed an offence, he shall frame a charge.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "258", "title": "Judgment", "content": "The judgment in every trial shall be pronounced in open Court immediately after the termination of trial or at some subsequent time of which notice shall be given. The judgment shall contain the points for determination, the decision thereon, and the reasons for the decision.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "530", "title": "Zero FIR", "content": "Irrespective of the area where the offence is committed, information shall be recorded by any police station and forwarded to the police station having jurisdiction. The time limit for filing FIR begins from the date of recording of information at first police station.", "punishment": "", "isBailable": false, "isCognizable": true }
+    ]
+  },
+  {
+    "actId": "BSA-2023",
+    "title": "Bharatiya Sakshya Adhiniyam (BSA), 2023",
+    "yearEnacted": 2023,
+    "category": "Evidence",
+    "description": "Replaces the Indian Evidence Act 1872. New law of evidence effective from 1 July 2024 with provisions for electronic and digital evidence.",
+    "totalSections": 170,
+    "source": "Gazette of India, Act No. 47 of 2023",
+    "sections": [
+      { "sectionNumber": "2", "title": "Definitions — Evidence", "content": "Evidence means and includes: (i) all statements which the Court permits or requires to be made before it by witnesses in relation to matters of fact under inquiry (oral evidence); (ii) all documents including electronic or digital records produced for the inspection of the Court (documentary evidence).", "punishment": "", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "57", "title": "Admissibility of electronic records", "content": "Any information contained in an electronic record which is printed on paper, stored, recorded or copied in optical or magnetic media produced by a computer shall be admissible as evidence in any proceedings without further proof or production of the original.", "punishment": "", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "58", "title": "Conditions for admissibility of electronic records", "content": "The computer output must be produced during the regular course of activity. The information must have been fed into the computer in the regular course. The computer must have been operating properly. The information must reproduce or be derived from information fed into the computer.", "punishment": "", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "24", "title": "Confession to police officer not to be proved", "content": "No confession made to a police officer shall be proved as against a person accused of any offence.", "punishment": "", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "25", "title": "Confession by accused while in police custody", "content": "No confession made by any person whilst he is in the custody of a police officer, unless it is made in the immediate presence of a Magistrate, shall be proved as against such person.", "punishment": "", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "137", "title": "Examination-in-chief, cross-examination and re-examination", "content": "The examination of a witness by the party who calls him shall be called his examination-in-chief. The examination of a witness by the adverse party shall be called cross-examination. The examination of a witness subsequent to cross-examination by the party who called him shall be called re-examination.", "punishment": "", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "139", "title": "Leading questions", "content": "Any question suggesting the answer which the person putting it wishes or expects to receive is called a leading question. Leading questions shall not be asked in examination-in-chief or re-examination except with permission of the Court.", "punishment": "", "isBailable": false, "isCognizable": false }
+    ]
+  },
+  {
+    "actId": "IT-2000",
+    "title": "Information Technology Act, 2000",
+    "yearEnacted": 2000,
+    "category": "Cyber",
+    "description": "Primary law for electronic commerce, digital signatures, cyber offences, and data protection in India. Amended in 2008 to strengthen cyber crime provisions.",
+    "totalSections": 94,
+    "source": "Gazette of India, Act No. 21 of 2000",
+    "sections": [
+      { "sectionNumber": "43", "title": "Penalty for damage to computer systems", "content": "If any person without permission of the owner accesses or downloads data, introduces computer contaminant or virus, disrupts or denies access, damages computer system, or charges services to another person — liable to pay compensation up to Rs. 5 crores.", "punishment": "Compensation up to Rs. 5 crores", "isBailable": true, "isCognizable": false },
+      { "sectionNumber": "65", "title": "Tampering with computer source documents", "content": "Whoever knowingly or intentionally conceals, destroys, or alters any computer source code used for a computer programme, computer system, or computer network, when the source code is required to be kept or maintained by law.", "punishment": "Up to 3 years or fine up to Rs. 2 lakh or both", "isBailable": true, "isCognizable": true },
+      { "sectionNumber": "66", "title": "Computer related offences (Hacking)", "content": "If any person, dishonestly or fraudulently, does any act referred to in section 43, he shall be punishable with imprisonment for a term which may extend to three years or with fine up to five lakh rupees or with both.", "punishment": "Up to 3 years or fine up to Rs. 5 lakh or both", "isBailable": true, "isCognizable": true },
+      { "sectionNumber": "66A", "title": "Punishment for sending offensive messages (Struck down)", "content": "This section was struck down by the Supreme Court of India in Shreya Singhal v. Union of India (2015) as being violative of Article 19(1)(a) of the Constitution (freedom of speech and expression).", "punishment": "Section struck down as unconstitutional", "isBailable": true, "isCognizable": true },
+      { "sectionNumber": "66B", "title": "Punishment for dishonestly receiving stolen computer resource", "content": "Whoever dishonestly receives or retains any stolen computer resource or communication device knowing or having reason to believe it to be stolen.", "punishment": "Up to 3 years or fine up to Rs. 1 lakh or both", "isBailable": true, "isCognizable": true },
+      { "sectionNumber": "66C", "title": "Punishment for identity theft", "content": "Whoever fraudulently or dishonestly makes use of the electronic signature, password, or any other unique identification feature of any other person.", "punishment": "Up to 3 years and fine up to Rs. 1 lakh", "isBailable": true, "isCognizable": true },
+      { "sectionNumber": "66D", "title": "Punishment for cheating by personation using computer", "content": "Whoever by means of any communication device or computer resource cheats by personation, shall be punished.", "punishment": "Up to 3 years and fine up to Rs. 1 lakh", "isBailable": true, "isCognizable": true },
+      { "sectionNumber": "66E", "title": "Punishment for violation of privacy", "content": "Whoever intentionally or knowingly captures, publishes, or transmits the image of a private area of any person without his or her consent, under circumstances violating the privacy of that person.", "punishment": "Up to 3 years or fine up to Rs. 2 lakh or both", "isBailable": true, "isCognizable": true },
+      { "sectionNumber": "66F", "title": "Punishment for cyber terrorism", "content": "Whoever with intent to threaten the unity, integrity, security, or sovereignty of India or to strike terror in the people, denies or causes denial of access to computer resource, attempts to penetrate or access a computer resource without authorisation, introduces computer contaminant.", "punishment": "Imprisonment which may extend to imprisonment for life", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "67", "title": "Punishment for publishing obscene material online", "content": "Whoever publishes or transmits or causes to be published or transmitted in electronic form any material which is lascivious or appeals to the prurient interest.", "punishment": "First conviction: up to 3 years and Rs. 5 lakh fine. Second conviction: up to 5 years and Rs. 10 lakh fine", "isBailable": true, "isCognizable": true },
+      { "sectionNumber": "67A", "title": "Punishment for publishing sexually explicit material online", "content": "Whoever publishes or transmits or causes to be published or transmitted in electronic form any material which contains sexually explicit act or conduct.", "punishment": "First conviction: up to 5 years and Rs. 10 lakh fine. Second conviction: up to 7 years and Rs. 10 lakh fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "67B", "title": "Punishment for publishing child pornography online", "content": "Whoever publishes or transmits material depicting children in sexually explicit act or conduct in electronic form.", "punishment": "First conviction: up to 5 years and Rs. 10 lakh fine. Second conviction: up to 7 years and Rs. 10 lakh fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "69", "title": "Power to issue directions for interception or monitoring", "content": "Where the Central or State Government is satisfied it is necessary in the interest of sovereignty, security, friendly relations with foreign states, public order, or for preventing incitement to the commission of any cognizable offence, it may direct any agency to intercept, monitor, or decrypt computer resources.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "72", "title": "Breach of confidentiality and privacy", "content": "Any person who has secured access to any electronic record, correspondence, information, document, or other material under this Act, and discloses it to any other person without consent of the person concerned.", "punishment": "Up to 2 years or fine up to Rs. 1 lakh or both", "isBailable": true, "isCognizable": false },
+      { "sectionNumber": "79", "title": "Exemption from liability of intermediary", "content": "An intermediary shall not be liable for any third-party information, data, or communication link made available or hosted by him if his function is limited to providing access and he has not conspired with, or does not abet the commission of the unlawful act. Must observe due diligence and takedown guidelines.", "punishment": "", "isBailable": false, "isCognizable": false }
+    ]
+  },
+  {
+    "actId": "DPDPA-2023",
+    "title": "Digital Personal Data Protection Act, 2023",
+    "yearEnacted": 2023,
+    "category": "Cyber",
+    "description": "India's comprehensive data protection law providing for the processing of digital personal data in a manner that recognises the right of individuals to protect their personal data.",
+    "totalSections": 44,
+    "source": "Gazette of India, Act No. 22 of 2023",
+    "sections": [
+      { "sectionNumber": "4", "title": "Consent for processing personal data", "content": "A person may process the personal data of a Data Principal only for a lawful purpose for which the Data Principal has given her consent. Consent must be free, specific, informed, unconditional, and unambiguous with a clear affirmative action.", "punishment": "", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "5", "title": "Notice before consent", "content": "Before collecting consent, the Data Fiduciary shall give an itemised notice in clear and plain language specifying the personal data sought to be collected and the purpose of processing.", "punishment": "", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "6", "title": "Legitimate uses without consent", "content": "Processing is deemed to have consent for specified purpose by State for any subsidy, benefit, or service, compliance with law, medical emergency, employment purposes, or public interest.", "punishment": "", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "8", "title": "General obligations of Data Fiduciary", "content": "Data Fiduciary shall make reasonable efforts to ensure completeness, accuracy, and consistency of personal data. Must implement technical and organisational measures to ensure compliance. Must protect personal data by reasonable security safeguards.", "punishment": "Up to Rs. 250 crore penalty", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "11", "title": "Rights of Data Principal", "content": "Every Data Principal shall have the right to obtain information about processing, right to correction and erasure, right of grievance redressal, and right to nominate.", "punishment": "", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "15", "title": "Duties of Data Principal", "content": "Data Principal shall not register a false or frivolous complaint, shall not furnish false information, and shall comply with applicable laws while exercising rights.", "punishment": "Up to Rs. 10,000 penalty", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "18", "title": "Data Protection Board of India", "content": "The Central Government shall establish a Board to be known as the Data Protection Board of India. The Board shall function as a digital office and exercise powers conferred under this Act.", "punishment": "", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "33", "title": "Penalties", "content": "Penalty for non-observance of obligations relating to children: up to Rs. 200 crore. Breach of personal data: up to Rs. 250 crore. Non-compliance with Board direction: up to Rs. 50 crore.", "punishment": "Up to Rs. 250 crore", "isBailable": false, "isCognizable": false }
+    ]
+  },
+  {
+    "actId": "POCSO-2012",
+    "title": "Protection of Children from Sexual Offences (POCSO) Act, 2012",
+    "yearEnacted": 2012,
+    "category": "Criminal",
+    "description": "Comprehensive law protecting children from sexual abuse and exploitation. Defines various forms of sexual abuse and provides child-friendly procedures for reporting, recording evidence, investigation, and trial.",
+    "totalSections": 46,
+    "source": "Gazette of India, Act No. 32 of 2012",
+    "sections": [
+      { "sectionNumber": "3", "title": "Penetrative sexual assault", "content": "A person commits penetrative sexual assault if he penetrates the vagina, mouth, urethra, or anus of a child with penis, object, or body part, or makes the child do so with him or any other person.", "punishment": "Not less than 10 years, may extend to imprisonment for life, and fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "5", "title": "Aggravated penetrative sexual assault", "content": "Penetrative sexual assault committed by police officer, member of armed forces, public servant, relative, in an institution, gang assault, or on a child below 12 years.", "punishment": "Not less than 20 years, may extend to imprisonment for life or death, and fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "7", "title": "Sexual assault", "content": "Whoever with sexual intent touches the vagina, penis, anus, or breast of the child, or makes the child touch such parts of another person, commits sexual assault.", "punishment": "Not less than 3 years, may extend to 5 years, and fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "11", "title": "Sexual harassment of child", "content": "A person is said to commit sexual harassment upon a child when such person with sexual intent utters any word, makes any sound or gesture, or exhibits any object or body part to the child, or makes the child exhibit his body or body part.", "punishment": "Up to 3 years and fine", "isBailable": true, "isCognizable": true },
+      { "sectionNumber": "14", "title": "Punishment for using child for pornographic purposes", "content": "Whoever uses a child for pornographic purposes shall be punished. If the offence is committed for commercial purposes, punishment is enhanced.", "punishment": "Up to 5 years and fine; for commercial purposes: up to 7 years and fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "19", "title": "Mandatory reporting", "content": "Any person who has apprehension that an offence under this Act is likely to be committed or has knowledge that such an offence has been committed shall provide such information to the Special Juvenile Police Unit or local police.", "punishment": "Failure to report: up to 6 months or fine or both", "isBailable": true, "isCognizable": true },
+      { "sectionNumber": "33", "title": "Special Courts", "content": "For speedy trial of offences under this Act, the State Government shall designate a Court of Session as a Special Court. Trial to be completed within one year.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "29", "title": "Presumption of certain offences", "content": "Where a person is prosecuted for committing sexual assault, the Special Court shall presume that such person has committed the offence unless the contrary is proved.", "punishment": "", "isBailable": false, "isCognizable": true }
+    ]
+  },
+  {
+    "actId": "DV-2005",
+    "title": "Protection of Women from Domestic Violence Act, 2005",
+    "yearEnacted": 2005,
+    "category": "Criminal",
+    "description": "Provides protection against domestic violence for women, including physical, sexual, verbal, emotional, and economic abuse. Includes right to reside in shared household and protection orders.",
+    "totalSections": 37,
+    "source": "Gazette of India, Act No. 43 of 2005",
+    "sections": [
+      { "sectionNumber": "3", "title": "Definition of domestic violence", "content": "Any act, omission, or commission or conduct of the respondent that harms or injures or endangers the health, safety, life, limb, or well-being of the aggrieved person. Includes physical abuse, sexual abuse, verbal and emotional abuse, and economic abuse.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "12", "title": "Application to Magistrate", "content": "An aggrieved person or Protection Officer or any other person on behalf of the aggrieved person may present an application to the Magistrate seeking relief under this Act.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "18", "title": "Protection orders", "content": "The Magistrate may pass a protection order prohibiting the respondent from committing any act of domestic violence, aiding or abetting domestic violence, entering the workplace or any other place frequented by the aggrieved person.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "19", "title": "Residence orders", "content": "The Magistrate may pass a residence order restraining the respondent from dispossessing or disturbing the possession of the aggrieved person from the shared household, or directing the respondent to secure alternate accommodation.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "20", "title": "Monetary relief", "content": "The Magistrate may direct the respondent to pay monetary relief to meet expenses incurred and losses suffered by the aggrieved person and any child of the aggrieved person including medical expenses, loss of earnings, maintenance, and damage to property.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "31", "title": "Penalty for breach of protection order", "content": "A breach of protection order by the respondent shall be an offence and shall be punishable with imprisonment which may extend to one year, or fine which may extend to twenty thousand rupees, or both.", "punishment": "Up to 1 year or fine up to Rs. 20,000 or both", "isBailable": false, "isCognizable": true }
+    ]
+  },
+  {
+    "actId": "SC-ST-1989",
+    "title": "Scheduled Castes and Scheduled Tribes (Prevention of Atrocities) Act, 1989",
+    "yearEnacted": 1989,
+    "category": "Criminal",
+    "description": "Prevents commission of offences and atrocities against members of Scheduled Castes and Scheduled Tribes, provides special courts for trial, and relief and rehabilitation for victims.",
+    "totalSections": 23,
+    "source": "Gazette of India, Act No. 33 of 1989",
+    "sections": [
+      { "sectionNumber": "3(1)", "title": "Offences of atrocities", "content": "Whoever, not being a member of SC/ST, forces a member of SC/ST to drink or eat inedible substances, dumps waste on land or premises, forcibly removes clothes, parades naked, wrongfully occupies land, forces into bonded labour, or obstructs right of passage.", "punishment": "6 months to 5 years and fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "3(2)", "title": "Offences with enhanced punishment", "content": "Whoever gives or fabricates false evidence intending to cause conviction of a member of SC/ST for a capital offence, or commits mischief by fire or explosive intending to destroy any building used by SC/ST members.", "punishment": "Imprisonment for life and fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "4", "title": "Punishment for neglect of duties", "content": "Whoever, being a public servant but not being a member of SC/ST, wilfully neglects his duties required to be performed under this Act.", "punishment": "6 months to 1 year", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "14", "title": "Special Courts", "content": "For the purpose of providing speedy trial, the State Government shall, with the concurrence of the Chief Justice of the High Court, specify a Court of Session as a Special Court.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "15A", "title": "Rights of victims and witnesses", "content": "The rights include the right to reasonable, accurate, and timely notice of any court proceeding, right to apply to court for victim compensation, right to information about investigation, and right to protection from intimidation.", "punishment": "", "isBailable": false, "isCognizable": true }
+    ]
+  },
+  {
+    "actId": "RTI-2005",
+    "title": "Right to Information Act, 2005",
+    "yearEnacted": 2005,
+    "category": "Administrative",
+    "description": "Provides for setting out the practical regime of right to information for citizens to secure access to information under the control of public authorities, promoting transparency and accountability.",
+    "totalSections": 31,
+    "source": "Gazette of India, Act No. 22 of 2005",
+    "sections": [
+      { "sectionNumber": "3", "title": "Right to information", "content": "Subject to the provisions of this Act, all citizens shall have the right to information.", "punishment": "", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "4", "title": "Obligations of public authorities", "content": "Every public authority shall maintain all its records duly catalogued and indexed, publish within 120 days all relevant information including particulars of organisation, functions, duties, powers, rules, regulations, budget, and details of facilities available to citizens.", "punishment": "", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "6", "title": "Request for obtaining information", "content": "A person who desires to obtain any information shall make a request in writing or through electronic means to the Central Public Information Officer or State Public Information Officer with prescribed fee.", "punishment": "", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "7", "title": "Disposal of request", "content": "The PIO shall provide information within 30 days of receipt. If life or liberty is involved, within 48 hours. If transferred to another public authority, within 5 days.", "punishment": "", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "8", "title": "Exemption from disclosure", "content": "Information which would prejudicially affect sovereignty, security, strategic or economic interests, international relations, intellectual property, cabinet papers, personal information with no public interest, or information received in confidence from foreign government.", "punishment": "", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "20", "title": "Penalties for non-compliance", "content": "If the Central or State Information Commission is of the opinion that the PIO has without reasonable cause refused to receive or not furnished information within time, it shall impose a penalty of Rs. 250 per day up to maximum of Rs. 25,000.", "punishment": "Rs. 250 per day up to Rs. 25,000", "isBailable": false, "isCognizable": false }
+    ]
+  },
+  {
+    "actId": "NDPS-1985",
+    "title": "Narcotic Drugs and Psychotropic Substances Act, 1985",
+    "yearEnacted": 1985,
+    "category": "Criminal",
+    "description": "Prohibits the manufacture, production, possession, sale, purchase, transport, warehousing, use, consumption, import, and export of narcotic drugs and psychotropic substances except for medical or scientific purposes.",
+    "totalSections": 83,
+    "source": "Gazette of India, Act No. 61 of 1985",
+    "sections": [
+      { "sectionNumber": "20", "title": "Punishment for contravention in relation to cannabis plant and cannabis", "content": "Small quantity: rigorous imprisonment up to 1 year, or fine up to Rs. 10,000, or both. Commercial quantity: rigorous imprisonment not less than 10 years extendable to 20 years and fine not less than Rs. 1 lakh extendable to Rs. 2 lakh.", "punishment": "Small: up to 1 year or Rs. 10,000 fine. Commercial: 10-20 years and Rs. 1-2 lakh fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "21", "title": "Punishment for contravention in relation to manufactured drugs", "content": "Small quantity: RI up to 1 year or fine up to Rs. 10,000 or both. For quantity between small and commercial: RI up to 10 years and fine up to Rs. 1 lakh. Commercial quantity: RI not less than 10 years up to 20 years and fine Rs. 1-2 lakh.", "punishment": "Varies by quantity: 1 year to 20 years", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "27", "title": "Punishment for consumption of narcotic drug or psychotropic substance", "content": "Whoever consumes any narcotic drug or psychotropic substance shall be punishable. For cocaine, morphine, heroin: RI up to 1 year or fine up to Rs. 20,000 or both. For others: RI up to 6 months or fine up to Rs. 10,000 or both.", "punishment": "6 months to 1 year and fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "31A", "title": "Death penalty for repeat offences", "content": "If any person found guilty of offences involving commercial quantity of narcotic drugs for which punishment is 10 years imprisonment or more, and after being convicted of a similar offence is found guilty again, shall be punished with death.", "punishment": "Death penalty for repeat offenders", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "37", "title": "Bail restrictions", "content": "Bail shall not be granted unless (a) the Public Prosecutor has been given opportunity to oppose the application, and (b) the Court is satisfied there are reasonable grounds for believing the accused is not guilty and is not likely to commit any offence while on bail.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "39", "title": "Power of entry, search, seizure and arrest", "content": "Any officer of the departments of central excise, narcotics, customs, revenue intelligence, or any other empowered officer, may search and arrest any person whom he has reason to believe to have committed an offence.", "punishment": "", "isBailable": false, "isCognizable": true }
+    ]
+  },
+  {
+    "actId": "NIA-2008",
+    "title": "National Investigation Agency Act, 2008",
+    "yearEnacted": 2008,
+    "category": "Criminal",
+    "description": "Constitutes the National Investigation Agency to investigate and prosecute offences relating to terrorism, cross-border crime, and other scheduled offences affecting sovereignty, security, and integrity of India.",
+    "totalSections": 26,
+    "source": "Gazette of India, Act No. 34 of 2008",
+    "sections": [
+      { "sectionNumber": "3", "title": "Constitution of National Investigation Agency", "content": "The Central Government shall constitute an investigation agency, the National Investigation Agency, for investigation and prosecution of offences under the Acts specified in the Schedule.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "6", "title": "Investigation of scheduled offences", "content": "If the Central Government is of the opinion that a scheduled offence has been committed and it is necessary for investigation by the NIA, it may direct the NIA to investigate the said offence.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "11", "title": "Special Courts", "content": "The Central Government shall by notification constitute one or more Special Courts for trial of scheduled offences. The Special Court shall be presided over by a judge to be appointed by the Central Government with concurrence of the Chief Justice of the High Court.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "22", "title": "No suit or prosecution without sanction", "content": "No suit, prosecution, or other legal proceeding shall lie against the Central Government or a State Government or any officer of the NIA for anything which is done in good faith under this Act.", "punishment": "", "isBailable": false, "isCognizable": true }
+    ]
+  },
+  {
+    "actId": "UAPA-1967",
+    "title": "Unlawful Activities (Prevention) Act, 1967",
+    "yearEnacted": 1967,
+    "category": "Criminal",
+    "description": "Provides effective prevention of certain unlawful activities of individuals and associations, dealing with terrorist activities, and for matters connected therewith. Amended in 2019.",
+    "totalSections": 55,
+    "source": "Gazette of India, Act No. 37 of 1967",
+    "sections": [
+      { "sectionNumber": "2", "title": "Definitions — unlawful activity", "content": "Unlawful activity means any action taken by a person whether by act or words or in writing which is intended to bring about cession or secession of any part of the territory of India, or which disrupts the sovereignty and territorial integrity of India.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "3", "title": "Declaration of unlawful association", "content": "If the Central Government is of the opinion that an association is, or has become, an unlawful association, it may by notification declare such association to be unlawful.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "15", "title": "Terrorist act", "content": "Whoever does any act with intent to threaten or likely to threaten the unity, integrity, security, economic security, or sovereignty of India, or to strike terror in the people or any section of the people by using bombs, dynamite, explosive substances, hazardous substances, firearms, or other lethal weapons.", "punishment": "5 years to life imprisonment; if death caused — death or life imprisonment", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "17", "title": "Punishment for raising funds for terrorist act", "content": "Whoever raises fund for committing a terrorist act shall be punishable with imprisonment for a term not less than five years which may extend to imprisonment for life, and shall also be liable to fine.", "punishment": "5 years to life imprisonment and fine", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "35", "title": "Designation of terrorists", "content": "The Central Government may, by order, add the name of any individual in the Fourth Schedule if it believes, on the basis of information, that such individual is involved in terrorism.", "punishment": "", "isBailable": false, "isCognizable": true },
+      { "sectionNumber": "43D", "title": "Bail restrictions", "content": "Notwithstanding anything in CrPC, no person accused of any offence punishable under Chapters IV and VI shall be released on bail if the Court, on perusal of the case diary, is of the opinion that there are reasonable grounds for believing that the accusation is prima facie true.", "punishment": "", "isBailable": false, "isCognizable": true }
+    ]
+  },
+  {
+    "actId": "CPA-2019",
+    "title": "Consumer Protection Act, 2019",
+    "yearEnacted": 2019,
+    "category": "Administrative",
+    "description": "Provides for protection of interests of consumers, establishment of authorities for timely and effective settlement of consumer disputes. Replaces Consumer Protection Act 1986. Introduces CCPA, product liability, and e-commerce provisions.",
+    "totalSections": 107,
+    "source": "Gazette of India, Act No. 35 of 2019",
+    "sections": [
+      { "sectionNumber": "2(7)", "title": "Definition of Consumer", "content": "Any person who buys any goods or hires or avails any services for consideration. Includes offline and online transactions through electronic means, teleshopping, direct selling, or multi-level marketing.", "punishment": "", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "10", "title": "Central Consumer Protection Authority (CCPA)", "content": "The Central Government shall establish CCPA to regulate matters relating to violation of rights of consumers, unfair trade practices, and false or misleading advertisements.", "punishment": "", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "18", "title": "Powers of CCPA — false advertisements", "content": "CCPA may issue directions to the trader or manufacturer to discontinue false advertisement or withdraw product. May impose penalty up to Rs. 10 lakh on manufacturer and up to Rs. 50 lakh on endorser for subsequent offence.", "punishment": "Up to Rs. 10 lakh (manufacturer); Rs. 50 lakh (endorser for repeat offence)", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "34", "title": "District Consumer Disputes Redressal Forum", "content": "State Government shall establish District Commission with jurisdiction over complaints where value of goods or services paid and compensation claimed does not exceed Rs. 1 crore.", "punishment": "", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "84", "title": "Product liability", "content": "A product liability action may be brought by a complainant against a product manufacturer, service provider, or product seller for any harm caused by a defective product or deficiency in services.", "punishment": "", "isBailable": false, "isCognizable": false },
+      { "sectionNumber": "94", "title": "E-commerce provisions", "content": "The Central Government may prescribe rules for preventing unfair trade practices in e-commerce, for protection of interest of consumers. Details about return, refund, exchange, guarantee, warranty, delivery, shipment, and grievance redressal must be displayed.", "punishment": "", "isBailable": false, "isCognizable": false }
+    ]
+  }
+]

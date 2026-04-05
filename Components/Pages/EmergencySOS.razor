@@ -1,0 +1,1193 @@
+@page "/emergency-sos"
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@using AILegalAsst.Components.Shared
+@using System.Text.Json
+@inject EmergencySOSService SOSService
+@inject LocationTrackingService LocationService
+@inject AzureMapsService MapsService
+@inject AuthenticationService AuthService
+@inject IJSRuntime JS
+@inject LanguageService LangService
+@implements IAsyncDisposable
+@rendermode InteractiveServer
+
+<PageTitle>Legal Emergency SOS - JurisAI</PageTitle>
+
+<div class="sos-page-v2">
+    <div class="sos-container-v2">
+        <!-- Header -->
+        <header class="sos-header-v2">
+            <h1 class="sos-title-v2">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                Legal Emergency SOS
+            </h1>
+            <p class="sos-subtitle-v2">One-tap emergency legal assistance when you need it most</p>
+        </header>
+
+        @if (activeAlert == null)
+        {
+            <!-- Current Location Display (Before SOS) -->
+            <div class="current-location-preview-v2">
+                <div class="location-header-v2">
+                    <i class="bi bi-geo-alt"></i>
+                    <span>Your Current Location</span>
+                    <button class="refresh-location-btn-v2" @onclick="RefreshLocation" disabled="@isLoadingLocation">
+                        <i class="bi @(isLoadingLocation ? "bi-arrow-repeat rotating" : "bi-arrow-repeat")"></i>
+                    </button>
+                </div>
+                @if (currentLocation != null)
+                {
+                    <!-- Map Preview -->
+                    <div class="location-map-preview-v2">
+                        <AzureMapViewer @ref="previewMapViewer"
+                                      MapId="sos-preview-map"
+                                      Height="220px"
+                                      InitialZoom="15"
+                                      ShowControls="true"
+                                      ShowStyleSelector="false"
+                                      InitialLatitude="@currentLocation.Latitude"
+                                      InitialLongitude="@currentLocation.Longitude" />
+                    </div>
+                    <div class="location-details-v2">
+                        <div class="location-address-v2">
+                            <i class="bi bi-pin-map-fill"></i>
+                            <span>@(string.IsNullOrEmpty(currentAddress) ? "Fetching address..." : currentAddress)</span>
+                        </div>
+                        <div class="location-coords-v2">
+                            <span class="coord-item">
+                                <strong>Lat:</strong> @currentLocation.Latitude.ToString("F6")
+                            </span>
+                            <span class="coord-item">
+                                <strong>Long:</strong> @currentLocation.Longitude.ToString("F6")
+                            </span>
+                            <span class="coord-item accuracy">
+                                <i class="bi bi-bullseye"></i> ±@currentLocation.Accuracy.ToString("F0")m
+                            </span>
+                        </div>
+                    </div>
+                }
+                else if (locationError != null)
+                {
+                    <div class="location-error-v2">
+                        <i class="bi bi-exclamation-circle"></i>
+                        <span>@locationError</span>
+                        <button class="retry-btn-v2" @onclick="RefreshLocation">Retry</button>
+                    </div>
+                }
+                else
+                {
+                    <div class="location-loading-v2">
+                        <div class="spinner-small"></div>
+                        <span>Detecting location...</span>
+                    </div>
+                }
+            </div>
+
+            <!-- SOS Activation Button -->
+            <div class="sos-activation-v2">
+                <div class="sos-button-container-v2">
+                    <div class="sos-pulse-ring-v2"></div>
+                    <div class="sos-pulse-ring-v2"></div>
+                    <div class="sos-pulse-ring-v2"></div>
+                    <button class="sos-button-v2" @onclick="ActivateSOS" disabled="@isActivating">
+                        @if (isActivating)
+                        {
+                            <div class="spinner"></div>
+                        }
+                        else
+                        {
+                            <i class="bi bi-shield-fill-exclamation"></i>
+                            <span>SOS</span>
+                        }
+                    </button>
+                </div>
+                <p class="sos-instruction-v2">Tap the button in case of legal emergency</p>
+            </div>
+
+            <!-- Emergency Type Selector -->
+            <div class="emergency-types-v2">
+                <div class="emergency-types-header-v2">
+                    <h2><i class="bi bi-list-check"></i> Select Emergency Type</h2>
+                </div>
+                <div class="emergency-types-grid-v2">
+                    @foreach (var type in Enum.GetValues<EmergencyType>().Take(10))
+                    {
+                        <button class="emergency-type-btn-v2 @(selectedType == type ? "selected" : "")"
+                                @onclick="() => SelectEmergencyType(type)">
+                            <i class="bi @GetEmergencyIcon(type)"></i>
+                            <span>@FormatEnumName(type.ToString())</span>
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            <!-- Active SOS Panel -->
+            <div class="sos-active-panel-v2">
+                <div class="sos-active-header-v2">
+                    <div class="sos-active-title-v2">
+                        <i class="bi bi-broadcast"></i>
+                        SOS ACTIVE
+                    </div>
+                    <div class="sos-timer-v2">
+                        <div class="recording-dot"></div>
+                        <span>@FormatDuration(DateTime.Now - activeAlert.ActivatedAt)</span>
+                    </div>
+                </div>
+
+                <!-- Live Location Tracking Panel -->
+                <div class="live-tracking-panel-v2">
+                    <div class="tracking-header-v2">
+                        <i class="bi bi-broadcast-pin"></i>
+                        <span>Live Location Tracking</span>
+                        <span class="tracking-badge-v2">
+                            <span class="pulse-dot"></span>
+                            LIVE
+                        </span>
+                    </div>
+                    
+                    @if (currentLocation != null)
+                    {
+                        <div class="live-location-display-v2">
+                            <!-- Azure Maps - Full Width Live Tracking Map -->
+                            <div class="location-map-container-v2">
+                                <AzureMapViewer @ref="mapViewer"
+                                              MapId="sos-live-map"
+                                              Height="350px"
+                                              InitialZoom="16"
+                                              ShowControls="true"
+                                              ShowStyleSelector="true"
+                                              InitialLatitude="@currentLocation.Latitude"
+                                              InitialLongitude="@currentLocation.Longitude" />
+                                <div class="map-overlay-badge">
+                                    <span class="pulse-dot"></span>
+                                    LIVE TRACKING
+                                </div>
+                            </div>
+                            <div class="location-info-v2">
+                                <div class="address-line-v2">
+                                    <i class="bi bi-pin-map-fill"></i>
+                                    @(string.IsNullOrEmpty(currentAddress) ? "Locating..." : currentAddress)
+                                </div>
+                                <div class="coords-line-v2">
+                                    <span>@currentLocation.Latitude.ToString("F6"), @currentLocation.Longitude.ToString("F6")</span>
+                                </div>
+                                <div class="tracking-stats-v2">
+                                    <div class="stat">
+                                        <i class="bi bi-speedometer2"></i>
+                                        <span>@(currentLocation.Speed.HasValue ? $"{(currentLocation.Speed.Value * 3.6):F1} km/h" : "0 km/h")</span>
+                                    </div>
+                                    <div class="stat">
+                                        <i class="bi bi-bullseye"></i>
+                                        <span>±@currentLocation.Accuracy.ToString("F0")m</span>
+                                    </div>
+                                    <div class="stat">
+                                        <i class="bi bi-geo"></i>
+                                        <span>@locationHistory.Count pts</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Movement Trail with Map Legend -->
+                        @if (locationHistory.Count > 1)
+                        {
+                            <div class="movement-trail-v2">
+                                <div class="trail-header-v2">
+                                    <i class="bi bi-signpost-split"></i>
+                                    <span>Movement Trail (@locationHistory.Count locations)</span>
+                                </div>
+                                <div class="trail-legend-v2">
+                                    <div class="legend-item"><span class="legend-dot current"></span> Current</div>
+                                    <div class="legend-item"><span class="legend-dot trail"></span> Trail Point</div>
+                                    <div class="legend-item"><span class="legend-line"></span> Route Path</div>
+                                </div>
+                                <div class="trail-stats-v2">
+                                    <div class="trail-stat-v2">
+                                        <span class="label">Distance</span>
+                                        <span class="value">@trackingStats.TotalDistance m</span>
+                                    </div>
+                                    <div class="trail-stat-v2">
+                                        <span class="label">Avg Speed</span>
+                                        <span class="value">@trackingStats.AverageSpeed km/h</span>
+                                    </div>
+                                    <div class="trail-stat-v2">
+                                        <span class="label">Duration</span>
+                                        <span class="value">@FormatDuration(TimeSpan.FromSeconds(trackingStats.Duration))</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+
+                <!-- Audio Recording Panel -->
+                <div class="recording-panel-v2 @(isRecording ? "active" : recordingError != null ? "error" : "")">
+                    <div class="recording-header-v2">
+                        <i class="bi bi-mic-fill"></i>
+                        <span>Audio Evidence Recording</span>
+                        @if (isRecording)
+                        {
+                            <span class="recording-badge-v2">
+                                <span class="recording-dot"></span>
+                                REC @FormatDuration(TimeSpan.FromSeconds(recordingDuration))
+                            </span>
+                        }
+                    </div>
+                    @if (isRecording)
+                    {
+                        <div class="recording-info-v2">
+                            <i class="bi bi-shield-check"></i>
+                            <span>Audio is being recorded and stored securely as evidence</span>
+                        </div>
+                    }
+                    else if (recordingError != null)
+                    {
+                        <div class="recording-error-v2">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <span>@recordingError</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="recording-pending-v2">
+                            <i class="bi bi-info-circle"></i>
+                            <span>Waiting for microphone permission...</span>
+                        </div>
+                    }
+                </div>
+
+                <div class="sos-status-grid-v2">
+                    <div class="sos-status-item-v2 @(isRecording ? "active" : recordingError != null ? "error" : "")">
+                        <i class="bi bi-mic-fill"></i>
+                        <span class="status-label">Recording @(isRecording ? "Active" : recordingError != null ? "Error" : "Pending")</span>
+                    </div>
+                    <div class="sos-status-item-v2 @(HasLocationShared(activeAlert) ? "active" : "")">
+                        <i class="bi bi-geo-alt-fill"></i>
+                        <span class="status-label">Location @(HasLocationShared(activeAlert) ? "Shared" : "Pending")</span>
+                    </div>
+                    <div class="sos-status-item-v2 @(wakeLockActive ? "active" : "")">
+                        <i class="bi bi-phone-vibrate"></i>
+                        <span class="status-label">Screen @(wakeLockActive ? "Locked On" : "Normal")</span>
+                    </div>
+                    <div class="sos-status-item-v2 @(activeAlert.NotifiedContacts.Any() ? "active" : "")">
+                        <i class="bi bi-people-fill"></i>
+                        <span class="status-label">@activeAlert.NotifiedContacts.Count Notified</span>
+                    </div>
+                </div>
+
+                <!-- Notified Parties -->
+                @if (activeAlert.NotifiedContacts.Any())
+                {
+                    <div class="notified-panel-v2">
+                        <div class="notified-header-v2">
+                            <i class="bi bi-check-circle-fill"></i>
+                            <span>Notifications Sent To:</span>
+                        </div>
+                        <div class="notified-list-v2">
+                            @foreach (var contact in activeAlert.NotifiedContacts)
+                            {
+                                <div class="notified-item-v2">
+                                    <i class="bi bi-check"></i>
+                                    @contact.Name (@contact.Relationship)
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <button class="sos-deactivate-btn-v2" @onclick="DeactivateSOS">
+                    <i class="bi bi-shield-check"></i>
+                    I'm Safe - Deactivate SOS
+                </button>
+            </div>
+        }
+
+        <!-- Legal Rights Panel -->
+        <section class="rights-panel-v2">
+            <div class="rights-header-v2">
+                <i class="bi bi-book"></i>
+                <h2>Your Legal Rights</h2>
+                <span class="rights-subtitle-v2">For: @FormatEnumName(selectedType.ToString())</span>
+            </div>
+
+            <div class="rights-list-v2">
+                @foreach (var right in currentRights.Take(4))
+                {
+                    <div class="right-card-v2">
+                        <div class="right-article-v2">@right.Article</div>
+                        <div class="right-title-v2">@right.Title</div>
+                        <div class="right-description-v2">@right.Description</div>
+                        @if (!string.IsNullOrEmpty(right.Script))
+                        {
+                            <div class="right-script-v2">"@right.Script"</div>
+                        }
+                    </div>
+                }
+            </div>
+
+            @if (!string.IsNullOrEmpty(suggestedScript))
+            {
+                <div class="suggested-script-v2">
+                    <h3><i class="bi bi-chat-quote"></i> What to Say</h3>
+                    <p>"@suggestedScript"</p>
+                    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                        <button class="copy-script-btn-v2" @onclick="CopyScript">
+                            <i class="bi bi-clipboard"></i>
+                            Copy Script
+                        </button>
+                        <button class="copy-script-btn-v2" @onclick="EnhanceScriptWithAI" disabled="@isEnhancingWithAI" style="background: linear-gradient(135deg, #667eea, #764ba2); border: none;">
+                            @if (isEnhancingWithAI)
+                            {
+                                <i class="bi bi-hourglass-split"></i>
+                                <span>Enhancing...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-stars"></i>
+                                <span>Enhance with AI</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+            }
+        </section>
+
+        <!-- Emergency Helplines -->
+        <section class="helplines-panel-v2">
+            <div class="helplines-header-v2">
+                <i class="bi bi-telephone-fill"></i>
+                <h2>Emergency Helplines</h2>
+            </div>
+
+            <div class="helplines-grid-v2">
+                @foreach (var helpline in helplines)
+                {
+                    <a href="tel:@helpline.Number" class="helpline-card-v2">
+                        <div class="helpline-icon-v2">
+                            <i class="bi @helpline.Icon"></i>
+                        </div>
+                        <span class="helpline-number-v2">@helpline.Number</span>
+                        <span class="helpline-name-v2">@helpline.Name</span>
+                        <span class="helpline-desc-v2">@helpline.Description</span>
+                    </a>
+                }
+            </div>
+        </section>
+
+        <!-- Emergency Contacts -->
+        <section class="contacts-panel-v2">
+            <div class="contacts-header-v2">
+                <div class="contacts-title-v2">
+                    <i class="bi bi-person-lines-fill"></i>
+                    <h2>Emergency Contacts</h2>
+                </div>
+                <button class="add-contact-btn-v2" @onclick="OpenAddContactModal">
+                    <i class="bi bi-plus-lg"></i>
+                    Add Contact
+                </button>
+            </div>
+
+            @if (emergencyContacts.Any())
+            {
+                <div class="contacts-list-v2">
+                    @foreach (var contact in emergencyContacts)
+                    {
+                        <div class="contact-card-v2">
+                            <div class="contact-avatar-v2">
+                                <i class="bi bi-person-fill"></i>
+                            </div>
+                            <div class="contact-info-v2">
+                                <div class="contact-name-v2">@contact.Name</div>
+                                <div class="contact-phone-v2">@contact.Phone</div>
+                                <div class="contact-relation-v2">@contact.Relationship</div>
+                            </div>
+                            @if (contact.IsPrimary)
+                            {
+                                <span class="contact-primary-badge-v2">Primary</span>
+                            }
+                            <div class="contact-actions-v2">
+                                <button class="contact-action-btn-v2" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="contact-action-btn-v2 delete" @onclick="() => RemoveContact(contact)" title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="no-contacts-v2">
+                    <i class="bi bi-people"></i>
+                    <p>No emergency contacts added yet.<br/>Add contacts who will be notified when you activate SOS.</p>
+                </div>
+            }
+        </section>
+
+        <!-- SOS History -->
+        @if (sosHistory.Alerts.Any())
+        {
+            <section class="history-panel-v2">
+                <div class="history-header-v2">
+                    <i class="bi bi-clock-history"></i>
+                    <h2>SOS History</h2>
+                </div>
+
+                <div class="history-list-v2">
+                    @foreach (var history in sosHistory.Alerts.Take(5))
+                    {
+                        <div class="history-item-v2">
+                            <div class="history-icon-v2 @(history.Status == SOSStatus.Resolved || history.Status == SOSStatus.UserMarkedSafe ? "resolved" : "active")">
+                                <i class="bi @(history.Status == SOSStatus.Resolved || history.Status == SOSStatus.UserMarkedSafe ? "bi-shield-check" : "bi-shield-exclamation")"></i>
+                            </div>
+                            <div class="history-info-v2">
+                                <div class="history-type-v2">@FormatEnumName(history.EmergencyType.ToString())</div>
+                                <div class="history-date-v2">@history.ActivatedAt.ToString("dd MMM yyyy, hh:mm tt")</div>
+                            </div>
+                            <span class="history-status-v2 @(history.Status == SOSStatus.Resolved || history.Status == SOSStatus.UserMarkedSafe ? "resolved" : "active")">
+                                @history.Status
+                            </span>
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+    </div>
+</div>
+
+<!-- Add Contact Modal -->
+@if (showAddContactModal)
+{
+    <div class="modal-overlay-v2" @onclick="CloseAddContactModal">
+        <div class="modal-content-v2" @onclick:stopPropagation="true">
+            <div class="modal-header-v2">
+                <h3>Add Emergency Contact</h3>
+                <button class="modal-close-btn-v2" @onclick="CloseAddContactModal">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div class="modal-form-v2">
+                <div class="form-group-v2">
+                    <label class="form-label-v2">Full Name</label>
+                    <input type="text" class="form-input-v2" placeholder="Enter name" @bind="newContact.Name" />
+                </div>
+                <div class="form-group-v2">
+                    <label class="form-label-v2">Phone Number</label>
+                    <input type="tel" class="form-input-v2" placeholder="+91 XXXXX XXXXX" @bind="newContact.Phone" />
+                </div>
+                <div class="form-group-v2">
+                    <label class="form-label-v2">Relationship</label>
+                    <input type="text" class="form-input-v2" placeholder="e.g., Spouse, Parent, Friend" @bind="newContact.Relationship" />
+                </div>
+                <div class="form-group-v2">
+                    <label class="form-label-v2">Email (Optional)</label>
+                    <input type="email" class="form-input-v2" placeholder="email@example.com" @bind="newContact.Email" />
+                </div>
+
+                <div class="modal-actions-v2">
+                    <button class="modal-btn-v2 secondary" @onclick="CloseAddContactModal">Cancel</button>
+                    <button class="modal-btn-v2 primary" @onclick="SaveContact">
+                        <i class="bi bi-check-lg"></i>
+                        Save Contact
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private SOSAlert? activeAlert;
+    private EmergencyType selectedType = EmergencyType.WrongfulDetention;
+    private List<LegalRight> currentRights = new();
+    private List<Helpline> helplines = new();
+    private List<EmergencyContact> emergencyContacts = new();
+    private SOSHistory sosHistory = new();
+    private string suggestedScript = "";
+    private bool isEnhancingWithAI = false;
+    private bool showAddContactModal = false;
+    private EmergencyContact newContact = new();
+    private System.Timers.Timer? refreshTimer;
+    private AzureMapViewer? mapViewer;
+    private AzureMapViewer? previewMapViewer;
+    
+    // Location tracking state
+    private LocationData? currentLocation;
+    private string? currentAddress;
+    private string? locationError;
+    private bool isLoadingLocation = false;
+    private bool isActivating = false;
+    private bool wakeLockActive = false;
+    private List<LocationData> locationHistory = new();
+    private TrackingStats trackingStats = new();
+    private DotNetObjectReference<EmergencySOS>? dotNetRef;
+    private bool isInitialized = false;
+    
+    // Audio recording state
+    private bool isRecording = false;
+    private bool micPermissionGranted = false;
+    private string? recordingError;
+    private int recordingDuration = 0;
+    private System.Timers.Timer? recordingTimer;
+
+    // GPS Location data class for JavaScript interop
+    public class GpsLocationData
+    {
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+        public double Accuracy { get; set; }
+        public double? Altitude { get; set; }
+        public double? Heading { get; set; }
+        public double? Speed { get; set; }
+        public string? Timestamp { get; set; }
+    }
+
+
+    public class TrackingStats
+    {
+        public int TotalDistance { get; set; }
+        public string AverageSpeed { get; set; } = "0";
+        public string MaxSpeed { get; set; } = "0";
+        public double Duration { get; set; }
+        public int Points { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        LangService.OnLanguageChanged += OnLanguageChanged;
+        
+        await LoadData();
+        StartRefreshTimer();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !isInitialized)
+        {
+            isInitialized = true;
+            dotNetRef = DotNetObjectReference.Create(this);
+            
+            try
+            {
+                // Initialize location service
+                await JS.InvokeVoidAsync("SOSLocationService.initialize", dotNetRef);
+                
+                // Get initial location
+                await RefreshLocation();
+                
+                // Request notification permission
+                await JS.InvokeAsync<string>("SOSLocationService.requestNotificationPermission");
+                
+                // Plot initial marker on preview map after a short delay for map render
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(600);
+                    await InvokeAsync(async () =>
+                    {
+                        if (previewMapViewer != null && currentLocation != null)
+                        {
+                            try
+                            {
+                                var loc = new LocationData
+                                {
+                                    Latitude = currentLocation.Latitude,
+                                    Longitude = currentLocation.Longitude,
+                                    Address = currentAddress ?? "Your Location",
+                                    LocationType = "Current"
+                                };
+                                await previewMapViewer.AddMarkerAsync(loc, "📍 Your Location", "red");
+                            }
+                            catch { }
+                        }
+                    });
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Location init error: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task LoadData()
+    {
+        var userId = await GetCurrentUserId();
+        
+        activeAlert = SOSService.GetActiveAlert(userId);
+        helplines = SOSService.GetHelplines();
+        currentRights = SOSService.GetLegalRights(selectedType);
+        suggestedScript = SOSService.GetSuggestedScript(selectedType);
+        sosHistory = SOSService.GetHistory(userId);
+        
+        // Load sample contacts (in real app, load from database)
+        if (!emergencyContacts.Any())
+        {
+            emergencyContacts = new List<EmergencyContact>
+            {
+                new() { Id = 1, Name = "Priya Sharma", Phone = "+91 98765 43210", Relationship = "Spouse", IsPrimary = true },
+                new() { Id = 2, Name = "Advocate Mehta", Phone = "+91 87654 32109", Relationship = "Family Lawyer" }
+            };
+        }
+    }
+
+    private void StartRefreshTimer()
+    {
+        refreshTimer = new System.Timers.Timer(1000);
+        refreshTimer.Elapsed += (s, e) => InvokeAsync(StateHasChanged);
+        refreshTimer.Start();
+    }
+
+    private async Task RefreshLocation()
+    {
+        isLoadingLocation = true;
+        locationError = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await JS.InvokeAsync<LocationData>("SOSLocationService.getCurrentLocation");
+            if (result != null)
+            {
+                currentLocation = result;
+                await ReverseGeocode(result.Latitude, result.Longitude);
+            }
+        }
+        catch (JSException ex)
+        {
+            locationError = GetLocationErrorMessage(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            locationError = $"Location error: {ex.Message}";
+        }
+        finally
+        {
+            isLoadingLocation = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ReverseGeocode(double lat, double lng)
+    {
+        try
+        {
+            // Use Azure Maps reverse geocoding (coordinates → address)
+            var location = await MapsService.ReverseGeocodeAsync(lat, lng);
+            if (location != null)
+            {
+                currentAddress = location.Address;
+                if (!string.IsNullOrEmpty(location.City))
+                    currentAddress += $", {location.City}";
+                if (!string.IsNullOrEmpty(location.State))
+                    currentAddress += $", {location.State}";
+                if (!string.IsNullOrEmpty(location.PostalCode))
+                    currentAddress += $" {location.PostalCode}";
+            }
+            else
+            {
+                // Fallback to JS geocoding
+                var result = await JS.InvokeAsync<JsonElement>("SOSLocationService.reverseGeocode", lat, lng);
+                if (result.TryGetProperty("success", out var success) && success.GetBoolean())
+                {
+                    currentAddress = result.GetProperty("displayName").GetString();
+                }
+            }
+
+            // Update map marker if map is available
+            var locationData = new LocationData
+            {
+                Latitude = lat,
+                Longitude = lng,
+                Address = currentAddress ?? "Current Location",
+                LocationType = "SOS",
+                Timestamp = DateTime.UtcNow
+            };
+
+            // Update preview map (before SOS)
+            if (previewMapViewer != null && activeAlert == null)
+            {
+                try
+                {
+                    await previewMapViewer.ClearMarkersAsync();
+                    await previewMapViewer.AddMarkerAsync(locationData, "📍 Your Location", "red");
+                    await previewMapViewer.CenterMapAsync(lat, lng, 15);
+                }
+                catch { }
+            }
+            
+            // Update live tracking map (during SOS)
+            if (mapViewer != null && activeAlert != null)
+            {
+                try
+                {
+                    await mapViewer.AddMarkerAsync(locationData, "📍 Current Location", "red");
+                    await mapViewer.CenterMapAsync(lat, lng, 16);
+                }
+                catch { }
+            }
+        }
+        catch
+        {
+            currentAddress = $"Lat: {lat:F4}, Long: {lng:F4}";
+        }
+    }
+
+    private async Task ActivateSOS()
+    {
+        isActivating = true;
+        StateHasChanged();
+
+        try
+        {
+            var user = AuthService.GetCurrentUser();
+            var userId = user?.Id.ToString() ?? "guest";
+            var userName = user?.Name ?? "Guest User";
+            var userPhone = user?.Phone ?? "";
+            
+            // Get current location
+            double? lat = currentLocation?.Latitude;
+            double? lng = currentLocation?.Longitude;
+            
+            if (currentLocation == null)
+            {
+                try
+                {
+                    var locResult = await JS.InvokeAsync<LocationData>("SOSLocationService.getCurrentLocation");
+                    lat = locResult?.Latitude;
+                    lng = locResult?.Longitude;
+                    currentLocation = locResult;
+                }
+                catch { /* Continue without location */ }
+            }
+            
+            // Activate SOS
+            activeAlert = await SOSService.ActivateSOSAsync(
+                userId, 
+                userName,
+                userPhone,
+                selectedType, 
+                lat,
+                lng
+            );
+            
+            // Start location tracking
+            await JS.InvokeVoidAsync("SOSLocationService.startTracking");
+            
+            // Request wake lock to keep screen active
+            wakeLockActive = await JS.InvokeAsync<bool>("SOSLocationService.requestWakeLock");
+            
+            // Request microphone permission and start recording
+            try
+            {
+                var micResult = await JS.InvokeAsync<MicPermissionResult>("SOSLocationService.requestMicrophonePermission");
+                if (micResult?.Success == true)
+                {
+                    micPermissionGranted = true;
+                    var recordResult = await JS.InvokeAsync<RecordingResult>("SOSLocationService.startRecording");
+                    if (recordResult?.Success == true)
+                    {
+                        isRecording = true;
+                        activeAlert.IsRecording = true;
+                        StartRecordingTimer();
+                    }
+                    else
+                    {
+                        recordingError = recordResult?.Error ?? "Failed to start recording";
+                    }
+                }
+                else
+                {
+                    recordingError = micResult?.Error ?? "Microphone permission denied";
+                }
+            }
+            catch (Exception ex)
+            {
+                recordingError = $"Recording error: {ex.Message}";
+            }
+            
+            // Vibrate device
+            await JS.InvokeVoidAsync("SOSLocationService.vibrate");
+            
+            // Play alert sound
+            await JS.InvokeVoidAsync("SOSLocationService.playAlertSound");
+            
+            // Clear location history for new session
+            locationHistory.Clear();
+            
+            // Initialize map with current position after render
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(500); // Wait for map to render
+                await InvokeAsync(async () =>
+                {
+                    if (mapViewer != null && currentLocation != null)
+                    {
+                        try
+                        {
+                            var startMarker = new LocationData
+                            {
+                                Latitude = currentLocation.Latitude,
+                                Longitude = currentLocation.Longitude,
+                                Address = currentAddress ?? "SOS Activated Here",
+                                LocationType = "SOS Start"
+                            };
+                            await mapViewer.AddMarkerAsync(startMarker, "🚨 SOS Start Location", "red");
+                        }
+                        catch { }
+                    }
+                });
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SOS activation error: {ex.Message}");
+        }
+        finally
+        {
+            isActivating = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeactivateSOS()
+    {
+        if (activeAlert != null)
+        {
+            var userId = await GetCurrentUserId();
+            await SOSService.DeactivateSOSAsync(activeAlert.Id, userId, "User marked safe");
+            
+            // Stop recording
+            if (isRecording)
+            {
+                try
+                {
+                    await JS.InvokeAsync<RecordingResult>("SOSLocationService.stopRecording");
+                    // Save recording to storage
+                    await JS.InvokeAsync<bool>("SOSLocationService.saveRecordingToStorage", activeAlert.Id);
+                }
+                catch { }
+                
+                StopRecordingTimer();
+                isRecording = false;
+            }
+            
+            // Release microphone
+            await JS.InvokeVoidAsync("SOSLocationService.releaseMicrophone");
+            micPermissionGranted = false;
+            
+            // Stop location tracking
+            await JS.InvokeVoidAsync("SOSLocationService.stopTracking");
+            
+            // Release wake lock
+            await JS.InvokeVoidAsync("SOSLocationService.releaseWakeLock");
+            wakeLockActive = false;
+            
+            activeAlert = null;
+            locationHistory.Clear();
+            await LoadData(); // Refresh history
+            StateHasChanged();
+        }
+    }
+
+    // Called from JavaScript when location updates
+    [JSInvokable]
+    public async Task OnLocationUpdate(LocationData location)
+    {
+        currentLocation = location;
+        locationHistory.Add(location);
+        
+        // Get address for new location
+        if (locationHistory.Count % 5 == 0 || locationHistory.Count == 1)
+        {
+            await ReverseGeocode(location.Latitude, location.Longitude);
+        }
+        
+        // Update tracking stats
+        try
+        {
+            var stats = await JS.InvokeAsync<TrackingStats>("SOSLocationService.getTrackingStats");
+            if (stats != null)
+            {
+                trackingStats = stats;
+            }
+        }
+        catch { }
+        
+        // Update alert with latest location
+        if (activeAlert != null)
+        {
+            activeAlert.Latitude = location.Latitude;
+            activeAlert.Longitude = location.Longitude;
+        }
+        
+        // Plot trail markers and route on the map
+        if (mapViewer != null && locationHistory.Count > 0)
+        {
+            try
+            {
+                // Add trail point marker (blue for trail, red for current)
+                var trailPoint = new LocationData
+                {
+                    Latitude = location.Latitude,
+                    Longitude = location.Longitude,
+                    Address = $"Trail Point #{locationHistory.Count}",
+                    LocationType = "Trail",
+                    Timestamp = DateTime.UtcNow
+                };
+                
+                // Clear and re-plot all markers for clean display
+                await mapViewer.ClearMarkersAsync();
+                
+                // Add trail point markers (older points in blue)
+                for (int i = 0; i < locationHistory.Count - 1; i++)
+                {
+                    var pt = locationHistory[i];
+                    var marker = new LocationData
+                    {
+                        Latitude = pt.Latitude,
+                        Longitude = pt.Longitude,
+                        Address = $"Trail #{i + 1} - {pt.Timestamp:HH:mm:ss}",
+                        LocationType = "Trail"
+                    };
+                    await mapViewer.AddMarkerAsync(marker, $"📌 Point #{i + 1}", "#3b82f6");
+                }
+                
+                // Current location marker (red, prominent)
+                await mapViewer.AddMarkerAsync(trailPoint, "📍 Current Location", "red");
+                
+                // Draw the trail route line connecting all points
+                if (locationHistory.Count >= 2)
+                {
+                    var coordinates = locationHistory
+                        .Select(l => new double[] { l.Longitude, l.Latitude })
+                        .ToList();
+                    await JS.InvokeVoidAsync("drawRoute", coordinates, "#ef4444", 4);
+                }
+                
+                // Center map on current position
+                await mapViewer.CenterMapAsync(location.Latitude, location.Longitude, 16);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Trail plot error: {ex.Message}");
+            }
+        }
+        
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // Called from JavaScript on location error
+    [JSInvokable]
+    public Task OnLocationError(string error)
+    {
+        locationError = GetLocationErrorMessage(error);
+        return InvokeAsync(StateHasChanged);
+    }
+
+    // Called from JavaScript when recording starts
+    [JSInvokable]
+    public Task OnRecordingStarted()
+    {
+        isRecording = true;
+        if (activeAlert != null)
+        {
+            activeAlert.IsRecording = true;
+        }
+        return InvokeAsync(StateHasChanged);
+    }
+
+    // Called from JavaScript when recording stops
+    [JSInvokable]
+    public Task OnRecordingStopped(int duration)
+    {
+        isRecording = false;
+        recordingDuration = duration;
+        StopRecordingTimer();
+        return InvokeAsync(StateHasChanged);
+    }
+
+    // Called from JavaScript on recording error
+    [JSInvokable]
+    public Task OnRecordingError(string error)
+    {
+        recordingError = error;
+        isRecording = false;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private void StartRecordingTimer()
+    {
+        recordingDuration = 0;
+        recordingTimer = new System.Timers.Timer(1000);
+        recordingTimer.Elapsed += (s, e) =>
+        {
+            recordingDuration++;
+            InvokeAsync(StateHasChanged);
+        };
+        recordingTimer.Start();
+    }
+
+    private void StopRecordingTimer()
+    {
+        recordingTimer?.Stop();
+        recordingTimer?.Dispose();
+        recordingTimer = null;
+    }
+
+    // Result classes for JS interop
+    public class MicPermissionResult
+    {
+        public bool Success { get; set; }
+        public string? Error { get; set; }
+    }
+
+    public class RecordingResult
+    {
+        public bool Success { get; set; }
+        public string? Error { get; set; }
+        public int Duration { get; set; }
+        public int Chunks { get; set; }
+    }
+
+    private string GetLocationErrorMessage(string error)
+    {
+        if (error.Contains("denied"))
+            return "Location permission denied. Please enable location access.";
+        if (error.Contains("unavailable"))
+            return "Location unavailable. Please check GPS settings.";
+        if (error.Contains("timeout"))
+            return "Location request timed out. Please try again.";
+        return $"Location error: {error}";
+    }
+
+    private void SelectEmergencyType(EmergencyType type)
+    {
+        selectedType = type;
+        LoadRightsForType();
+    }
+
+    private void LoadRightsForType()
+    {
+        currentRights = SOSService.GetLegalRights(selectedType);
+        suggestedScript = SOSService.GetSuggestedScript(selectedType);
+        StateHasChanged();
+    }
+
+    private async Task EnhanceScriptWithAI()
+    {
+        isEnhancingWithAI = true;
+        try
+        {
+            var aiScript = await SOSService.GetSuggestedScriptAsync(selectedType);
+            if (!string.IsNullOrWhiteSpace(aiScript))
+            {
+                suggestedScript = aiScript;
+            }
+        }
+        catch { /* AI enhancement failed — fallback remains */ }
+        finally
+        {
+            isEnhancingWithAI = false;
+        }
+    }
+
+    private void OpenAddContactModal()
+    {
+        newContact = new EmergencyContact();
+        showAddContactModal = true;
+    }
+
+    private void CloseAddContactModal()
+    {
+        showAddContactModal = false;
+    }
+
+    private void SaveContact()
+    {
+        if (!string.IsNullOrWhiteSpace(newContact.Name) && !string.IsNullOrWhiteSpace(newContact.Phone))
+        {
+            newContact.Id = emergencyContacts.Count > 0 ? emergencyContacts.Max(c => c.Id) + 1 : 1;
+            emergencyContacts.Add(newContact);
+            CloseAddContactModal();
+        }
+    }
+
+    private void RemoveContact(EmergencyContact contact)
+    {
+        emergencyContacts.Remove(contact);
+    }
+
+    private async Task CopyScript()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", suggestedScript);
+    }
+
+    private Task<string> GetCurrentUserId()
+    {
+        var user = AuthService.GetCurrentUser();
+        return Task.FromResult(user?.Id.ToString() ?? "guest");
+    }
+
+    private string FormatDuration(TimeSpan duration)
+    {
+        if (duration.TotalHours >= 1)
+            return $"{(int)duration.TotalHours}:{duration.Minutes:00}:{duration.Seconds:00}";
+        return $"{(int)duration.TotalMinutes:00}:{duration.Seconds:00}";
+    }
+
+    private string FormatEnumName(string enumName)
+    {
+        return System.Text.RegularExpressions.Regex.Replace(enumName, "(\\B[A-Z])", " $1");
+    }
+
+    private bool HasLocationShared(SOSAlert alert)
+    {
+        return alert.Latitude.HasValue && alert.Longitude.HasValue;
+    }
+
+    private string GetEmergencyIcon(EmergencyType type)
+    {
+        return type switch
+        {
+            EmergencyType.WrongfulDetention => "bi-lock-fill",
+            EmergencyType.PoliceHarassment => "bi-shield-slash",
+            EmergencyType.DomesticViolence => "bi-house-exclamation",
+            EmergencyType.RoadAccident => "bi-car-front",
+            EmergencyType.PropertyDispute => "bi-building-fill-exclamation",
+            EmergencyType.WorkplaceHarassment => "bi-building",
+            EmergencyType.ThreatsAndIntimidation => "bi-exclamation-diamond",
+            EmergencyType.CyberExtortion => "bi-laptop",
+            EmergencyType.Assault => "bi-person-fill-exclamation",
+            _ => "bi-question-circle"
+        };
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        refreshTimer?.Stop();
+        refreshTimer?.Dispose();
+        
+        StopRecordingTimer();
+        
+        try
+        {
+            await JS.InvokeVoidAsync("SOSLocationService.cleanup");
+        }
+        catch { }
+        
+        dotNetRef?.Dispose();
+        
+        LangService.OnLanguageChanged -= OnLanguageChanged;
+    }
+
+    private void OnLanguageChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+}

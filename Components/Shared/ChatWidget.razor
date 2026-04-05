@@ -1,0 +1,327 @@
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@using static AILegalAsst.Services.ChatStateService
+@inject AuthenticationService AuthService
+@inject ChatStateService ChatState
+@inject AzureAgentService AgentService
+@rendermode InteractiveServer
+@implements IDisposable
+
+<!-- Chat Widget Button (Minimized State) -->
+@if (!isExpanded)
+{
+    <button class="chat-widget-button" @onclick="ToggleWidget" title="AI Assistant">
+        <i class="bi bi-robot"></i>
+        @if (unreadCount > 0)
+        {
+            <span class="notification-badge">@unreadCount</span>
+        }
+    </button>
+}
+
+<!-- Chat Widget Window (Expanded State) -->
+@if (isExpanded)
+{
+    <div class="chat-widget-window">
+        <!-- Widget Header -->
+        <div class="widget-header">
+            <div class="widget-header-left">
+                <div class="widget-avatar">
+                    <i class="bi bi-robot"></i>
+                </div>
+                <div class="widget-title">
+                    <h4>JurisAI</h4>
+                    <span class="status-indicator">
+                        <span class="status-dot"></span> Online
+                    </span>
+                </div>
+            </div>
+            <div class="widget-header-actions">
+                <button class="btn-widget-action" @onclick="ToggleWidget" title="Minimize">
+                    <i class="bi bi-dash-lg"></i>
+                </button>
+                <button class="btn-widget-action" @onclick="CloseWidget" title="Close">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Widget Body -->
+        <div class="widget-body">
+            <div class="widget-messages" @ref="widgetMessagesContainer">
+                @if (ChatState.Messages.Count == 0)
+                {
+                    <!-- Welcome Message -->
+                    <div class="widget-welcome">
+                        <div class="widget-welcome-icon">
+                            <i class="bi bi-stars"></i>
+                        </div>
+                        <h3>Hello! 👋</h3>
+                        <p>How can I help you today?</p>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var message in ChatState.Messages)
+                    {
+                        <div class="widget-message @(message.IsUser ? "widget-user-message" : "widget-ai-message")">
+                            <div class="widget-message-content">
+                                <p>@message.Text</p>
+                                @if (message.RelatedLaws.Any())
+                                {
+                                    <div class="widget-related-laws">
+                                        @foreach (var law in message.RelatedLaws)
+                                        {
+                                            <span class="widget-law-chip">@law</span>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                            <span class="widget-message-time">@message.Timestamp.ToString("hh:mm tt")</span>
+                        </div>
+                    }
+
+                    <!-- Typing Indicator -->
+                    @if (ChatState.IsTyping)
+                    {
+                        <div class="widget-message widget-ai-message">
+                            <div class="widget-typing-indicator">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <!-- Widget Footer -->
+        <div class="widget-footer">
+            <div class="widget-input-container">
+                <textarea @bind="widgetInput" 
+                          @bind:event="oninput"
+                          @onkeydown="HandleWidgetKeyPress"
+                          placeholder="Type your message..."
+                          rows="1"
+                          class="widget-input"></textarea>
+                <button class="btn-widget-send" @onclick="SendWidgetMessage" disabled="@(string.IsNullOrWhiteSpace(widgetInput) || ChatState.IsTyping)">
+                    <i class="bi bi-send-fill"></i>
+                </button>
+            </div>
+            <div class="widget-powered-by">
+                Powered by JurisAI
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isExpanded = false;
+    private ElementReference widgetMessagesContainer;
+    private string widgetInput = string.Empty;
+    private int unreadCount = 0;
+
+    protected override void OnInitialized()
+    {
+        // Subscribe to state changes
+        ChatState.OnChange += StateHasChanged;
+        
+        // Initialize sessions if needed
+        ChatState.InitializeSessions();
+        
+        // Add greeting if no messages
+        if (ChatState.Messages.Count == 0)
+        {
+            AddWidgetGreeting();
+        }
+    }
+
+    public void Dispose()
+    {
+        ChatState.OnChange -= StateHasChanged;
+    }
+    
+    private void ToggleWidget()
+    {
+        isExpanded = !isExpanded;
+        
+        // Reset unread count when expanded
+        if (isExpanded)
+        {
+            unreadCount = 0;
+        }
+    }
+
+    private void CloseWidget()
+    {
+        isExpanded = false;
+        // Keep messages for conversation continuity
+    }
+
+    private void AddWidgetGreeting()
+    {
+        var user = AuthService.GetCurrentUser();
+        ChatState.AddMessage(new ChatStateService.ChatMessage
+        {
+            Text = $"Hello {user?.Name ?? "there"}! 👋\n\nI'm your JurisAI AI assistant. How can I help you today?",
+            IsUser = false,
+            Timestamp = DateTime.Now,
+            RelatedLaws = new List<string>()
+        });
+    }
+
+    private async Task SendWidgetMessage()
+    {
+        if (string.IsNullOrWhiteSpace(widgetInput) || ChatState.IsTyping) return;
+
+        // Add user message
+        var userMessage = new ChatStateService.ChatMessage
+        {
+            Text = widgetInput.Trim(),
+            IsUser = true,
+            Timestamp = DateTime.Now
+        };
+        ChatState.AddMessage(userMessage);
+        
+        var query = widgetInput;
+        widgetInput = string.Empty;
+        
+        // Show typing indicator
+        ChatState.SetTyping(true);
+        await Task.Delay(100);
+        StateHasChanged();
+        
+        // Get response from Azure AI Agent
+        var aiResponse = await GetAgentResponseAsync(query);
+        ChatState.AddMessage(aiResponse);
+        
+        ChatState.SetTyping(false);
+        
+        // If widget is minimized, increment unread count
+        if (!isExpanded)
+        {
+            unreadCount++;
+        }
+        
+        StateHasChanged();
+    }
+
+    private async Task<ChatStateService.ChatMessage> GetAgentResponseAsync(string query)
+    {
+        try
+        {
+            // Build user context based on role
+            var user = AuthService.GetCurrentUser();
+            var userContext = user != null 
+                ? $"User Role: {user.Role}, User Name: {user.Name}" 
+                : null;
+
+            // Build conversation history for context
+            var history = ChatState.Messages
+                .Where(m => m != null)
+                .Select(m => new ConversationMessage
+                {
+                    Message = m.Text,
+                    IsUser = m.IsUser,
+                    Timestamp = m.Timestamp
+                })
+                .ToList();
+
+            // Try to get response from Azure Agent
+            var agentResponse = await AgentService.SendMessageWithHistoryAsync(query, history, userContext);
+
+            if (agentResponse.Success)
+            {
+                return new ChatStateService.ChatMessage
+                {
+                    Text = agentResponse.Message,
+                    IsUser = false,
+                    Timestamp = DateTime.Now,
+                    RelatedLaws = agentResponse.RelatedLaws
+                };
+            }
+            else
+            {
+                // Fallback to mock response if agent fails
+                Console.WriteLine($"Agent error, using fallback: {agentResponse.Error}");
+                return GenerateMockResponse(query);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error calling agent: {ex.Message}");
+            // Fallback to mock response on any error
+            return GenerateMockResponse(query);
+        }
+    }
+
+    private async Task HandleWidgetKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await SendWidgetMessage();
+        }
+    }
+
+    private ChatStateService.ChatMessage GenerateMockResponse(string query)
+    {
+        var response = new ChatStateService.ChatMessage
+        {
+            Text = GetResponseText(query),
+            IsUser = false,
+            Timestamp = DateTime.Now,
+            RelatedLaws = GetRelatedLaws(query)
+        };
+        
+        return response;
+    }
+
+    private string GetResponseText(string query)
+    {
+        query = query.ToLower();
+        
+        if (query.Contains("66a") || query.Contains("section 66"))
+        {
+            return "Section 66A of the IT Act was struck down by the Supreme Court in 2015 as unconstitutional for violating freedom of speech.";
+        }
+        else if (query.Contains("complaint") || query.Contains("report"))
+        {
+            return "To file a cybercrime complaint:\n\n1. Visit cybercrime.gov.in\n2. Call 1930\n3. Visit your nearest police station\n\nWould you like detailed steps?";
+        }
+        else if (query.Contains("phishing"))
+        {
+            return "Phishing is covered under IT Act Section 66D. Punishment: Up to 3 years imprisonment and/or fine up to Rs. 1 lakh.";
+        }
+        else
+        {
+            return "I can help you with information about Indian cyber laws and legal procedures. Could you please provide more details about what you'd like to know?";
+        }
+    }
+
+    private List<string> GetRelatedLaws(string query)
+    {
+        query = query.ToLower();
+        var laws = new List<string>();
+        
+        if (query.Contains("66") || query.Contains("it act"))
+        {
+            laws.Add("IT Act Section 66");
+            laws.Add("IT Act Section 66D");
+        }
+        
+        if (query.Contains("fraud") || query.Contains("cheating"))
+        {
+            laws.Add("IPC Section 419");
+            laws.Add("IPC Section 420");
+        }
+        
+        if (query.Contains("harassment"))
+        {
+            laws.Add("IPC Section 354D");
+            laws.Add("IT Act Section 67");
+        }
+        
+        return laws;
+    }
+}

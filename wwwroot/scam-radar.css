@@ -1,0 +1,51 @@
+/* Community Scam Radar Page Styles */
+.scam-radar-page {
+    max-width: 800px;
+    margin: 2rem auto;
+    background: rgba(255,255,255,0.7);
+    border-radius: 18px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    padding: 2rem 2.5rem;
+    font-family: 'Segoe UI', Arial, sans-serif;
+}
+.scam-radar-page h1 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: #b8860b;
+    margin-bottom: 1.2rem;
+}
+.scam-radar-page h2 {
+    font-size: 1.3rem;
+    color: #333;
+    margin-top: 2rem;
+    margin-bottom: 0.7rem;
+}
+.scam-trends ul, .recent-reports ul {
+    list-style: none;
+    padding: 0;
+}
+.scam-trends li, .recent-reports li {
+    background: #fffbe6;
+    border-radius: 8px;
+    margin-bottom: 0.7rem;
+    padding: 0.8rem 1.2rem;
+    box-shadow: 0 1px 4px rgba(184,134,11,0.07);
+}
+.btn-primary-v2 {
+    display: inline-block;
+    margin-top: 2rem;
+    background: linear-gradient(90deg, #b8860b 60%, #ffd700 100%);
+    color: #fff;
+    font-weight: 600;
+    border: none;
+    border-radius: 6px;
+    padding: 0.7rem 1.6rem;
+    font-size: 1.1rem;
+    box-shadow: 0 2px 8px rgba(184,134,11,0.08);
+    transition: background 0.2s;
+    text-decoration: none;
+}
+.btn-primary-v2:hover {
+    background: linear-gradient(90deg, #ffd700 60%, #b8860b 100%);
+    color: #fff;
+}

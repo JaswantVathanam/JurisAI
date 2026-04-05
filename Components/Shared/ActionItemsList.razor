@@ -1,0 +1,102 @@
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@using System.Collections.Generic
+@using System.Linq
+
+@inject LanguageService LangService
+
+<link rel="stylesheet" href="action-items-list.css" />
+
+<div class="actions-container">
+    @if (Actions == null || !Actions.Any())
+    {
+        <div class="no-actions-message">
+            <p>@LangService.T("no_action_items")</p>
+        </div>
+    }
+    else
+    {
+        <div class="action-items-list">
+            @foreach (var action in Actions.OrderByDescending(a => a.Priority).ThenBy(a => a.DueDate))
+            {
+                <div class="action-item-card @GetCardClass(action)">
+                    <div class="action-header">
+                        <div class="action-title-section">
+                            <h4 class="action-title">@action.Type</h4>
+                            <p class="action-description">@action.Description</p>
+                        </div>
+                        <span class="badge @action.GetStatusBadgeClass()">@action.Status</span>
+                    </div>
+
+                    <div class="action-body">
+                        <div class="action-meta">
+                            <div class="meta-item">
+                                <i class="bi bi-flag-fill"></i>
+                                <span>Priority: @action.Priority/5</span>
+                            </div>
+                            <div class="meta-item">
+                                <i class="bi bi-calendar-event"></i>
+                                <span>Due: @action.DueDate.ToShortDateString()</span>
+                            </div>
+                            <div class="meta-item">
+                                <i class="bi bi-hourglass"></i>
+                                <span>Est: @action.EstimatedHours hrs</span>
+                            </div>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(action.Notes))
+                        {
+                            <p class="action-notes">
+                                <strong>Notes:</strong> @action.Notes
+                            </p>
+                        }
+
+                        @if (!string.IsNullOrEmpty(action.BlockingReason))
+                        {
+                            <div class="alert alert-warning alert-sm">
+                                <strong>Blocked:</strong> @action.BlockingReason
+                            </div>
+                        }
+                    </div>
+
+                    <div class="action-footer">
+                        <div class="status-selector">
+                            <select class="form-select form-select-sm" @onchange="@((ChangeEventArgs e) => OnStatusChange.InvokeAsync((action.Id, (string)e.Value)))">
+                                <option selected="@(action.Status == "Pending")" value="Pending">Pending</option>
+                                <option selected="@(action.Status == "InProgress")" value="InProgress">In Progress</option>
+                                <option selected="@(action.Status == "Completed")" value="Completed">Completed</option>
+                                <option selected="@(action.Status == "Blocked")" value="Blocked">Blocked</option>
+                                <option selected="@(action.Status == "Cancelled")" value="Cancelled">Cancelled</option>
+                            </select>
+                        </div>
+
+                        <div class="progress-info">
+                            <div class="progress-mini">
+                                <div class="progress-bar-mini" style="width: @action.GetProgressPercentage()%"></div>
+                            </div>
+                            <span class="progress-text">@action.GetProgressPercentage()%</span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public List<InvestigationAction> Actions { get; set; } = null!;
+
+    [Parameter]
+    public EventCallback<(int ActionId, string Status)> OnStatusChange { get; set; }
+
+    private string GetCardClass(InvestigationAction action)
+    {
+        var classes = "action-item-card";
+        if (action.Status == "Completed")
+            classes += " completed";
+        if (action.Status == "Blocked")
+            classes += " blocked";
+        return classes;
+    }
+}

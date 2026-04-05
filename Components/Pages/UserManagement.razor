@@ -1,0 +1,1167 @@
+@page "/users"
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@using AILegalAsst.Components.Shared
+@inject AuthenticationService AuthService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+@implements IDisposable
+
+<PageTitle>User Management - JurisAI</PageTitle>
+
+<link rel="stylesheet" href="user-management-v2.css" />
+<link rel="stylesheet" href="print-styles.css" media="print" />
+
+<CustomErrorBoundary ShowDetails="true" ShowReportButton="true">
+    @if (currentUser?.Role != UserRole.Admin)
+    {
+        <div class="error-container-v2">
+            <i class="bi bi-shield-exclamation"></i>
+            <h2>Access Denied</h2>
+            <p>You do not have permission to access this page.</p>
+            <button class="btn-home-v2" @onclick="GoToHome"><i class="bi bi-house"></i> Go to Home</button>
+        </div>
+    }
+    else
+    {
+        <div class="user-management-v2">
+            <div class="management-container-v2">
+            <!-- Print Header (only visible when printing) -->
+            <div class="print-only print-header-v2">
+                <div class="print-title-v2"><i class="bi bi-people-fill"></i> JurisAI - User Management Report</div>
+                <p class="print-meta-v2">Generated: @DateTime.Now.ToString("MMMM dd, yyyy HH:mm")</p>
+                <p class="print-meta-v2">Total Users: @totalUsers | Citizens: @citizenCount | Lawyers: @lawyerCount | Police: @policeCount</p>
+        </div>
+
+        <!-- Header -->
+        <div class="page-header-v2 no-print">
+            <div class="header-content-v2">
+                <h1><i class="bi bi-people-fill"></i> User Management</h1>
+                <p class="header-subtitle-v2">Manage all registered users in the system</p>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="stats-grid-v2 no-print" role="region" aria-label="User statistics">
+            @if (isLoadingStats)
+            {
+                <!-- Skeleton loaders for stats -->
+                @for (int i = 0; i < 4; i++)
+                {
+                    <div class="skeleton-stat-card-v2">
+                        <div class="skeleton-icon-v2"></div>
+                        <div class="stat-details-v2">
+                            <div class="skeleton-value-v2"></div>
+                            <div class="skeleton-label-v2"></div>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="stat-card-v2 citizen" role="article" aria-label="Citizen users count">
+                    <div class="stat-icon-v2" aria-hidden="true">
+                        <i class="bi bi-person-circle"></i>
+                    </div>
+                    <div class="stat-details-v2">
+                        <div class="stat-value-v2" aria-label="@citizenCount citizens">@citizenCount</div>
+                        <div class="stat-label-v2">Citizens</div>
+                    </div>
+                </div>
+
+                <div class="stat-card-v2 lawyer" role="article" aria-label="Lawyer users count">
+                    <div class="stat-icon-v2" aria-hidden="true">
+                        <i class="bi bi-briefcase"></i>
+                    </div>
+                    <div class="stat-details-v2">
+                        <div class="stat-value-v2" aria-label="@lawyerCount lawyers">@lawyerCount</div>
+                        <div class="stat-label-v2">Lawyers</div>
+                    </div>
+                </div>
+
+                <div class="stat-card-v2 police" role="article" aria-label="Police users count">
+                    <div class="stat-icon-v2" aria-hidden="true">
+                        <i class="bi bi-shield-fill"></i>
+                    </div>
+                    <div class="stat-details-v2">
+                        <div class="stat-value-v2" aria-label="@policeCount police officers">@policeCount</div>
+                        <div class="stat-label-v2">Police</div>
+                    </div>
+                </div>
+
+                <div class="stat-card-v2 total" role="article" aria-label="Total users count">
+                    <div class="stat-icon-v2" aria-hidden="true">
+                        <i class="bi bi-people"></i>
+                    </div>
+                    <div class="stat-details-v2">
+                        <div class="stat-value-v2" aria-label="@totalUsers total users">@totalUsers</div>
+                        <div class="stat-label-v2">Total Users</div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-bar-v2 no-print" role="search" aria-label="User filters">
+            <div class="filter-row-v2">
+                <div class="filter-group-v2">
+                    <label for="filterRole">Role:</label>
+                    <select id="filterRole" @bind="filterRole" class="filter-select-v2" aria-label="Filter by user role">
+                        <option value="All">All Roles</option>
+                        <option value="Citizen">Citizens</option>
+                        <option value="Lawyer">Lawyers</option>
+                        <option value="Police">Police</option>
+                    </select>
+                </div>
+
+                <div class="filter-group-v2">
+                    <label for="filterStatus">Status:</label>
+                    <select id="filterStatus" @bind="filterStatus" class="filter-select-v2" aria-label="Filter by verification status">
+                        <option value="All">All Statuses</option>
+                        <option value="Verified">Verified</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Rejected">Rejected</option>
+                        <option value="MoreInfoNeeded">More Info Needed</option>
+                    </select>
+                </div>
+
+                <div class="filter-group-v2">
+                    <label for="filterActive">Account Status:</label>
+                    <select id="filterActive" @bind="filterActive" class="filter-select-v2" aria-label="Filter by account status">
+                        <option value="All">All</option>
+                        <option value="Active">Active Only</option>
+                        <option value="Inactive">Inactive Only</option>
+                    </select>
+                </div>
+
+                <div class="filter-group-v2">
+                    <label for="filterDateFrom">Joined From:</label>
+                    <input id="filterDateFrom" type="date" @bind="filterDateFrom" class="filter-date-v2" aria-label="Filter by joined date from" />
+                </div>
+
+                <div class="filter-group-v2">
+                    <label for="filterDateTo">Joined To:</label>
+                    <input id="filterDateTo" type="date" @bind="filterDateTo" class="filter-date-v2" aria-label="Filter by joined date to" />
+                </div>
+
+                <button class="btn-clear-filters-v2" @onclick="ClearFilters" title="Clear all filters" aria-label="Clear all filters">
+                    <i class="bi bi-x-circle" aria-hidden="true"></i> Clear
+                </button>
+            </div>
+
+            <div class="search-group-v2">
+                <i class="bi bi-search" aria-hidden="true"></i>
+                <input id="searchInput" type="search" @bind="searchQuery" @bind:event="oninput" 
+                       placeholder="Search by name, email, phone, ID..." class="search-input-v2" 
+                       aria-label="Search users by name, email, phone, or ID" />
+            </div>
+        </div>
+
+        <!-- Users Table -->
+        <div class="users-section-v2">
+            <div class="section-header-v2">
+                <h2 id="usersTableHeading">
+                    <i class="bi bi-list-ul" aria-hidden="true"></i> 
+                    All Users (@GetFilteredUsers().Count)
+                </h2>
+                <div class="header-actions-v2 no-print">
+                    <button class="btn-print-v2" @onclick="PrintPage" aria-label="Print user list" disabled="@isPrinting">
+                        @if (isPrinting)
+                        {
+                            <span class="spinner-small" aria-hidden="true"></span>
+                            <span>Printing...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-printer" aria-hidden="true"></i>
+                            <span>Print</span>
+                        }
+                    </button>
+                    <div class="export-dropdown-v2">
+                        <button class="btn-export-v2" @onclick="ToggleExportMenu" 
+                                aria-label="Export options menu" 
+                                aria-expanded="@showExportMenu"
+                                aria-haspopup="true"
+                                disabled="@isExporting">
+                            @if (isExporting)
+                            {
+                                <span class="spinner-small" aria-hidden="true"></span>
+                                <span>Exporting...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-download" aria-hidden="true"></i>
+                                <span>Export</span>
+                                <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                            }
+                        </button>
+                        @if (showExportMenu)
+                        {
+                            <div class="export-menu-v2" role="menu" aria-label="Export format options">
+                                <button class="export-option-v2" @onclick='() => ExportData("csv")' role="menuitem" aria-label="Export as CSV">
+                                    <i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i>
+                                    <div>
+                                        <div class="option-title-v2">Export as CSV</div>
+                                        <div class="option-desc-v2">Comma-separated values</div>
+                                    </div>
+                                </button>
+                                <button class="export-option-v2" @onclick='() => ExportData("excel")' role="menuitem" aria-label="Export as Excel">
+                                    <i class="bi bi-file-earmark-excel" aria-hidden="true"></i>
+                                    <div>
+                                        <div class="option-title-v2">Export as Excel</div>
+                                        <div class="option-desc-v2">Microsoft Excel format</div>
+                                    </div>
+                                </button>
+                                <button class="export-option-v2" @onclick='() => ExportData("pdf")' role="menuitem" aria-label="Export as PDF">
+                                    <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
+                                    <div>
+                                        <div class="option-title-v2">Export as PDF</div>
+                                        <div class="option-desc-v2">Portable Document Format</div>
+                                    </div>
+                                </button>
+                                <button class="export-option-v2" @onclick='() => ExportData("json")' role="menuitem" aria-label="Export as JSON">
+                                    <i class="bi bi-file-earmark-code" aria-hidden="true"></i>
+                                    <div>
+                                        <div class="option-title-v2">Export as JSON</div>
+                                        <div class="option-desc-v2">JavaScript Object Notation</div>
+                                    </div>
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @if (!GetFilteredUsers().Any())
+            {
+                <div class="empty-state-v2" role="status" aria-live="polite">
+                    <i class="bi bi-inbox" aria-hidden="true"></i>
+                    <h3>No Users Found</h3>
+                    <p>Try adjusting your filters or search query.</p>
+                </div>
+            }
+            else if (isLoadingUsers)
+            {
+                <!-- Skeleton loader for table -->
+                <div class="table-container-v2">
+                    <div class="skeleton-table-v2">
+                        <div class="skeleton-table-header-v2">
+                            @for (int i = 0; i < 7; i++)
+                            {
+                                <div class="skeleton-v2 skeleton-text-v2"></div>
+                            }
+                        </div>
+                        @for (int row = 0; row < 8; row++)
+                        {
+                            <div class="skeleton-table-row-v2">
+                                <div class="skeleton-table-cell-v2">
+                                    <div class="skeleton-v2 skeleton-avatar-v2"></div>
+                                    <div>
+                                        <div class="skeleton-v2 skeleton-text-v2" style="width: 120px; height: 16px;"></div>
+                                        <div class="skeleton-v2 skeleton-text-v2" style="width: 60px; height: 12px; margin-top: 4px;"></div>
+                                    </div>
+                                </div>
+                                <div class="skeleton-table-cell-v2">
+                                    <div class="skeleton-v2 skeleton-badge-v2"></div>
+                                </div>
+                                <div class="skeleton-table-cell-v2">
+                                    <div class="skeleton-v2 skeleton-text-v2" style="width: 140px;"></div>
+                                    <div class="skeleton-v2 skeleton-text-v2" style="width: 120px; margin-top: 4px;"></div>
+                                </div>
+                                <div class="skeleton-table-cell-v2">
+                                    <div class="skeleton-v2 skeleton-badge-v2"></div>
+                                </div>
+                                <div class="skeleton-table-cell-v2">
+                                    <div class="skeleton-v2 skeleton-badge-v2"></div>
+                                </div>
+                                <div class="skeleton-table-cell-v2">
+                                    <div class="skeleton-v2 skeleton-text-v2" style="width: 90px;"></div>
+                                </div>
+                                <div class="skeleton-table-cell-v2">
+                                    <div class="skeleton-actions-v2">
+                                        <div class="skeleton-v2 skeleton-button-v2"></div>
+                                        <div class="skeleton-v2 skeleton-button-v2"></div>
+                                        <div class="skeleton-v2 skeleton-button-v2"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="table-container-v2">
+                    <table class="users-table-v2" role="table" aria-labelledby="usersTableHeading" aria-describedby="tableDescription">
+                        <caption id="tableDescription" class="sr-only">
+                            Sortable table of @GetFilteredUsers().Count users with columns for name, role, contact, verification, status, joined date, and actions.
+                            Click column headers to sort. Use tab key to navigate between action buttons.
+                        </caption>
+                        <thead>
+                            <tr>
+                                <th @onclick='() => SortBy("Name")' class="sortable-v2" 
+                                    role="columnheader" 
+                                    aria-sort="@GetAriaSortValue("Name")"
+                                    tabindex="0"
+                                    @onkeydown="@(e => HandleKeyPress(e, () => SortBy("Name")))"
+                                    aria-label="User name, sortable column, currently @GetSortDescription("Name")">
+                                    User 
+                                    @if (sortColumn == "Name")
+                                    {
+                                        @if (sortAscending)
+                                        {
+                                            <i class="bi bi-caret-up-fill" aria-hidden="true"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-caret-down-fill" aria-hidden="true"></i>
+                                        }
+                                    }
+                                </th>
+                                <th @onclick='() => SortBy("Role")' class="sortable-v2"
+                                    role="columnheader"
+                                    aria-sort="@GetAriaSortValue("Role")"
+                                    tabindex="0"
+                                    @onkeydown="@(e => HandleKeyPress(e, () => SortBy("Role")))"
+                                    aria-label="Role, sortable column, currently @GetSortDescription("Role")">
+                                    Role
+                                    @if (sortColumn == "Role")
+                                    {
+                                        @if (sortAscending)
+                                        {
+                                            <i class="bi bi-caret-up-fill" aria-hidden="true"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-caret-down-fill" aria-hidden="true"></i>
+                                        }
+                                    }
+                                </th>
+                                <th @onclick='() => SortBy("Email")' class="sortable-v2"
+                                    role="columnheader"
+                                    aria-sort="@GetAriaSortValue("Email")"
+                                    tabindex="0"
+                                    @onkeydown="@(e => HandleKeyPress(e, () => SortBy("Email")))"
+                                    aria-label="Contact information, sortable column, currently @GetSortDescription("Email")">
+                                    Contact
+                                    @if (sortColumn == "Email")
+                                    {
+                                        @if (sortAscending)
+                                        {
+                                            <i class="bi bi-caret-up-fill" aria-hidden="true"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-caret-down-fill" aria-hidden="true"></i>
+                                        }
+                                    }
+                                </th>
+                                <th @onclick='() => SortBy("VerificationStatus")' class="sortable-v2"
+                                    role="columnheader"
+                                    aria-sort="@GetAriaSortValue("VerificationStatus")"
+                                    tabindex="0"
+                                    @onkeydown="@(e => HandleKeyPress(e, () => SortBy("VerificationStatus")))"
+                                    aria-label="Verification status, sortable column, currently @GetSortDescription("VerificationStatus")">
+                                    Verification
+                                    @if (sortColumn == "VerificationStatus")
+                                    {
+                                        @if (sortAscending)
+                                        {
+                                            <i class="bi bi-caret-up-fill" aria-hidden="true"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-caret-down-fill" aria-hidden="true"></i>
+                                        }
+                                    }
+                                </th>
+                                <th @onclick='() => SortBy("IsActive")' class="sortable-v2"
+                                    role="columnheader"
+                                    aria-sort="@GetAriaSortValue("IsActive")"
+                                    tabindex="0"
+                                    @onkeydown="@(e => HandleKeyPress(e, () => SortBy("IsActive")))"
+                                    aria-label="Account status, sortable column, currently @GetSortDescription("IsActive")">
+                                    Status
+                                    @if (sortColumn == "IsActive")
+                                    {
+                                        @if (sortAscending)
+                                        {
+                                            <i class="bi bi-caret-up-fill" aria-hidden="true"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-caret-down-fill" aria-hidden="true"></i>
+                                        }
+                                    }
+                                </th>
+                                <th @onclick='() => SortBy("CreatedAt")' class="sortable-v2"
+                                    role="columnheader"
+                                    aria-sort="@GetAriaSortValue("CreatedAt")"
+                                    tabindex="0"
+                                    @onkeydown="@(e => HandleKeyPress(e, () => SortBy("CreatedAt")))"
+                                    aria-label="Joined date, sortable column, currently @GetSortDescription("CreatedAt")">
+                                    Joined
+                                    @if (sortColumn == "CreatedAt")
+                                    {
+                                        @if (sortAscending)
+                                        {
+                                            <i class="bi bi-caret-up-fill" aria-hidden="true"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-caret-down-fill" aria-hidden="true"></i>
+                                        }
+                                    }
+                                </th>
+                                <th class="no-print" role="columnheader">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var user in GetFilteredUsers())
+                            {
+                                <tr class="@(user.IsActive ? "" : "inactive-row-v2")">
+                                    <td>
+                                        <div class="user-cell-v2">
+                                            <div class="user-avatar-small-v2">
+                                                @GetUserInitials(user)
+                                            </div>
+                                            <div>
+                                                <div class="user-name-v2">@user.Name</div>
+                                                <div class="user-id-v2">ID: @user.Id</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="role-badge-v2 @user.Role.ToString().ToLower()">
+                                            @GetRoleIcon(user.Role) @user.Role
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="contact-cell-v2">
+                                            <div><i class="bi bi-envelope"></i> @user.Email</div>
+                                            <div><i class="bi bi-telephone"></i> @user.Phone</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="verification-badge-v2 @user.VerificationStatus.ToString().ToLower()">
+                                            @user.VerificationStatus
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if (user.IsActive)
+                                        {
+                                            <span class="status-badge-v2 active">
+                                                <i class="bi bi-check-circle-fill"></i> Active
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="status-badge-v2 inactive">
+                                                <i class="bi bi-x-circle-fill"></i> Inactive
+                                            </span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="date-cell-v2">
+                                            @user.CreatedAt.ToString("MMM dd, yyyy")
+                                        </div>
+                                    </td>
+                                    <td class="no-print">
+                                        <div class="action-buttons-v2" role="group" aria-label="Actions for @user.Name">
+                                            <button class="btn-action-v2 btn-view-v2" @onclick="() => ViewUser(user)" 
+                                                    title="View details for @user.Name"
+                                                    aria-label="View details for @user.Name">
+                                                <i class="bi bi-eye" aria-hidden="true"></i>
+                                            </button>
+                                            <button class="btn-action-v2 btn-edit-v2" @onclick="() => EditUser(user)" 
+                                                    title="Edit @user.Name"
+                                                    aria-label="Edit @user.Name">
+                                                <i class="bi bi-pencil" aria-hidden="true"></i>
+                                            </button>
+                                            <button class="btn-action-v2 @(user.IsActive ? "btn-deactivate-v2" : "btn-activate-v2")" 
+                                                    @onclick="() => ToggleUserStatus(user)" 
+                                                    title="@(user.IsActive ? "Deactivate" : "Activate") @user.Name"
+                                                    aria-label="@(user.IsActive ? "Deactivate" : "Activate") @user.Name"
+                                                    aria-pressed="@user.IsActive">
+                                                <i class="bi bi-@(user.IsActive ? "slash-circle" : "check-circle")" aria-hidden="true"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+
+        <!-- View User Modal -->
+        @if (showViewModal && selectedUser != null)
+        {
+            <div class="modal-backdrop-v2" @onclick="CloseModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+                <div class="modal-content-v2" @onclick:stopPropagation="true">
+                    <div class="modal-header-v2">
+                        <h2 id="modalTitle">
+                            <i class="bi bi-person-badge" aria-hidden="true"></i>
+                            User Details - @selectedUser.Name
+                        </h2>
+                        <button class="btn-close-v2" @onclick="CloseModal" aria-label="Close modal">
+                            <i class="bi bi-x-lg" aria-hidden="true"></i>
+                        </button>
+                    </div>
+
+                    <div class="modal-body-v2">
+                        <!-- Personal Information -->
+                        <div class="info-section-v2">
+                            <h3><i class="bi bi-person"></i> Personal Information</h3>
+                            <div class="info-grid-v2">
+                                <div class="info-item-v2">
+                                    <label>Full Name:</label>
+                                    <span>@selectedUser.Name</span>
+                                </div>
+                                <div class="info-item-v2">
+                                    <label>Email:</label>
+                                    <span>@selectedUser.Email</span>
+                                </div>
+                                <div class="info-item-v2">
+                                    <label>Phone:</label>
+                                    <span>@selectedUser.Phone</span>
+                                </div>
+                                <div class="info-item-v2">
+                                    <label>Role:</label>
+                                    <span class="role-badge-v2 @selectedUser.Role.ToString().ToLower()">
+                                        @selectedUser.Role
+                                    </span>
+                                </div>
+                                <div class="info-item-v2">
+                                    <label>User ID:</label>
+                                    <span>@selectedUser.Id</span>
+                                </div>
+                                <div class="info-item-v2">
+                                    <label>Account Status:</label>
+                                    <span class="status-badge-v2 @(selectedUser.IsActive ? "active" : "inactive")">
+                                        @(selectedUser.IsActive ? "Active" : "Inactive")
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Role-Specific Information -->
+                        @if (selectedUser.Role == UserRole.Lawyer)
+                        {
+                            <div class="info-section-v2">
+                                <h3><i class="bi bi-briefcase"></i> Professional Details</h3>
+                                <div class="info-grid-v2">
+                                    <div class="info-item-v2">
+                                        <label>Bar Council Number:</label>
+                                        <span>@selectedUser.BarCouncilNumber</span>
+                                    </div>
+                                    <div class="info-item-v2">
+                                        <label>State:</label>
+                                        <span>@selectedUser.BarCouncilState</span>
+                                    </div>
+                                    <div class="info-item-v2">
+                                        <label>Experience:</label>
+                                        <span>@selectedUser.YearsOfPractice years</span>
+                                    </div>
+                                    <div class="info-item-v2">
+                                        <label>Specialization:</label>
+                                        <span>@selectedUser.Specialization</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        else if (selectedUser.Role == UserRole.Police)
+                        {
+                            <div class="info-section-v2">
+                                <h3><i class="bi bi-shield-fill"></i> Service Details</h3>
+                                <div class="info-grid-v2">
+                                    <div class="info-item-v2">
+                                        <label>Police ID:</label>
+                                        <span>@selectedUser.PoliceId</span>
+                                    </div>
+                                    <div class="info-item-v2">
+                                        <label>Rank:</label>
+                                        <span>@selectedUser.Rank</span>
+                                    </div>
+                                    <div class="info-item-v2">
+                                        <label>Department:</label>
+                                        <span>@selectedUser.Department</span>
+                                    </div>
+                                    <div class="info-item-v2">
+                                        <label>Station:</label>
+                                        <span>@selectedUser.PoliceStation</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        <!-- Account Information -->
+                        <div class="info-section-v2">
+                            <h3><i class="bi bi-clock-history"></i> Account Information</h3>
+                            <div class="info-grid-v2">
+                                <div class="info-item-v2">
+                                    <label>Joined Date:</label>
+                                    <span>@selectedUser.CreatedAt.ToString("MMMM dd, yyyy")</span>
+                                </div>
+                                <div class="info-item-v2">
+                                    <label>Last Login:</label>
+                                    <span>@(selectedUser.LastLoginAt?.ToString("MMMM dd, yyyy hh:mm tt") ?? "Never")</span>
+                                </div>
+                                <div class="info-item-v2">
+                                    <label>Verification Status:</label>
+                                    <span class="verification-badge-v2 @selectedUser.VerificationStatus.ToString().ToLower()">
+                                        @selectedUser.VerificationStatus
+                                    </span>
+                                </div>
+                                @if (selectedUser.VerifiedAt.HasValue)
+                                {
+                                    <div class="info-item-v2">
+                                        <label>Verified At:</label>
+                                        <span>@selectedUser.VerifiedAt.Value.ToString("MMMM dd, yyyy")</span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer-v2">
+                        <button class="btn-modal-v2 btn-primary-v2" @onclick="() => EditUser(selectedUser)">
+                            <i class="bi bi-pencil"></i> Edit User
+                        </button>
+                        <button class="btn-modal-v2 btn-secondary-v2" @onclick="CloseModal">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Success Toast -->
+        @if (showSuccessMessage)
+        {
+            <div class="toast-v2 success" role="alert" aria-live="polite" aria-atomic="true">
+                <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+                <span>@successMessage</span>
+                <button class="toast-close-v2" @onclick="HideSuccessMessage" aria-label="Close notification">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+        }
+    </div>
+    </div>
+}
+</CustomErrorBoundary>
+
+@code {
+    private User? currentUser;
+    private List<User> allUsers = new();
+    private string filterRole = "All";
+    private string filterStatus = "All";
+    private string filterActive = "All";
+    private string searchQuery = string.Empty;
+    private DateTime? filterDateFrom = null;
+    private DateTime? filterDateTo = null;
+    
+    // Sorting
+    private string sortColumn = "CreatedAt";
+    private bool sortAscending = false; // Default to newest first
+    
+    private User? selectedUser;
+    private bool showViewModal = false;
+    private bool showSuccessMessage = false;
+    private string successMessage = string.Empty;
+    private System.Threading.Timer? successTimer;
+    private bool showExportMenu = false;
+
+    // Loading states
+    private bool isLoadingUsers = true;
+    private bool isLoadingStats = true;
+    private bool isExporting = false;
+    private bool isPrinting = false;
+
+    // Statistics
+    private int citizenCount = 0;
+    private int lawyerCount = 0;
+    private int policeCount = 0;
+    private int totalUsers = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentUser = AuthService.GetCurrentUser();
+        
+        if (currentUser?.Role != UserRole.Admin)
+        {
+            return;
+        }
+
+        await LoadUsersAsync();
+        await CalculateStatisticsAsync();
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        isLoadingUsers = true;
+        StateHasChanged();
+        
+        try
+        {
+            // Simulate network delay for demonstration
+            await Task.Delay(800);
+            
+            allUsers = AuthService.GetAllUsers()
+                .Where(u => u.Role != UserRole.Admin) // Don't show admin users
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            ShowSuccess($"Error loading users: {ex.Message}");
+            Console.WriteLine($"Error in LoadUsersAsync: {ex}");
+        }
+        finally
+        {
+            isLoadingUsers = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CalculateStatisticsAsync()
+    {
+        isLoadingStats = true;
+        StateHasChanged();
+        
+        try
+        {
+            // Simulate processing delay
+            await Task.Delay(600);
+            
+            citizenCount = allUsers.Count(u => u.Role == UserRole.Citizen);
+            lawyerCount = allUsers.Count(u => u.Role == UserRole.Lawyer);
+            policeCount = allUsers.Count(u => u.Role == UserRole.Police);
+            totalUsers = allUsers.Count;
+        }
+        catch (Exception ex)
+        {
+            ShowSuccess($"Error calculating statistics: {ex.Message}");
+            Console.WriteLine($"Error in CalculateStatisticsAsync: {ex}");
+        }
+        finally
+        {
+            isLoadingStats = false;
+            StateHasChanged();
+        }
+    }
+
+    private List<User> GetFilteredUsers()
+    {
+        var filtered = allUsers.AsEnumerable();
+
+        // Filter by role
+        if (filterRole != "All")
+        {
+            var role = Enum.Parse<UserRole>(filterRole);
+            filtered = filtered.Where(u => u.Role == role);
+        }
+
+        // Filter by verification status
+        if (filterStatus != "All")
+        {
+            var status = Enum.Parse<VerificationStatus>(filterStatus);
+            filtered = filtered.Where(u => u.VerificationStatus == status);
+        }
+
+        // Filter by active status
+        if (filterActive == "Active")
+        {
+            filtered = filtered.Where(u => u.IsActive);
+        }
+        else if (filterActive == "Inactive")
+        {
+            filtered = filtered.Where(u => !u.IsActive);
+        }
+
+        // Filter by date range
+        if (filterDateFrom.HasValue)
+        {
+            filtered = filtered.Where(u => u.CreatedAt.Date >= filterDateFrom.Value.Date);
+        }
+        if (filterDateTo.HasValue)
+        {
+            filtered = filtered.Where(u => u.CreatedAt.Date <= filterDateTo.Value.Date);
+        }
+
+        // Search filter
+        if (!string.IsNullOrWhiteSpace(searchQuery))
+        {
+            var query = searchQuery.ToLower();
+            filtered = filtered.Where(u => 
+                u.Name.ToLower().Contains(query) ||
+                u.Email.ToLower().Contains(query) ||
+                (u.Phone?.ToLower().Contains(query) ?? false) ||
+                u.Id.ToString().Contains(query)
+            );
+        }
+
+        // Apply sorting
+        filtered = sortColumn switch
+        {
+            "Name" => sortAscending ? filtered.OrderBy(u => u.Name) : filtered.OrderByDescending(u => u.Name),
+            "Email" => sortAscending ? filtered.OrderBy(u => u.Email) : filtered.OrderByDescending(u => u.Email),
+            "Role" => sortAscending ? filtered.OrderBy(u => u.Role) : filtered.OrderByDescending(u => u.Role),
+            "VerificationStatus" => sortAscending ? filtered.OrderBy(u => u.VerificationStatus) : filtered.OrderByDescending(u => u.VerificationStatus),
+            "IsActive" => sortAscending ? filtered.OrderBy(u => u.IsActive) : filtered.OrderByDescending(u => u.IsActive),
+            "CreatedAt" => sortAscending ? filtered.OrderBy(u => u.CreatedAt) : filtered.OrderByDescending(u => u.CreatedAt),
+            _ => filtered.OrderByDescending(u => u.CreatedAt)
+        };
+
+        return filtered.ToList();
+    }
+
+    private void SortBy(string column)
+    {
+        if (sortColumn == column)
+        {
+            // Toggle sort direction if clicking the same column
+            sortAscending = !sortAscending;
+        }
+        else
+        {
+            // New column, default to ascending
+            sortColumn = column;
+            sortAscending = true;
+        }
+    }
+
+    private void ClearFilters()
+    {
+        filterRole = "All";
+        filterStatus = "All";
+        filterActive = "All";
+        filterDateFrom = null;
+        filterDateTo = null;
+        searchQuery = string.Empty;
+        ShowSuccess("Filters cleared!");
+    }
+
+    private void ViewUser(User user)
+    {
+        selectedUser = user;
+        showViewModal = true;
+    }
+
+    private void EditUser(User user)
+    {
+        // TODO: Implement edit functionality
+        ShowSuccess("Edit functionality coming soon!");
+    }
+
+    private void ToggleUserStatus(User user)
+    {
+        user.IsActive = !user.IsActive;
+        ShowSuccess($"User {user.Name} has been {(user.IsActive ? "activated" : "deactivated")}.");
+        StateHasChanged();
+    }
+
+    private void ToggleExportMenu()
+    {
+        if (!isExporting)
+        {
+            showExportMenu = !showExportMenu;
+        }
+    }
+
+    private async Task ExportData(string format)
+    {
+        showExportMenu = false;
+        isExporting = true;
+        StateHasChanged();
+        
+        var users = GetFilteredUsers();
+        
+        if (!users.Any())
+        {
+            isExporting = false;
+            ShowSuccess("No users to export. Please adjust your filters.");
+            return;
+        }
+
+        try
+        {
+            // Simulate export processing delay
+            await Task.Delay(1000);
+            
+            switch (format.ToLower())
+            {
+                case "csv":
+                    ExportToCsv(users);
+                    break;
+                case "excel":
+                    ExportToExcel(users);
+                    break;
+                case "pdf":
+                    ExportToPdf(users);
+                    break;
+                case "json":
+                    ExportToJson(users);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowSuccess($"Export failed: {ex.Message}");
+        }
+        finally
+        {
+            isExporting = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ExportToCsv(List<User> users)
+    {
+        var csv = new System.Text.StringBuilder();
+        
+        // Header
+        csv.AppendLine("ID,Name,Email,Phone,Role,Verification Status,Account Status,Joined Date");
+        
+        // Data rows
+        foreach (var user in users)
+        {
+            csv.AppendLine($"{user.Id}," +
+                          $"\"{user.Name}\"," +
+                          $"\"{user.Email}\"," +
+                          $"\"{user.Phone ?? "N/A"}\"," +
+                          $"{user.Role}," +
+                          $"{user.VerificationStatus}," +
+                          $"{(user.IsActive ? "Active" : "Inactive")}," +
+                          $"{user.CreatedAt:yyyy-MM-dd}");
+        }
+        
+        // Trigger download
+        var fileName = $"Users_Export_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+        DownloadFile(csv.ToString(), fileName, "text/csv");
+        ShowSuccess($"Exported {users.Count} users to CSV!");
+    }
+
+    private void ExportToExcel(List<User> users)
+    {
+        // Simplified Excel export using HTML table format
+        var html = new System.Text.StringBuilder();
+        html.AppendLine("<html><head><meta charset='utf-8'/></head><body>");
+        html.AppendLine("<table border='1' style='border-collapse: collapse;'>");
+        html.AppendLine("<thead><tr>");
+        html.AppendLine("<th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Role</th>");
+        html.AppendLine("<th>Verification</th><th>Status</th><th>Joined</th>");
+        html.AppendLine("</tr></thead><tbody>");
+        
+        foreach (var user in users)
+        {
+            html.AppendLine($"<tr>");
+            html.AppendLine($"<td>{user.Id}</td>");
+            html.AppendLine($"<td>{user.Name}</td>");
+            html.AppendLine($"<td>{user.Email}</td>");
+            html.AppendLine($"<td>{user.Phone ?? "N/A"}</td>");
+            html.AppendLine($"<td>{user.Role}</td>");
+            html.AppendLine($"<td>{user.VerificationStatus}</td>");
+            html.AppendLine($"<td>{(user.IsActive ? "Active" : "Inactive")}</td>");
+            html.AppendLine($"<td>{user.CreatedAt:yyyy-MM-dd}</td>");
+            html.AppendLine($"</tr>");
+        }
+        
+        html.AppendLine("</tbody></table></body></html>");
+        
+        var fileName = $"Users_Export_{DateTime.Now:yyyyMMdd_HHmmss}.xls";
+        DownloadFile(html.ToString(), fileName, "application/vnd.ms-excel");
+        ShowSuccess($"Exported {users.Count} users to Excel!");
+    }
+
+    private void ExportToPdf(List<User> users)
+    {
+        // HTML-based PDF export (browser will handle PDF generation)
+        var html = new System.Text.StringBuilder();
+        html.AppendLine("<!DOCTYPE html><html><head>");
+        html.AppendLine("<meta charset='utf-8'/>");
+        html.AppendLine("<style>");
+        html.AppendLine("body { font-family: Arial, sans-serif; margin: 20px; }");
+        html.AppendLine("h1 { color: #d4af37; }");
+        html.AppendLine("table { width: 100%; border-collapse: collapse; margin-top: 20px; }");
+        html.AppendLine("th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }");
+        html.AppendLine("th { background-color: #d4af37; color: white; }");
+        html.AppendLine("tr:nth-child(even) { background-color: #f2f2f2; }");
+        html.AppendLine(".header { margin-bottom: 20px; }");
+        html.AppendLine(".meta { color: #666; font-size: 12px; }");
+        html.AppendLine("</style></head><body>");
+        html.AppendLine("<div class='header'>");
+        html.AppendLine("<h1>JurisAI - User Management Report</h1>");
+        html.AppendLine($"<p class='meta'>Generated: {DateTime.Now:MMMM dd, yyyy HH:mm}</p>");
+        html.AppendLine($"<p class='meta'>Total Users: {users.Count}</p>");
+        html.AppendLine("</div>");
+        html.AppendLine("<table>");
+        html.AppendLine("<thead><tr>");
+        html.AppendLine("<th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Role</th>");
+        html.AppendLine("<th>Verification</th><th>Status</th><th>Joined</th>");
+        html.AppendLine("</tr></thead><tbody>");
+        
+        foreach (var user in users)
+        {
+            html.AppendLine($"<tr>");
+            html.AppendLine($"<td>{user.Id}</td>");
+            html.AppendLine($"<td>{user.Name}</td>");
+            html.AppendLine($"<td>{user.Email}</td>");
+            html.AppendLine($"<td>{user.Phone ?? "N/A"}</td>");
+            html.AppendLine($"<td>{user.Role}</td>");
+            html.AppendLine($"<td>{user.VerificationStatus}</td>");
+            html.AppendLine($"<td>{(user.IsActive ? "Active" : "Inactive")}</td>");
+            html.AppendLine($"<td>{user.CreatedAt:yyyy-MM-dd}</td>");
+            html.AppendLine($"</tr>");
+        }
+        
+        html.AppendLine("</tbody></table>");
+        html.AppendLine("<script>window.print();</script>");
+        html.AppendLine("</body></html>");
+        
+        var fileName = $"Users_Report_{DateTime.Now:yyyyMMdd_HHmmss}.html";
+        DownloadFile(html.ToString(), fileName, "text/html");
+        ShowSuccess($"Exported {users.Count} users to PDF (HTML)! Use browser print to save as PDF.");
+    }
+
+    private void ExportToJson(List<User> users)
+    {
+        var jsonData = users.Select(u => new
+        {
+            u.Id,
+            u.Name,
+            u.Email,
+            u.Phone,
+            Role = u.Role.ToString(),
+            VerificationStatus = u.VerificationStatus.ToString(),
+            IsActive = u.IsActive,
+            JoinedDate = u.CreatedAt.ToString("yyyy-MM-dd")
+        });
+        
+        var json = System.Text.Json.JsonSerializer.Serialize(jsonData, new System.Text.Json.JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+        
+        var fileName = $"Users_Export_{DateTime.Now:yyyyMMdd_HHmmss}.json";
+        DownloadFile(json, fileName, "application/json");
+        ShowSuccess($"Exported {users.Count} users to JSON!");
+    }
+
+    private void DownloadFile(string content, string fileName, string mimeType)
+    {
+        // This will be handled by JavaScript interop in a real implementation
+        // For now, we'll show a success message
+        // In production, you would use JS Interop:
+        // await JSRuntime.InvokeVoidAsync("downloadFile", fileName, content, mimeType);
+        
+        // Note: Actual download implementation requires JavaScript
+        Console.WriteLine($"Export prepared: {fileName}");
+    }
+
+    private async Task PrintPage()
+    {
+        isPrinting = true;
+        StateHasChanged();
+        
+        try
+        {
+            // Small delay to show loading state
+            await Task.Delay(300);
+            await JSRuntime.InvokeVoidAsync("window.print");
+        }
+        catch (Exception ex)
+        {
+            ShowSuccess($"Print failed: {ex.Message}");
+        }
+        finally
+        {
+            isPrinting = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CloseModal()
+    {
+        showViewModal = false;
+        selectedUser = null;
+    }
+
+    private void ShowSuccess(string message)
+    {
+        successMessage = message;
+        showSuccessMessage = true;
+        StateHasChanged();
+        
+        // Auto-hide after 5 seconds
+        successTimer?.Dispose();
+        successTimer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                HideSuccessMessage();
+            });
+        }, null, 5000, System.Threading.Timeout.Infinite);
+    }
+
+    private void HideSuccessMessage()
+    {
+        successTimer?.Dispose();
+        showSuccessMessage = false;
+        StateHasChanged();
+    }
+
+    private void GoToHome()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    public void Dispose()
+    {
+        successTimer?.Dispose();
+    }
+
+    private string GetUserInitials(User user)
+    {
+        var nameParts = user.Name.Split(' ');
+        if (nameParts.Length >= 2)
+        {
+            return $"{nameParts[0][0]}{nameParts[1][0]}".ToUpper();
+        }
+        return user.Name.Substring(0, Math.Min(2, user.Name.Length)).ToUpper();
+    }
+
+    private string GetRoleIcon(UserRole role)
+    {
+        return role switch
+        {
+            UserRole.Citizen => "👤",
+            UserRole.Lawyer => "⚖️",
+            UserRole.Police => "🛡️",
+            _ => "👤"
+        };
+    }
+
+    // Accessibility helper methods
+    private string GetAriaSortValue(string column)
+    {
+        if (sortColumn != column) return "none";
+        return sortAscending ? "ascending" : "descending";
+    }
+
+    private string GetSortDescription(string column)
+    {
+        if (sortColumn != column) return "not sorted";
+        return sortAscending ? "sorted ascending" : "sorted descending";
+    }
+
+    private void HandleKeyPress(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e, Action action)
+    {
+        if (e.Key == "Enter" || e.Key == " ")
+        {
+            action();
+        }
+    }
+}

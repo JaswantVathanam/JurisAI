@@ -1,0 +1,564 @@
+/* ============================================
+   CASE TIMELINE STYLES
+   Visual timeline for case progress tracking
+   ============================================ */
+
+.case-timeline {
+    width: 100%;
+}
+
+/* ============================================
+   TIMELINE STATISTICS
+   ============================================ */
+
+.timeline-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--gold-primary);
+    box-shadow: 0 4px 15px rgba(212, 175, 55, 0.15);
+}
+
+.stat-card i {
+    font-size: 1.75rem;
+    color: var(--gold-primary);
+}
+
+.stat-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ============================================
+   MILESTONE PROGRESS BAR
+   ============================================ */
+
+.milestone-progress-bar {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+}
+
+.milestone-track {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+}
+
+.milestone-track::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 2rem;
+    right: 2rem;
+    height: 3px;
+    background: var(--glass-border);
+    transform: translateY(-50%);
+    z-index: 0;
+}
+
+.milestone-marker {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    position: relative;
+    z-index: 1;
+}
+
+.milestone-marker i {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    border-radius: 50%;
+    background: var(--bg-tertiary);
+    border: 3px solid var(--glass-border);
+    color: var(--text-muted);
+    transition: all 0.3s ease;
+}
+
+.milestone-marker.completed i {
+    background: var(--milestone-color, var(--gold-primary));
+    border-color: var(--milestone-color, var(--gold-primary));
+    color: white;
+    box-shadow: 0 4px 15px color-mix(in srgb, var(--milestone-color, var(--gold-primary)) 40%, transparent);
+}
+
+.milestone-marker.pending i {
+    background: var(--bg-tertiary);
+    border-style: dashed;
+}
+
+.milestone-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    text-align: center;
+    white-space: nowrap;
+}
+
+.milestone-marker.completed .milestone-label {
+    color: var(--text-primary);
+}
+
+/* ============================================
+   TIMELINE FILTERS
+   ============================================ */
+
+.timeline-filters {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.filter-btn:hover {
+    border-color: var(--gold-primary);
+    color: var(--gold-primary);
+}
+
+.filter-btn.active {
+    background: var(--gold-primary);
+    border-color: var(--gold-primary);
+    color: var(--bg-primary);
+    font-weight: 600;
+}
+
+/* ============================================
+   TIMELINE EVENTS
+   ============================================ */
+
+.timeline-container {
+    position: relative;
+}
+
+.timeline-events {
+    position: relative;
+}
+
+.timeline-date-group {
+    margin-bottom: 1.5rem;
+}
+
+.date-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding-left: 2.5rem;
+}
+
+.date-badge {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    background: var(--glass-bg);
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid var(--glass-border);
+}
+
+.today-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--gold-primary);
+    background: rgba(212, 175, 55, 0.15);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+}
+
+.timeline-event {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.timeline-event.future {
+    opacity: 0.6;
+}
+
+.event-connector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 48px;
+    flex-shrink: 0;
+}
+
+.event-dot {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--glass-bg);
+    border: 2px solid var(--event-color, var(--glass-border));
+    color: var(--event-color, var(--text-muted));
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    z-index: 2;
+}
+
+.timeline-event:hover .event-dot {
+    background: var(--event-color, var(--gold-primary));
+    color: white;
+    transform: scale(1.1);
+    box-shadow: 0 4px 15px color-mix(in srgb, var(--event-color, var(--gold-primary)) 40%, transparent);
+}
+
+.timeline-event.milestone .event-dot {
+    width: 48px;
+    height: 48px;
+    background: var(--event-color, var(--gold-primary));
+    color: white;
+    border-width: 3px;
+    font-size: 1.25rem;
+}
+
+.event-line {
+    flex: 1;
+    width: 2px;
+    background: var(--glass-border);
+    margin: 0.5rem 0;
+}
+
+.timeline-event:last-child .event-line {
+    display: none;
+}
+
+.event-content {
+    flex: 1;
+    padding: 1rem 1.25rem;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.timeline-event:hover .event-content {
+    border-color: var(--gold-primary);
+    transform: translateX(4px);
+}
+
+.timeline-event.milestone .event-content {
+    border-left: 4px solid var(--event-color, var(--gold-primary));
+}
+
+.event-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.event-type-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--badge-color, var(--gold-primary)) 15%, transparent);
+    color: var(--badge-color, var(--gold-primary));
+}
+
+.event-time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.event-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem 0;
+}
+
+.event-description {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.event-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--glass-border);
+}
+
+.performed-by {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.role-tag {
+    color: var(--gold-primary);
+    font-weight: 500;
+}
+
+.status-at-event {
+    margin-top: 0.5rem;
+}
+
+.status-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-draft { background: rgba(100, 116, 139, 0.2); color: #64748b; }
+.status-filed { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+.status-investigation { background: rgba(139, 92, 246, 0.2); color: #8b5cf6; }
+.status-chargesheet { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+.status-trial { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+.status-hold { background: rgba(107, 114, 128, 0.2); color: #6b7280; }
+.status-judgement { background: rgba(5, 150, 105, 0.2); color: #059669; }
+.status-closed { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+.status-dismissed { background: rgba(220, 38, 38, 0.2); color: #dc2626; }
+.status-appealed { background: rgba(249, 115, 22, 0.2); color: #f97316; }
+
+/* ============================================
+   EMPTY STATE
+   ============================================ */
+
+.timeline-empty {
+    text-align: center;
+    padding: 3rem 2rem;
+    background: var(--glass-bg);
+    border: 1px dashed var(--glass-border);
+    border-radius: 16px;
+}
+
+.timeline-empty i {
+    font-size: 3rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+}
+
+.timeline-empty p {
+    font-size: 1rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+/* ============================================
+   COMPACT MODE
+   ============================================ */
+
+.case-timeline.compact .timeline-stats {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+}
+
+.case-timeline.compact .stat-card {
+    padding: 0.75rem;
+    flex-direction: column;
+    text-align: center;
+    gap: 0.5rem;
+}
+
+.case-timeline.compact .stat-card i {
+    font-size: 1.25rem;
+}
+
+.case-timeline.compact .stat-value {
+    font-size: 1.25rem;
+}
+
+.case-timeline.compact .milestone-progress-bar {
+    padding: 1rem;
+}
+
+.case-timeline.compact .milestone-marker i {
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+}
+
+.case-timeline.compact .event-dot {
+    width: 32px;
+    height: 32px;
+    font-size: 0.85rem;
+}
+
+.case-timeline.compact .event-content {
+    padding: 0.75rem 1rem;
+}
+
+.case-timeline.compact .event-title {
+    font-size: 0.9rem;
+}
+
+.case-timeline.compact .event-description {
+    font-size: 0.8rem;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 768px) {
+    .timeline-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .milestone-progress-bar {
+        overflow-x: auto;
+        padding: 1rem;
+    }
+
+    .milestone-track {
+        min-width: 500px;
+    }
+
+    .milestone-marker i {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+    }
+
+    .milestone-label {
+        font-size: 0.6rem;
+    }
+
+    .event-connector {
+        width: 36px;
+    }
+
+    .event-dot {
+        width: 32px;
+        height: 32px;
+        font-size: 0.85rem;
+    }
+
+    .timeline-event.milestone .event-dot {
+        width: 36px;
+        height: 36px;
+    }
+
+    .date-header {
+        padding-left: 2rem;
+    }
+
+    .filter-btn {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .timeline-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .timeline-filters {
+        justify-content: stretch;
+    }
+
+    .filter-btn {
+        flex: 1;
+        justify-content: center;
+    }
+}
+
+/* ============================================
+   PRINT STYLES
+   ============================================ */
+
+@media print {
+    .case-timeline {
+        background: white;
+        color: black;
+    }
+
+    .timeline-filters {
+        display: none;
+    }
+
+    .stat-card,
+    .event-content,
+    .milestone-progress-bar {
+        background: white;
+        border-color: #ccc;
+    }
+
+    .stat-value,
+    .event-title {
+        color: black;
+    }
+
+    .event-description,
+    .stat-label {
+        color: #333;
+    }
+}

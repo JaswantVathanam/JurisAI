@@ -1,0 +1,972 @@
+@page "/database"
+@rendermode InteractiveServer
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@using AILegalAsst.Components.Shared
+@inject AuthenticationService AuthService
+@inject LanguageService LangService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@implements IDisposable
+
+<PageTitle>Legal Database - AI Legal Assistant</PageTitle>
+
+<link rel="stylesheet" href="database-enhancements.css" />
+<link rel="stylesheet" href="database-print.css" media="print" />
+
+<CustomErrorBoundary ShowDetails="true" ShowReportButton="true">
+<div class="database-page">
+    <!-- Print-Only Header -->
+    <div class="print-only print-header">
+        <h1>AI Legal Assistant - Legal Database</h1>
+        <p class="print-meta">Generated: @DateTime.Now.ToString("MMMM dd, yyyy HH:mm")</p>
+        <p class="print-meta">Category: @activeCategory | Total Resources: @filteredResources.Count</p>
+    </div>
+
+    @if (!string.IsNullOrEmpty(currentUser?.Name))
+    {
+        <div class="database-page-header-v2">
+            <div class="header-content-v2">
+                <h1><i class="bi bi-database"></i> Legal Database</h1>
+                <p class="header-subtitle-v2">Comprehensive legal resource library and knowledge base</p>
+            </div>
+            <div class="header-actions-v2 no-print">
+                <button class="btn-secondary-v2" @onclick="PrintDatabase" disabled="@isPrinting" aria-label="Print database resources">
+                    @if (isPrinting)
+                    {
+                        <span class="spinner-small" aria-hidden="true"></span>
+                        <span>Printing...</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-printer" aria-hidden="true"></i>
+                        <span>Print</span>
+                    }
+                </button>
+                <div class="export-dropdown-container">
+                    <button class="btn-secondary-v2" 
+                            @onclick="ToggleExportMenu" 
+                            disabled="@isExporting"
+                            aria-label="Export database resources"
+                            aria-expanded="@showExportMenu"
+                            aria-haspopup="true">
+                        @if (isExporting)
+                        {
+                            <span class="spinner-small" aria-hidden="true"></span>
+                            <span>Exporting...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-download" aria-hidden="true"></i>
+                            <span>Export</span>
+                            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                        }
+                    </button>
+                    @if (showExportMenu)
+                    {
+                        <div class="export-dropdown-v2" role="menu">
+                            <div class="export-option-v2" role="menuitem" @onclick="ExportToCsv" @onkeydown="HandleKeyPress" tabindex="0">
+                                <i class="bi bi-filetype-csv" aria-hidden="true"></i>
+                                <span>Export as CSV</span>
+                            </div>
+                            <div class="export-option-v2" role="menuitem" @onclick="ExportToPdf" @onkeydown="HandleKeyPress" tabindex="0">
+                                <i class="bi bi-filetype-pdf" aria-hidden="true"></i>
+                                <span>Export as PDF</span>
+                            </div>
+                            <div class="export-option-v2" role="menuitem" @onclick="ExportToJson" @onkeydown="HandleKeyPress" tabindex="0">
+                                <i class="bi bi-filetype-json" aria-hidden="true"></i>
+                                <span>Export as JSON</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Section -->
+        <div class="database-search-section-v2">
+            <div class="search-container-v2">
+                <i class="bi bi-search search-icon-v2"></i>
+                <input type="search" 
+                       class="search-input-v2" 
+                       placeholder="Search legal documents, judgments, articles, acts..."
+                       @bind="searchQuery"
+                       @bind:event="oninput"
+                       @onkeyup="HandleSearch" />
+                @if (!string.IsNullOrEmpty(searchQuery))
+                {
+                    <button class="search-clear-v2" @onclick="ClearSearch">
+                        <i class="bi bi-x-circle-fill"></i>
+                    </button>
+                }
+            </div>
+
+            <!-- Filter Tabs -->
+            <div class="filter-tabs-v2">
+                <button class="filter-tab-v2 @(activeCategory == "All" ? "active" : "")" 
+                        @onclick='() => SetCategory("All")'>
+                    <i class="bi bi-grid-3x3"></i> All
+                </button>
+                <button class="filter-tab-v2 @(activeCategory == "Acts" ? "active" : "")" 
+                        @onclick='() => SetCategory("Acts")'>
+                    <i class="bi bi-file-earmark-text"></i> Acts & Laws
+                </button>
+                <button class="filter-tab-v2 @(activeCategory == "Judgments" ? "active" : "")" 
+                        @onclick='() => SetCategory("Judgments")'>
+                    <i class="bi bi-gavel"></i> Judgments
+                </button>
+                <button class="filter-tab-v2 @(activeCategory == "Articles" ? "active" : "")" 
+                        @onclick='() => SetCategory("Articles")'>
+                    <i class="bi bi-newspaper"></i> Articles
+                </button>
+                <button class="filter-tab-v2 @(activeCategory == "Templates" ? "active" : "")" 
+                        @onclick='() => SetCategory("Templates")'>
+                    <i class="bi bi-file-earmark-check"></i> Templates
+                </button>
+            </div>
+        </div>
+
+        <!-- Quick Categories - Bento Grid Layout -->
+        <div class="quick-categories-v2">
+            <h2>Browse by Category</h2>
+            <div class="bento-grid-v2">
+                @{
+                    var featuredCategories = categories.Take(2).ToList();
+                    var regularCategories = categories.Skip(2).ToList();
+                }
+                
+                @* Large Featured Cards *@
+                @foreach (var category in featuredCategories)
+                {
+                    <div class="bento-card-v2 bento-large-v2" @onclick="() => SelectCategory(category)">
+                        <span class="featured-badge-v2">Featured</span>
+                        <div class="bento-icon-v2">
+                            <i class="@category.Icon"></i>
+                        </div>
+                        <div class="bento-content-v2">
+                            <h3>@category.Name</h3>
+                            <p>@category.Description</p>
+                            <div class="bento-stats-v2">
+                                <div class="bento-stat-v2">
+                                    <i class="bi bi-files"></i>
+                                    <span>@category.ResourceCount resources</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+                
+                @* Small Regular Cards *@
+                @foreach (var category in regularCategories)
+                {
+                    <div class="bento-card-v2 bento-small-v2" @onclick="() => SelectCategory(category)">
+                        <div class="bento-icon-v2">
+                            <i class="@category.Icon"></i>
+                        </div>
+                        <div class="bento-content-v2">
+                            <h3>@category.Name</h3>
+                            <p>@category.Description</p>
+                        </div>
+                        <span class="resource-count-badge-v2">@category.ResourceCount</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Search Results / Resources -->
+        @if (isLoading)
+        {
+            <div class="results-section-v2">
+                <div class="results-header-v2">
+                    <h2>Loading Resources...</h2>
+                </div>
+                <div class="resources-list-v2" role="status" aria-live="polite" aria-label="Loading resources">
+                    <span class="sr-only">Loading database resources, please wait...</span>
+                    @for (int i = 0; i < 6; i++)
+                    {
+                        <div class="skeleton-resource-card-v2">
+                            <div class="skeleton-resource-icon-v2"></div>
+                            <div class="skeleton-resource-content-v2">
+                                <div class="skeleton-resource-header-v2">
+                                    <div class="skeleton-badge-v2"></div>
+                                    <div class="skeleton-date-v2"></div>
+                                </div>
+                                <div class="skeleton-title-v2"></div>
+                                <div class="skeleton-description-v2"></div>
+                                <div class="skeleton-meta-v2">
+                                    <div class="skeleton-meta-item-v2"></div>
+                                    <div class="skeleton-meta-item-v2"></div>
+                                    <div class="skeleton-meta-item-v2"></div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+        else if (isSearching)
+        {
+            <div class="loading-state-v2">
+                <div class="spinner-v2"></div>
+                <p>Searching database...</p>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(searchQuery) || activeCategory != "All")
+        {
+            <div class="results-section-v2">
+                <div class="results-header-v2">
+                    <h2>
+                        @if (!string.IsNullOrEmpty(searchQuery))
+                        {
+                            <span>Search Results for "@searchQuery"</span>
+                        }
+                        else
+                        {
+                            <span>@activeCategory</span>
+                        }
+                    </h2>
+                    <span class="results-count-v2">@filteredResources.Count results found</span>
+                </div>
+
+                @if (filteredResources.Count == 0)
+                {
+                    <div class="empty-state-v2">
+                        <i class="bi bi-search"></i>
+                        <h3>No results found</h3>
+                        <p>Try adjusting your search terms or browse by category</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="resources-list-v2">
+                        @foreach (var resource in filteredResources)
+                        {
+                            <div class="resource-card-v2" @onclick="() => ViewResource(resource)">
+                                <div class="resource-icon-v2">
+                                    <i class="@GetResourceIcon(resource.Type)"></i>
+                                </div>
+                                <div class="resource-content-v2">
+                                    <div class="resource-header-v2">
+                                        <span class="resource-type-badge-v2 @resource.Type.ToLower()">
+                                            @resource.Type
+                                        </span>
+                                        <span class="resource-date-v2">@resource.PublishedDate.ToString("MMM dd, yyyy")</span>
+                                    </div>
+                                    <h3>@resource.Title</h3>
+                                    <p>@resource.Description</p>
+                                    <div class="resource-meta-v2">
+                                        <span><i class="bi bi-tag"></i> @resource.Category</span>
+                                        @if (!string.IsNullOrEmpty(resource.Author))
+                                        {
+                                            <span><i class="bi bi-person"></i> @resource.Author</span>
+                                        }
+                                        <span><i class="bi bi-eye"></i> @resource.Views views</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- Popular Resources - Bento Grid -->
+        <div class="popular-section-v2">
+            <h2><i class="bi bi-fire"></i> Popular Resources</h2>
+            <div class="popular-bento-grid-v2">
+                @{
+                    var popularList = popularResources.Take(6).ToList();
+                    for (int i = 0; i < popularList.Count; i++)
+                    {
+                        var resource = popularList[i];
+                        var sizeClass = i == 0 ? "large" : (i == 1 || i == 2) ? "medium" : "small";
+                        
+                        <div class="popular-bento-card-v2 @sizeClass" @onclick="() => ViewResource(resource)">
+                            @if (i < 3)
+                            {
+                                <div class="popular-featured-badge-v2">
+                                    <i class="bi bi-star-fill"></i>
+                                    @(i == 0 ? "Featured" : "Popular")
+                                </div>
+                            }
+                            <div class="popular-bento-content-v2">
+                                <div class="popular-icon-v2">
+                                    <i class="@GetResourceIcon(resource.Type)"></i>
+                                </div>
+                                <h4>@resource.Title</h4>
+                                <p class="popular-category-v2">@resource.Category</p>
+                                <div class="popular-stats-v2">
+                                    <span><i class="bi bi-eye"></i> @resource.Views</span>
+                                    <span><i class="bi bi-download"></i> @resource.Downloads</span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <!-- Resource Detail Modal - Article Style -->
+        @if (selectedResource != null)
+        {
+            <div class="modal-overlay-v2" @onclick="CloseResourceDetail">
+                <div class="article-modal-v2" @onclick:stopPropagation>
+                    <button class="article-close-btn-v2" @onclick="CloseResourceDetail">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                    
+                    <div class="article-header-v2">
+                        <div class="article-badge-v2 @selectedResource.Type.ToLower()">
+                            <i class="@GetResourceIcon(selectedResource.Type)"></i>
+                            @selectedResource.Type
+                        </div>
+                        <h1>@selectedResource.Title</h1>
+                        <div class="article-meta-v2">
+                            <span><i class="bi bi-calendar3"></i> @selectedResource.PublishedDate.ToString("MMMM dd, yyyy")</span>
+                            @if (!string.IsNullOrEmpty(selectedResource.Author))
+                            {
+                                <span><i class="bi bi-person-circle"></i> @selectedResource.Author</span>
+                            }
+                            <span><i class="bi bi-eye"></i> @selectedResource.Views views</span>
+                            <span><i class="bi bi-download"></i> @selectedResource.Downloads downloads</span>
+                        </div>
+                    </div>
+
+                    <div class="article-body-v2">
+                        <div class="article-main-v2">
+                            <div class="article-section-v2">
+                                <h2 class="section-title-v2">Overview</h2>
+                                <p class="article-description-v2">@selectedResource.Description</p>
+                            </div>
+
+                            <div class="article-section-v2">
+                                <h2 class="section-title-v2">Full Content</h2>
+                                <div class="article-content-v2">
+                                    @selectedResource.Content
+                                </div>
+                            </div>
+
+                            @if (selectedResource.Tags.Any())
+                            {
+                                <div class="article-tags-v2">
+                                    <h3 class="tags-title-v2"><i class="bi bi-tags"></i> Tags</h3>
+                                    <div class="tag-list-v2">
+                                        @foreach (var tag in selectedResource.Tags)
+                                        {
+                                            <span class="article-tag-v2">@tag</span>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="article-sidebar-v2">
+                            <div class="sidebar-card-v2">
+                                <h3 class="sidebar-title-v2">Resource Information</h3>
+                                <div class="sidebar-info-item-v2">
+                                    <i class="bi bi-folder"></i>
+                                    <div class="info-content-v2">
+                                        <span class="info-label-v2">Category</span>
+                                        <span class="info-value-v2">@selectedResource.Category</span>
+                                    </div>
+                                </div>
+                                <div class="sidebar-info-item-v2">
+                                    <i class="bi bi-file-earmark-text"></i>
+                                    <div class="info-content-v2">
+                                        <span class="info-label-v2">Type</span>
+                                        <span class="info-value-v2">@selectedResource.Type</span>
+                                    </div>
+                                </div>
+                                <div class="sidebar-info-item-v2">
+                                    <i class="bi bi-calendar-check"></i>
+                                    <div class="info-content-v2">
+                                        <span class="info-label-v2">Published</span>
+                                        <span class="info-value-v2">@selectedResource.PublishedDate.ToString("MMM dd, yyyy")</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(selectedResource.DownloadUrl))
+                            {
+                                <div class="sidebar-actions-v2">
+                                    <button class="btn-download-v2" @onclick="() => DownloadResource(selectedResource)">
+                                        <i class="bi bi-download"></i>
+                                        <span>Download Document</span>
+                                    </button>
+                                    <button class="btn-share-v2">
+                                        <i class="bi bi-share"></i>
+                                        <span>Share</span>
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="auth-required-v2">
+            <div class="auth-icon-v2">
+                <i class="bi bi-lock"></i>
+            </div>
+            <h2 class="auth-title-v2">Authentication Required</h2>
+            <p class="auth-message-v2">Please log in to access the Legal Database</p>
+            <button class="btn-primary-v2" @onclick='() => Navigation.NavigateTo("/login")'>
+                <i class="bi bi-box-arrow-in-right"></i>
+                Go to Login
+            </button>
+        </div>
+    }
+
+    <!-- Toast Notification -->
+    @if (showToast)
+    {
+        <div class="toast-notification-v2" role="alert" aria-live="polite" aria-atomic="true">
+            <i class="bi bi-check-circle-fill toast-icon-v2" aria-hidden="true"></i>
+            <span class="toast-message-v2">@toastMessage</span>
+            <button class="toast-close-v2" @onclick="HideToast" aria-label="Close notification">
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
+        </div>
+    }
+</div>
+</CustomErrorBoundary>
+
+@code {
+    private User? currentUser;
+    private string searchQuery = string.Empty;
+    private string activeCategory = "All";
+    private bool isSearching = false;
+    private bool isLoading = false;
+    
+    private List<DatabaseCategory> categories = new();
+    private List<LegalResource> allResources = new();
+    private List<LegalResource> filteredResources = new();
+    private List<LegalResource> popularResources = new();
+    private LegalResource? selectedResource;
+
+    // Enhancement state variables
+    private bool isExporting = false;
+    private bool isPrinting = false;
+    private bool showExportMenu = false;
+    private bool showToast = false;
+    private string toastMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        LangService.OnLanguageChanged += OnLanguageChanged;
+        currentUser = AuthService.GetCurrentUser();
+        
+        if (currentUser == null)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        isLoading = true;
+        await Task.Delay(500); // Simulate loading
+        InitializeData();
+        isLoading = false;
+    }
+
+    private void InitializeData()
+    {
+        categories = new List<DatabaseCategory>
+        {
+            new DatabaseCategory { Name = "Criminal Law", Icon = "bi-shield-exclamation", Description = "IPC, CrPC, and criminal jurisprudence", ResourceCount = 245 },
+            new DatabaseCategory { Name = "Cyber Law", Icon = "bi-shield-check", Description = "IT Act, data protection, cybercrimes", ResourceCount = 128 },
+            new DatabaseCategory { Name = "Constitutional Law", Icon = "bi-mortarboard", Description = "Fundamental rights, directives, amendments", ResourceCount = 189 },
+            new DatabaseCategory { Name = "Civil Law", Icon = "bi-briefcase", Description = "CPC, contracts, torts, property law", ResourceCount = 312 },
+            new DatabaseCategory { Name = "Corporate Law", Icon = "bi-building", Description = "Companies Act, securities law, mergers", ResourceCount = 167 },
+            new DatabaseCategory { Name = "Family Law", Icon = "bi-people", Description = "Marriage, divorce, adoption, succession", ResourceCount = 203 },
+            new DatabaseCategory { Name = "Labour Law", Icon = "bi-hammer", Description = "Industrial relations, employee rights", ResourceCount = 156 },
+            new DatabaseCategory { Name = "Tax Law", Icon = "bi-calculator", Description = "Income tax, GST, customs law", ResourceCount = 198 }
+        };
+
+        allResources = GenerateSampleResources();
+        popularResources = allResources.OrderByDescending(r => r.Views).ToList();
+        filteredResources = new List<LegalResource>();
+    }
+
+    private void SetCategory(string category)
+    {
+        activeCategory = category;
+        FilterResources();
+    }
+
+    private void SelectCategory(DatabaseCategory category)
+    {
+        searchQuery = category.Name;
+        activeCategory = "All";
+        FilterResources();
+    }
+
+    private async Task HandleSearch(KeyboardEventArgs e)
+    {
+        isSearching = true;
+        StateHasChanged();
+        
+        await Task.Delay(300); // Debounce
+        
+        FilterResources();
+        isSearching = false;
+    }
+
+    private void FilterResources()
+    {
+        var query = allResources.AsEnumerable();
+
+        // Filter by category tab
+        if (activeCategory != "All")
+        {
+            query = query.Where(r => r.Type.Equals(activeCategory, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // Filter by search query
+        if (!string.IsNullOrWhiteSpace(searchQuery))
+        {
+            var term = searchQuery.ToLower();
+            query = query.Where(r =>
+                r.Title.ToLower().Contains(term) ||
+                r.Description.ToLower().Contains(term) ||
+                r.Category.ToLower().Contains(term) ||
+                r.Content.ToLower().Contains(term) ||
+                r.Tags.Any(t => t.ToLower().Contains(term))
+            );
+        }
+
+        filteredResources = query.OrderByDescending(r => r.PublishedDate).ToList();
+    }
+
+    private void ClearSearch()
+    {
+        searchQuery = string.Empty;
+        FilterResources();
+    }
+
+    private void ViewResource(LegalResource resource)
+    {
+        selectedResource = resource;
+        resource.Views++; // Increment view count
+    }
+
+    private void CloseResourceDetail()
+    {
+        selectedResource = null;
+    }
+
+    private void DownloadResource(LegalResource resource)
+    {
+        resource.Downloads++;
+        // In a real app, this would trigger actual download
+        Console.WriteLine($"Downloading: {resource.Title}");
+    }
+
+    private string GetResourceIcon(string type)
+    {
+        return type.ToLower() switch
+        {
+            "acts" => "bi-file-earmark-text",
+            "judgments" => "bi-gavel",
+            "articles" => "bi-newspaper",
+            "templates" => "bi-file-earmark-check",
+            _ => "bi-file-earmark"
+        };
+    }
+
+    private List<LegalResource> GenerateSampleResources()
+    {
+        return new List<LegalResource>
+        {
+            new LegalResource
+            {
+                Id = 1,
+                Title = "Information Technology Act, 2000 - Complete Analysis",
+                Description = "Comprehensive analysis of IT Act 2000 with all amendments, including cyber security provisions and digital signature regulations.",
+                Category = "Cyber Law",
+                Type = "Acts",
+                Author = "Ministry of Electronics and IT",
+                PublishedDate = new DateTime(2024, 8, 15),
+                Content = "The Information Technology Act, 2000 is an Act of the Indian Parliament notified on October 17, 2000. It is the primary law in India dealing with cybercrime and electronic commerce...",
+                Tags = new List<string> { "IT Act", "Cyber Law", "Digital Signatures", "E-Commerce", "Cybercrime" },
+                Views = 15420,
+                Downloads = 3241,
+                DownloadUrl = "/downloads/it-act-2000.pdf"
+            },
+            new LegalResource
+            {
+                Id = 2,
+                Title = "Shreya Singhal v. Union of India (2015) - Section 66A Struck Down",
+                Description = "Landmark Supreme Court judgment striking down Section 66A of IT Act as unconstitutional violation of freedom of speech.",
+                Category = "Cyber Law",
+                Type = "Judgments",
+                Author = "Supreme Court of India",
+                PublishedDate = new DateTime(2015, 3, 24),
+                Content = "The Supreme Court in this landmark judgment struck down Section 66A of the Information Technology Act, 2000 as unconstitutional...",
+                Tags = new List<string> { "Fundamental Rights", "Freedom of Speech", "Article 19", "IT Act Section 66A" },
+                Views = 12890,
+                Downloads = 2156
+            },
+            new LegalResource
+            {
+                Id = 3,
+                Title = "Consumer Protection Act, 2019 - A Comprehensive Guide",
+                Description = "Updated consumer protection law with provisions for e-commerce, product liability, and consumer dispute resolution.",
+                Category = "Consumer Law",
+                Type = "Acts",
+                Author = "Ministry of Consumer Affairs",
+                PublishedDate = new DateTime(2024, 6, 10),
+                Content = "The Consumer Protection Act, 2019 replaces the Consumer Protection Act, 1986 and aims to provide better protection of consumers...",
+                Tags = new List<string> { "Consumer Rights", "E-Commerce", "Product Liability", "NCDRC" },
+                Views = 9850,
+                Downloads = 1987
+            },
+            new LegalResource
+            {
+                Id = 4,
+                Title = "Understanding Section 66D - Phishing and Identity Theft",
+                Description = "Detailed article on Section 66D of IT Act dealing with punishment for cheating by personation using computer resources.",
+                Category = "Cyber Law",
+                Type = "Articles",
+                Author = "Dr. Pavan Duggal",
+                PublishedDate = new DateTime(2024, 9, 5),
+                Content = "Section 66D of the Information Technology Act, 2000 deals with punishment for cheating by personation by using computer resource...",
+                Tags = new List<string> { "Phishing", "Identity Theft", "Online Fraud", "Section 66D" },
+                Views = 8542,
+                Downloads = 1432
+            },
+            new LegalResource
+            {
+                Id = 5,
+                Title = "FIR Template - Cybercrime Complaint",
+                Description = "Standard format for filing FIR in cybercrime cases with all necessary details and legal provisions.",
+                Category = "Cyber Law",
+                Type = "Templates",
+                Author = "Cyber Crime Cell",
+                PublishedDate = new DateTime(2024, 7, 20),
+                Content = "To, The Officer-in-Charge, [Police Station Name], [Address]. Subject: Filing of FIR for Cybercrime...",
+                Tags = new List<string> { "FIR Template", "Cybercrime", "Complaint Format" },
+                Views = 7234,
+                Downloads = 5621,
+                DownloadUrl = "/downloads/fir-template-cybercrime.docx"
+            },
+            new LegalResource
+            {
+                Id = 6,
+                Title = "Indian Penal Code - Sections Related to Cybercrime",
+                Description = "IPC sections 419, 420, 463, 465, 468, 471 commonly invoked in cybercrime cases along with IT Act provisions.",
+                Category = "Criminal Law",
+                Type = "Acts",
+                Author = "Law Commission of India",
+                PublishedDate = new DateTime(2024, 5, 12),
+                Content = "The Indian Penal Code, 1860 contains several sections that are commonly invoked in cybercrime cases alongside IT Act provisions...",
+                Tags = new List<string> { "IPC", "Cheating", "Forgery", "Fraud", "Cybercrime" },
+                Views = 11234,
+                Downloads = 2987
+            },
+            new LegalResource
+            {
+                Id = 7,
+                Title = "Data Protection and Privacy Laws in India - 2024 Update",
+                Description = "Analysis of Digital Personal Data Protection Act 2023 and its implications for businesses and individuals.",
+                Category = "Cyber Law",
+                Type = "Articles",
+                Author = "Technology Law Forum",
+                PublishedDate = new DateTime(2024, 10, 1),
+                Content = "The Digital Personal Data Protection Act, 2023 marks a significant milestone in India's data protection framework...",
+                Tags = new List<string> { "Data Protection", "Privacy", "DPDP Act", "Personal Data" },
+                Views = 6789,
+                Downloads = 1543
+            },
+            new LegalResource
+            {
+                Id = 8,
+                Title = "Vakalatnama Format - Court Representation Authorization",
+                Description = "Standard vakalatnama format for authorizing advocates to represent in various courts.",
+                Category = "Civil Law",
+                Type = "Templates",
+                Author = "Bar Council of India",
+                PublishedDate = new DateTime(2024, 4, 15),
+                Content = "I/We hereby appoint and retain [Advocate Name] as my/our advocate to appear, plead and act for me/us...",
+                Tags = new List<string> { "Vakalatnama", "Court Representation", "Advocate Authorization" },
+                Views = 9876,
+                Downloads = 7234,
+                DownloadUrl = "/downloads/vakalatnama-format.pdf"
+            }
+        };
+    }
+
+    // Export and UI methods
+    private void ToggleExportMenu()
+    {
+        showExportMenu = !showExportMenu;
+    }
+
+    private async Task ExportToCsv()
+    {
+        if (isExporting) return;
+        
+        try
+        {
+            isExporting = true;
+            showExportMenu = false;
+
+            var resourcesToExport = filteredResources.Any() ? filteredResources : allResources;
+            var csv = new System.Text.StringBuilder();
+            csv.AppendLine("Title,Type,Category,Author,Published Date,Views,Downloads");
+
+            foreach (var resource in resourcesToExport)
+            {
+                csv.AppendLine($"\"{resource.Title}\",\"{resource.Type}\",\"{resource.Category}\",\"{resource.Author}\",\"{resource.PublishedDate:yyyy-MM-dd}\",{resource.Views},{resource.Downloads}");
+            }
+
+            var fileName = $"legal_database_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+            var base64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(csv.ToString()));
+            var dataUrl = $"data:text/csv;base64,{base64}";
+
+            await JS.InvokeVoidAsync("eval", $@"
+                const link = document.createElement('a');
+                link.href = '{dataUrl}';
+                link.download = '{fileName}';
+                link.click();
+            ");
+
+            ShowToast($"Exported {resourcesToExport.Count} resources to CSV successfully!");
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Export failed: {ex.Message}");
+        }
+        finally
+        {
+            isExporting = false;
+        }
+    }
+
+    private async Task ExportToPdf()
+    {
+        if (isExporting) return;
+        
+        try
+        {
+            isExporting = true;
+            showExportMenu = false;
+
+            var resourcesToExport = filteredResources.Any() ? filteredResources : allResources;
+            var tableRows = string.Join("", resourcesToExport.Select(r => $@"
+                <tr>
+                    <td>{r.Title}</td>
+                    <td>{r.Type}</td>
+                    <td>{r.Category}</td>
+                    <td>{r.PublishedDate:MMM dd, yyyy}</td>
+                    <td>{r.Views}</td>
+                </tr>"));
+
+            var html = $@"
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset='utf-8'>
+                    <title>Legal Database - {DateTime.Now:MMMM dd, yyyy}</title>
+                    <style>
+                        body {{ font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; }}
+                        .header {{ border-bottom: 2px solid #0066cc; margin-bottom: 20px; padding-bottom: 10px; }}
+                        .header h1 {{ color: #0066cc; margin: 0; }}
+                        .meta {{ color: #666; font-size: 14px; margin-top: 5px; }}
+                        table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
+                        th, td {{ padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }}
+                        th {{ background-color: #f5f5f5; font-weight: 600; }}
+                        tr:hover {{ background-color: #f9f9f9; }}
+                    </style>
+                </head>
+                <body>
+                    <div class='header'>
+                        <h1>Legal Database Resources</h1>
+                        <div class='meta'>
+                            Generated: {DateTime.Now:MMMM dd, yyyy HH:mm} | 
+                            Category: {activeCategory} | 
+                            Total: {resourcesToExport.Count} resources
+                        </div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Type</th>
+                                <th>Category</th>
+                                <th>Published</th>
+                                <th>Views</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {tableRows}
+                        </tbody>
+                    </table>
+                </body>
+                </html>
+            ";
+
+            var fileName = $"legal_database_{DateTime.Now:yyyyMMdd_HHmmss}.html";
+            var base64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(html));
+            var dataUrl = $"data:text/html;base64,{base64}";
+
+            await JS.InvokeVoidAsync("eval", $@"
+                const link = document.createElement('a');
+                link.href = '{dataUrl}';
+                link.download = '{fileName}';
+                link.click();
+            ");
+
+            ShowToast("Database exported to PDF/HTML successfully!");
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Export failed: {ex.Message}");
+        }
+        finally
+        {
+            isExporting = false;
+        }
+    }
+
+    private async Task ExportToJson()
+    {
+        if (isExporting) return;
+        
+        try
+        {
+            isExporting = true;
+            showExportMenu = false;
+
+            var resourcesToExport = filteredResources.Any() ? filteredResources : allResources;
+            var data = new
+            {
+                exportedAt = DateTime.Now,
+                category = activeCategory,
+                totalResources = resourcesToExport.Count,
+                resources = resourcesToExport.Select(r => new
+                {
+                    r.Id,
+                    r.Title,
+                    r.Description,
+                    r.Type,
+                    r.Category,
+                    r.Author,
+                    publishedDate = r.PublishedDate.ToString("yyyy-MM-dd"),
+                    r.Tags,
+                    r.Views,
+                    r.Downloads
+                })
+            };
+
+            var json = System.Text.Json.JsonSerializer.Serialize(data, new System.Text.Json.JsonSerializerOptions 
+            { 
+                WriteIndented = true 
+            });
+
+            var fileName = $"legal_database_{DateTime.Now:yyyyMMdd_HHmmss}.json";
+            var base64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(json));
+            var dataUrl = $"data:application/json;base64,{base64}";
+
+            await JS.InvokeVoidAsync("eval", $@"
+                const link = document.createElement('a');
+                link.href = '{dataUrl}';
+                link.download = '{fileName}';
+                link.click();
+            ");
+
+            ShowToast("Database exported to JSON successfully!");
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Export failed: {ex.Message}");
+        }
+        finally
+        {
+            isExporting = false;
+        }
+    }
+
+    private async Task PrintDatabase()
+    {
+        if (isPrinting) return;
+        
+        try
+        {
+            isPrinting = true;
+            await JS.InvokeVoidAsync("window.print");
+            ShowToast("Print dialog opened");
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Print failed: {ex.Message}");
+        }
+        finally
+        {
+            isPrinting = false;
+        }
+    }
+
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" || e.Key == " ")
+        {
+            await Task.CompletedTask;
+        }
+    }
+
+    private void ShowToast(string message)
+    {
+        toastMessage = message;
+        showToast = true;
+        StateHasChanged();
+
+        var timer = new System.Threading.Timer(_ =>
+        {
+            showToast = false;
+            InvokeAsync(StateHasChanged);
+        }, null, 3000, System.Threading.Timeout.Infinite);
+    }
+
+    private void HideToast()
+    {
+        showToast = false;
+    }
+
+    // Supporting Classes
+    public class DatabaseCategory
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Icon { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public int ResourceCount { get; set; }
+    }
+
+    public class LegalResource
+    {
+        public int Id { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty; // Acts, Judgments, Articles, Templates
+        public string Author { get; set; } = string.Empty;
+        public DateTime PublishedDate { get; set; }
+        public string Content { get; set; } = string.Empty;
+        public List<string> Tags { get; set; } = new();
+        public int Views { get; set; }
+        public int Downloads { get; set; }
+        public string? DownloadUrl { get; set; }
+    }
+
+    private void OnLanguageChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        LangService.OnLanguageChanged -= OnLanguageChanged;
+    }
+}

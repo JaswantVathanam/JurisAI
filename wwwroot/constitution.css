@@ -1,0 +1,637 @@
+/* ============================================
+   Constitution & Laws Page Styles
+   JurisAI
+   ============================================ */
+
+.constitution-page {
+    padding: 2rem;
+    min-height: 100vh;
+    background: var(--bg-primary);
+}
+
+/* Page Header */
+.constitution-page .page-header {
+    margin-bottom: 2rem;
+}
+
+.constitution-page .page-header .header-content h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0 0 0.5rem 0;
+}
+
+.constitution-page .page-header .header-content h1 i {
+    background: var(--gradient-gold);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.constitution-page .header-subtitle {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    margin: 0;
+}
+
+/* Search Section */
+.constitution-page .search-section {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+
+.constitution-page .search-container {
+    flex: 1;
+    min-width: 300px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: var(--glass-dark-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: 0 1rem;
+    transition: all 0.3s ease;
+}
+
+.constitution-page .search-container:focus-within {
+    border-color: var(--primary-gold);
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+}
+
+.constitution-page .search-container i {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+}
+
+.constitution-page .search-input {
+    flex: 1;
+    padding: 0.875rem 1rem;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+}
+
+.constitution-page .search-input::placeholder {
+    color: var(--text-muted);
+}
+
+.constitution-page .search-input:focus {
+    outline: none;
+}
+
+.constitution-page .search-clear {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0.25rem;
+    transition: color 0.2s ease;
+}
+
+.constitution-page .search-clear:hover {
+    color: var(--primary-gold);
+}
+
+/* Filter Options */
+.constitution-page .filter-options {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.constitution-page .filter-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    background: var(--glass-dark-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.constitution-page .filter-btn:hover {
+    border-color: var(--primary-gold);
+    color: var(--primary-gold);
+}
+
+.constitution-page .filter-btn.active {
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(212, 175, 55, 0.1));
+    border-color: var(--primary-gold);
+    color: var(--primary-gold);
+}
+
+/* Tab Navigation */
+.constitution-page .law-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    padding: 0.5rem;
+    background: var(--glass-dark-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    width: fit-content;
+}
+
+.constitution-page .tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.constitution-page .tab-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.constitution-page .tab-btn.active {
+    background: var(--gradient-gold);
+    color: var(--text-dark);
+    font-weight: 600;
+}
+
+.constitution-page .tab-btn i {
+    font-size: 1.1rem;
+}
+
+/* Split View Layout */
+.constitution-page .laws-split-view {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: 1.5rem;
+    min-height: calc(100vh - 300px);
+}
+
+/* Laws List Panel */
+.constitution-page .laws-list-panel {
+    background: var(--glass-dark-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: 1rem;
+    overflow-y: auto;
+    max-height: calc(100vh - 280px);
+}
+
+.constitution-page .laws-list-panel::-webkit-scrollbar {
+    width: 6px;
+}
+
+.constitution-page .laws-list-panel::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.constitution-page .laws-list-panel::-webkit-scrollbar-thumb {
+    background: var(--glass-border);
+    border-radius: 3px;
+}
+
+.constitution-page .laws-list-panel::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-gold);
+}
+
+/* Law List Card */
+.constitution-page .law-list-card {
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    margin-bottom: 0.75rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.constitution-page .law-list-card:hover {
+    background: rgba(212, 175, 55, 0.05);
+    border-color: rgba(212, 175, 55, 0.3);
+    transform: translateX(4px);
+}
+
+.constitution-page .law-list-card.selected {
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.15), rgba(212, 175, 55, 0.05));
+    border-color: var(--primary-gold);
+    box-shadow: 0 4px 12px rgba(212, 175, 55, 0.2);
+}
+
+.constitution-page .law-list-card .law-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.constitution-page .law-list-card .law-title i {
+    color: var(--primary-gold);
+    font-size: 1.1rem;
+}
+
+.constitution-page .law-list-card .law-title span {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.constitution-page .law-meta-short {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.constitution-page .law-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1));
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: var(--radius-sm);
+    color: #10b981;
+    font-size: 0.7rem;
+    font-weight: 500;
+    margin-top: 0.5rem;
+}
+
+/* Law Detail Panel */
+.constitution-page .law-detail-panel {
+    background: var(--glass-dark-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    overflow-y: auto;
+    max-height: calc(100vh - 280px);
+}
+
+.constitution-page .empty-detail-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.constitution-page .empty-detail-panel i {
+    font-size: 4rem;
+    margin-bottom: 1.5rem;
+    opacity: 0.5;
+    color: var(--primary-gold);
+}
+
+.constitution-page .empty-detail-panel h3 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem 0;
+}
+
+.constitution-page .empty-detail-panel p {
+    font-size: 1rem;
+    margin: 0;
+}
+
+/* Law Detail Header */
+.constitution-page .law-detail-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.constitution-page .law-detail-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0 0 1rem 0;
+}
+
+.constitution-page .law-detail-header h2 i {
+    color: var(--primary-gold);
+}
+
+.constitution-page .law-meta-full {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.constitution-page .law-meta-full span {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.constitution-page .law-meta-full span i {
+    color: var(--primary-gold);
+}
+
+.constitution-page .cyber-badge {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1));
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: var(--radius-sm);
+    padding: 0.25rem 0.75rem;
+    color: #10b981;
+    font-weight: 500;
+}
+
+/* Law Description */
+.constitution-page .law-description-full {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.constitution-page .law-description-full p {
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin: 0;
+}
+
+/* Sections Search */
+.constitution-page .sections-search {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 0 1rem;
+    margin-bottom: 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.constitution-page .sections-search:focus-within {
+    border-color: var(--primary-gold);
+}
+
+.constitution-page .sections-search i {
+    color: var(--text-muted);
+}
+
+.constitution-page .sections-search .search-input {
+    padding: 0.75rem 0;
+}
+
+/* Sections Grid */
+.constitution-page .sections-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.constitution-page .section-card-detail {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 1.25rem;
+    transition: all 0.3s ease;
+}
+
+.constitution-page .section-card-detail:hover {
+    background: rgba(212, 175, 55, 0.05);
+    border-color: rgba(212, 175, 55, 0.3);
+}
+
+.constitution-page .section-card-detail .section-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem 0.75rem;
+    background: var(--gradient-gold);
+    border-radius: var(--radius-sm);
+    color: var(--text-dark);
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+.constitution-page .section-card-detail h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 0.75rem 0;
+}
+
+.constitution-page .section-card-detail p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+.constitution-page .section-card-detail p strong {
+    color: var(--primary-gold);
+}
+
+/* Loading State */
+.constitution-page .loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    color: var(--text-muted);
+}
+
+.constitution-page .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--glass-border);
+    border-top-color: var(--primary-gold);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Empty State */
+.constitution-page .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.constitution-page .empty-state i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.constitution-page .empty-state h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem 0;
+}
+
+.constitution-page .empty-state p {
+    margin: 0;
+}
+
+/* Auth Required State */
+.constitution-page .auth-required {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    text-align: center;
+}
+
+.constitution-page .auth-required i {
+    font-size: 5rem;
+    color: var(--primary-gold);
+    margin-bottom: 1.5rem;
+    opacity: 0.8;
+}
+
+.constitution-page .auth-required h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 0.75rem 0;
+}
+
+.constitution-page .auth-required p {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin: 0 0 2rem 0;
+}
+
+.constitution-page .auth-required .btn-primary {
+    padding: 1rem 2rem;
+    background: var(--gradient-gold);
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--text-dark);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.constitution-page .auth-required .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(212, 175, 55, 0.4);
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .constitution-page .laws-split-view {
+        grid-template-columns: 1fr;
+    }
+
+    .constitution-page .laws-list-panel {
+        max-height: 300px;
+    }
+
+    .constitution-page .law-detail-panel {
+        max-height: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .constitution-page {
+        padding: 1rem;
+    }
+
+    .constitution-page .page-header .header-content h1 {
+        font-size: 1.5rem;
+    }
+
+    .constitution-page .search-section {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .constitution-page .search-container {
+        min-width: auto;
+    }
+
+    .constitution-page .law-tabs {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .constitution-page .tab-btn {
+        flex: 1;
+        justify-content: center;
+        padding: 0.625rem 1rem;
+    }
+
+    .constitution-page .tab-btn span {
+        display: none;
+    }
+
+    .constitution-page .laws-split-view {
+        gap: 1rem;
+    }
+
+    .constitution-page .law-detail-header h2 {
+        font-size: 1.25rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .constitution-page .law-meta-full {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .constitution-page .search-section,
+    .constitution-page .law-tabs,
+    .constitution-page .filter-options {
+        display: none;
+    }
+
+    .constitution-page .laws-split-view {
+        display: block;
+    }
+
+    .constitution-page .laws-list-panel {
+        display: none;
+    }
+
+    .constitution-page .law-detail-panel {
+        max-height: none;
+        box-shadow: none;
+        border: none;
+    }
+}

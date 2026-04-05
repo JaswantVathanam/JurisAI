@@ -1,0 +1,350 @@
+/* ============================================
+   PRINT STYLES - JurisAI
+   ============================================ */
+
+@media print {
+    /* Reset page margins and colors */
+    @page {
+        margin: 1.5cm;
+        size: A4 landscape; /* Landscape for wider tables */
+    }
+
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
+
+    body {
+        background: white !important;
+        color: black !important;
+        font-size: 10pt;
+        line-height: 1.4;
+    }
+
+    /* ============================================
+       HIDE ELEMENTS NOT NEEDED IN PRINT
+       ============================================ */
+
+    .no-print,
+    .filter-bar,
+    .stats-grid,
+    .page-header,
+    .action-buttons,
+    .btn-action,
+    .export-dropdown,
+    .export-menu,
+    .btn-export,
+    .btn-print,
+    .header-actions,
+    .modal-backdrop,
+    .success-message,
+    .empty-state,
+    nav,
+    footer,
+    .sidebar,
+    .navbar {
+        display: none !important;
+    }
+
+    /* ============================================
+       SHOW PRINT-ONLY ELEMENTS
+       ============================================ */
+
+    .print-only {
+        display: block !important;
+    }
+
+    .print-header {
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #d4af37;
+    }
+
+    .print-header h1 {
+        color: #000;
+        font-size: 18pt;
+        margin: 0 0 10px 0;
+        font-weight: bold;
+    }
+
+    .print-header p {
+        color: #333;
+        font-size: 10pt;
+        margin: 3px 0;
+    }
+
+    /* ============================================
+       TABLE STYLES FOR PRINT
+       ============================================ */
+
+    .users-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+        page-break-inside: auto;
+    }
+
+    .users-table thead {
+        display: table-header-group; /* Repeat header on every page */
+    }
+
+    .users-table tbody {
+        display: table-row-group;
+    }
+
+    .users-table tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+    }
+
+    .users-table th {
+        background: #d4af37 !important;
+        color: #000 !important;
+        font-weight: bold;
+        padding: 8px 6px;
+        text-align: left;
+        border: 1px solid #999;
+        font-size: 9pt;
+    }
+
+    .users-table td {
+        background: white !important;
+        color: #000 !important;
+        padding: 6px 6px;
+        border: 1px solid #ddd;
+        font-size: 9pt;
+    }
+
+    .users-table tr:nth-child(even) td {
+        background: #f9f9f9 !important;
+    }
+
+    /* ============================================
+       CELL CONTENT ADJUSTMENTS
+       ============================================ */
+
+    .user-cell {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .user-avatar-small {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #d4af37;
+        color: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 8pt;
+        font-weight: bold;
+        flex-shrink: 0;
+    }
+
+    .user-name {
+        font-weight: bold;
+        font-size: 9pt;
+        color: #000;
+    }
+
+    .user-id {
+        font-size: 7pt;
+        color: #666;
+    }
+
+    .contact-cell {
+        font-size: 8pt;
+    }
+
+    .contact-cell div {
+        margin: 2px 0;
+    }
+
+    .contact-cell i {
+        font-size: 7pt;
+        margin-right: 3px;
+        color: #666;
+    }
+
+    .date-cell {
+        font-size: 9pt;
+        color: #000;
+    }
+
+    /* ============================================
+       BADGES FOR PRINT
+       ============================================ */
+
+    .role-badge,
+    .verification-badge,
+    .status-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 8pt;
+        font-weight: 600;
+        border: 1px solid;
+    }
+
+    /* Role badges */
+    .role-badge.citizen {
+        background: #e3f2fd !important;
+        color: #1976d2 !important;
+        border-color: #1976d2;
+    }
+
+    .role-badge.lawyer {
+        background: #e8f5e9 !important;
+        color: #388e3c !important;
+        border-color: #388e3c;
+    }
+
+    .role-badge.police {
+        background: #fff3e0 !important;
+        color: #f57c00 !important;
+        border-color: #f57c00;
+    }
+
+    /* Verification badges */
+    .verification-badge.verified {
+        background: #e8f5e9 !important;
+        color: #2e7d32 !important;
+        border-color: #2e7d32;
+    }
+
+    .verification-badge.pending {
+        background: #fff9c4 !important;
+        color: #f57f17 !important;
+        border-color: #f57f17;
+    }
+
+    .verification-badge.rejected {
+        background: #ffebee !important;
+        color: #c62828 !important;
+        border-color: #c62828;
+    }
+
+    .verification-badge.moreinfoneed {
+        background: #fff3e0 !important;
+        color: #ef6c00 !important;
+        border-color: #ef6c00;
+    }
+
+    /* Status badges */
+    .status-badge.active {
+        background: #e8f5e9 !important;
+        color: #2e7d32 !important;
+        border-color: #2e7d32;
+    }
+
+    .status-badge.inactive {
+        background: #ffebee !important;
+        color: #c62828 !important;
+        border-color: #c62828;
+    }
+
+    /* ============================================
+       ICONS IN PRINT
+       ============================================ */
+
+    .role-badge i,
+    .verification-badge i,
+    .status-badge i {
+        font-size: 7pt;
+        margin-right: 3px;
+    }
+
+    /* ============================================
+       PAGE BREAKS
+       ============================================ */
+
+    .user-management {
+        page-break-after: auto;
+    }
+
+    .users-section {
+        page-break-inside: avoid;
+    }
+
+    .section-header h2 {
+        color: #000 !important;
+        font-size: 14pt;
+        margin-bottom: 10px;
+        page-break-after: avoid;
+    }
+
+    /* ============================================
+       REMOVE INTERACTIVE ELEMENTS
+       ============================================ */
+
+    button,
+    input,
+    select,
+    textarea,
+    .sortable {
+        cursor: default !important;
+        pointer-events: none !important;
+    }
+
+    .sortable:hover {
+        background: transparent !important;
+    }
+
+    .sortable i {
+        display: none; /* Hide sort indicators */
+    }
+
+    /* ============================================
+       FOOTER FOR PRINT
+       ============================================ */
+
+    @page {
+        @bottom-right {
+            content: "Page " counter(page) " of " counter(pages);
+            font-size: 9pt;
+            color: #666;
+        }
+
+        @bottom-left {
+            content: "JurisAI - User Management";
+            font-size: 9pt;
+            color: #666;
+        }
+
+        @bottom-center {
+            content: "Generated: " attr(data-print-date);
+            font-size: 9pt;
+            color: #666;
+        }
+    }
+
+    /* ============================================
+       OPTIMIZE FOR BLACK & WHITE PRINTING
+       ============================================ */
+
+    .inactive-row td {
+        opacity: 0.6;
+        background: #f5f5f5 !important;
+    }
+
+    /* ============================================
+       COMPACT MODE FOR MANY RECORDS
+       ============================================ */
+
+    @media print and (min-height: 100) {
+        .users-table th,
+        .users-table td {
+            padding: 4px 5px;
+            font-size: 8pt;
+        }
+
+        .user-avatar-small {
+            width: 20px;
+            height: 20px;
+            font-size: 7pt;
+        }
+    }
+}

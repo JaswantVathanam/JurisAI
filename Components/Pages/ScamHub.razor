@@ -1,0 +1,773 @@
+@page "/scam-hub"
+@page "/scam-detector"
+@page "/scam-radar"
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@using AILegalAsst.Components.Shared
+@inject ScamPatternService ScamPatternService
+@inject ScamRadarService ScamRadarService
+@inject LanguageService LangService
+@inject IJSRuntime JS
+@implements IDisposable
+@rendermode InteractiveServer
+
+<PageTitle>@LangService.T("scamHub.title") - JurisAI</PageTitle>
+
+<CustomErrorBoundary ShowDetails="true" ShowReportButton="true">
+<div class="scam-hub-page-v2">
+    <!-- Page Header -->
+    <header class="scam-hub-header-v2">
+        <div class="header-content-v2">
+            <div class="header-icon-v2">
+                <i class="bi bi-shield-shaded"></i>
+            </div>
+            <div class="header-text-v2">
+                <h1>@LangService.T("scamHub.title")</h1>
+                <p class="header-subtitle-v2">@LangService.T("scamHub.subtitle")</p>
+            </div>
+        </div>
+        <div class="header-actions-v2">
+            <span class="live-badge-v2">
+                <span class="pulse-dot"></span>
+                @LangService.T("scamHub.liveUpdates")
+            </span>
+        </div>
+    </header>
+
+    <!-- Tab Navigation -->
+    <div class="hub-tabs-v2">
+        <button class="hub-tab-v2 @(activeTab == "detector" ? "active" : "")" @onclick="@(() => SetActiveTab("detector"))">
+            <i class="bi bi-cpu"></i>
+            <span>@LangService.T("scamHub.tab.detector")</span>
+        </button>
+        <button class="hub-tab-v2 @(activeTab == "radar" ? "active" : "")" @onclick="@(() => SetActiveTab("radar"))">
+            <i class="bi bi-radar"></i>
+            <span>@LangService.T("scamHub.tab.radar")</span>
+        </button>
+        <button class="hub-tab-v2 @(activeTab == "search" ? "active" : "")" @onclick="@(() => SetActiveTab("search"))">
+            <i class="bi bi-search"></i>
+            <span>@LangService.T("scamHub.tab.search")</span>
+        </button>
+    </div>
+
+    <!-- Stats Banner -->
+    <div class="stats-banner-v2">
+        <div class="stat-card-v2">
+            <div class="stat-icon-v2 reports">
+                <i class="bi bi-file-earmark-text"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value-v2">@statistics.TotalReportsThisMonth.ToString("N0")</span>
+                <span class="stat-label-v2">@LangService.T("scamHub.stats.reportsThisMonth")</span>
+            </div>
+        </div>
+        <div class="stat-card-v2">
+            <div class="stat-icon-v2 patterns">
+                <i class="bi bi-diagram-3"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value-v2">@statistics.TotalPatternsIdentified</span>
+                <span class="stat-label-v2">@LangService.T("scamHub.stats.identifiedPatterns")</span>
+            </div>
+        </div>
+        <div class="stat-card-v2 alert">
+            <div class="stat-icon-v2 amount">
+                <i class="bi bi-currency-rupee"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value-v2">₹@FormatAmount(statistics.TotalAmountReported)</span>
+                <span class="stat-label-v2">@LangService.T("scamHub.stats.totalAmountLost")</span>
+            </div>
+        </div>
+        <div class="stat-card-v2">
+            <div class="stat-icon-v2 recovered">
+                <i class="bi bi-arrow-repeat"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value-v2">₹@FormatAmount(statistics.TotalAmountRecovered)</span>
+                <span class="stat-label-v2">@LangService.T("scamHub.stats.amountRecovered")</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab Content -->
+        @if (activeTab == "detector")
+        {
+            <!-- Scam Detector Section -->
+            <section class="report-section-v2">
+                <div class="section-header-v2">
+                    <i class="bi bi-plus-circle"></i>
+                    <h2>@LangService.T("scamHub.reportAnalyze")</h2>
+                </div>
+
+                <div class="report-form-v2">
+                    <div class="form-row-v2">
+                        <div class="form-group-v2">
+                            <label class="form-label-v2">@LangService.T("form.selectCategory")</label>
+                            <select class="form-select-v2" @bind="newReport.Category">
+                                <option value="">@LangService.T("form.selectCategory")</option>
+                                @foreach (var category in Enum.GetValues<ScamCategory>())
+                                {
+                                    <option value="@category">@FormatEnumName(category.ToString())</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="form-group-v2">
+                            <label class="form-label-v2">@LangService.T("form.amountLost")</label>
+                            <input type="number" class="form-input-v2" placeholder="@LangService.T("form.enterAmount")" @bind="newReport.AmountLost" />
+                        </div>
+                    </div>
+
+                    <div class="form-row-v2">
+                        <div class="form-group-v2">
+                            <label class="form-label-v2">@LangService.T("form.selectState")</label>
+                            <select class="form-select-v2" @bind="newReport.State">
+                                <option value="">@LangService.T("form.selectState")</option>
+                                @foreach (var state in LanguageSupport.IndianStates)
+                                {
+                                    <option value="@state.Value">@state.Value</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="form-group-v2">
+                            <label class="form-label-v2">@LangService.T("form.city")</label>
+                            <input type="text" class="form-input-v2" placeholder="@LangService.T("form.enterCity")" @bind="newReport.City" />
+                        </div>
+                    </div>
+
+                    <div class="form-group-v2 full-width">
+                        <label class="form-label-v2">@LangService.T("form.description")</label>
+                        <textarea class="form-textarea-v2" 
+                                  placeholder="@LangService.T("form.descriptionPlaceholder")"
+                                  @bind="newReport.Description"></textarea>
+                        <span class="form-hint-v2">@LangService.T("form.aiHint")</span>
+                    </div>
+
+                    <button class="analyze-btn-v2" @onclick="AnalyzeAndSubmit" disabled="@isAnalyzing">
+                        @if (isAnalyzing)
+                        {
+                            <div class="spinner"></div>
+                            <span>@LangService.T("form.analyzing")</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-cpu"></i>
+                            <span>@LangService.T("form.analyze")</span>
+                        }
+                    </button>
+                </div>
+            </section>
+
+            <!-- Analysis Results -->
+            @if (analysisResult != null)
+            {
+                <section class="analysis-results-v2">
+                    <div class="results-header-v2">
+                        <h2 class="results-title-v2">
+                            <i class="bi bi-graph-up-arrow"></i>
+                            Analysis Results
+                        </h2>
+                        <span class="risk-badge-v2 @analysisResult.RiskLevel.ToString().ToLower()">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            @analysisResult.RiskLevel Risk
+                        </span>
+                    </div>
+
+                    <!-- Warning Alert -->
+                    @if (analysisResult.Warnings.Any())
+                    {
+                        <div class="alert-box-v2">
+                            <div class="alert-header-v2">
+                                <i class="bi bi-exclamation-octagon-fill"></i>
+                                <span>Critical Alert</span>
+                            </div>
+                            @foreach (var warning in analysisResult.Warnings)
+                            {
+                                <p class="alert-text-v2">@warning</p>
+                            }
+                        </div>
+                    }
+
+                    <!-- Match Statistics -->
+                    <div class="match-stats-grid-v2">
+                        <div class="match-stat-v2">
+                            <span class="match-stat-value-v2">@analysisResult.Matches.Count</span>
+                            <span class="match-stat-label-v2">Similar Cases Found</span>
+                        </div>
+                        <div class="match-stat-v2">
+                            <span class="match-stat-value-v2">@analysisResult.MatchesByState.Count</span>
+                            <span class="match-stat-label-v2">States Affected</span>
+                        </div>
+                        <div class="match-stat-v2">
+                            <span class="match-stat-value-v2">@((analysisResult.OverallConfidence * 100).ToString("F0"))%</span>
+                            <span class="match-stat-label-v2">Confidence</span>
+                        </div>
+                        <div class="match-stat-v2">
+                            <span class="match-stat-value-v2">@(analysisResult.IdentifiedPattern != null ? "Yes" : "No")</span>
+                            <span class="match-stat-label-v2">Known Pattern</span>
+                        </div>
+                    </div>
+
+                    <!-- Matched Pattern -->
+                    @if (analysisResult.IdentifiedPattern != null)
+                    {
+                        <div class="pattern-card-v2">
+                            <div class="pattern-header-v2">
+                                <div class="pattern-icon-v2">
+                                    <i class="bi bi-diagram-3-fill"></i>
+                                </div>
+                                <div class="pattern-info-v2">
+                                    <h3>@analysisResult.IdentifiedPattern.PatternName</h3>
+                                    <p>@analysisResult.IdentifiedPattern.TotalComplaints complaints • ₹@FormatAmount(analysisResult.IdentifiedPattern.TotalFraudAmount) lost</p>
+                                </div>
+                            </div>
+                            <div class="modus-operandi-v2">
+                                <h4>Modus Operandi</h4>
+                                <ul>
+                                    @foreach (var point in analysisResult.IdentifiedPattern.ModusOperandi.Take(4))
+                                    {
+                                        <li><i class="bi bi-dot"></i> @point</li>
+                                    }
+                                </ul>
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Affected States -->
+                    @if (analysisResult.MatchesByState.Any())
+                    {
+                        <div class="state-map-v2">
+                            <h4><i class="bi bi-geo-alt"></i> Affected Regions</h4>
+                            <div class="state-chips-v2">
+                                @foreach (var state in analysisResult.MatchesByState)
+                                {
+                                    <div class="state-chip-v2">
+                                        <span class="name">@state.Key</span>
+                                        <span class="count">@state.Value</span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Recommendations -->
+                    @if (analysisResult.RecommendedActions.Any())
+                    {
+                        <div class="recommendations-v2">
+                            <h4><i class="bi bi-lightbulb"></i> Recommended Actions</h4>
+                            <ul>
+                                @foreach (var rec in analysisResult.RecommendedActions)
+                                {
+                                    <li><i class="bi bi-check-circle-fill"></i> @rec</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+
+                    <!-- AI Analysis Section -->
+                    @if (analysisResult.AIAnalysis != null)
+                    {
+                        <div class="ai-analysis-section-v2">
+                            <div class="ai-analysis-header-v2">
+                                <div class="ai-badge-v2">
+                                    <i class="bi bi-robot"></i>
+                                    AI Analysis
+                                </div>
+                                @if (analysisResult.AIAnalysis.NeedsUrgentAction)
+                                {
+                                    <span class="urgent-badge-v2">
+                                        <i class="bi bi-exclamation-circle-fill"></i>
+                                        Urgent Action Required
+                                    </span>
+                                }
+                            </div>
+
+                            <!-- AI Summary -->
+                            <div class="ai-summary-card-v2">
+                                <h4><i class="bi bi-lightbulb-fill"></i> AI Analysis Summary</h4>
+                                <p>@analysisResult.AIAnalysis.Summary</p>
+                                <div class="scam-type-badge-v2">
+                                    <i class="bi bi-tag"></i> @analysisResult.AIAnalysis.ScamType
+                                    <span class="complexity-score-v2">Complexity: @analysisResult.AIAnalysis.ScamComplexityScore/10</span>
+                                </div>
+                            </div>
+
+                            <!-- Most Likely Scenario -->
+                            <div class="scenario-card-v2">
+                                <h4><i class="bi bi-diagram-3"></i> Most Likely Scenario</h4>
+                                <p>@analysisResult.AIAnalysis.MostLikelyScenario</p>
+                            </div>
+
+                            <!-- Extracted Evidence -->
+                            @if (analysisResult.AIAnalysis.ExtractedEvidence.Any())
+                            {
+                                <div class="evidence-card-v2">
+                                    <h4><i class="bi bi-fingerprint"></i> Extracted Evidence</h4>
+                                    <div class="evidence-list-v2">
+                                        @foreach (var evidence in analysisResult.AIAnalysis.ExtractedEvidence)
+                                        {
+                                            <div class="evidence-item-v2">
+                                                <i class="bi bi-check-circle"></i>
+                                                <span>@evidence</span>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+
+                            <!-- Recovery Prospect -->
+                            <div class="recovery-card-v2 @GetRecoveryClass(analysisResult.AIAnalysis.RecoveryProspect)">
+                                <h4><i class="bi bi-arrow-repeat"></i> Recovery Prospect</h4>
+                                <p>@analysisResult.AIAnalysis.RecoveryProspect</p>
+                            </div>
+
+                            <!-- Immediate Steps -->
+                            <div class="steps-card-v2">
+                                <h4><i class="bi bi-lightning-charge-fill"></i> Immediate Steps to Take</h4>
+                                <ol class="steps-list-v2">
+                                    @foreach (var step in analysisResult.AIAnalysis.ImmediateSteps)
+                                    {
+                                        <li>@step</li>
+                                    }
+                                </ol>
+                            </div>
+
+                            <!-- Legal Information -->
+                            <div class="legal-grid-v2">
+                                <div class="legal-card-v2">
+                                    <h4><i class="bi bi-balance-scale"></i> Legal Advice</h4>
+                                    <ul>
+                                        @foreach (var advice in analysisResult.AIAnalysis.LegalAdvice.Take(4))
+                                        {
+                                            <li>@advice</li>
+                                        }
+                                    </ul>
+                                </div>
+                                <div class="laws-card-v2">
+                                    <h4><i class="bi bi-book"></i> Applicable Laws</h4>
+                                    <ul>
+                                        @foreach (var law in analysisResult.AIAnalysis.ApplicableLaws.Take(4))
+                                        {
+                                            <li>@law</li>
+                                        }
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <!-- Prevention Tips -->
+                            <div class="prevention-card-v2">
+                                <h4><i class="bi bi-shield-check"></i> Prevention Tips</h4>
+                                <div class="prevention-tips-v2">
+                                    @foreach (var tip in analysisResult.AIAnalysis.PreventionTips)
+                                    {
+                                        <div class="tip-item-v2">
+                                            <i class="bi bi-info-circle"></i>
+                                            <span>@tip</span>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                            <!-- Support Message -->
+                            <div class="support-card-v2">
+                                <i class="bi bi-heart-fill"></i>
+                                <p>@analysisResult.AIAnalysis.VictimSupportMessage</p>
+                            </div>
+                        </div>
+                    }
+                </section>
+            }
+
+            <!-- Trending Patterns -->
+            <section class="trending-section-v2">
+                <div class="section-header-v2">
+                    <i class="bi bi-graph-up"></i>
+                    <h2>@LangService.T("scamHub.trendingPatterns")</h2>
+                </div>
+
+                <div class="patterns-grid-v2">
+                    @foreach (var pattern in patterns.Take(4))
+                    {
+                        <div class="trending-pattern-card-v2 @pattern.Severity.ToString().ToLower()">
+                            <div class="pattern-card-header-v2">
+                                <span class="pattern-name-v2">
+                                    <i class="bi bi-exclamation-diamond"></i>
+                                    @pattern.PatternName
+                                </span>
+                                <span class="severity-tag-v2 @pattern.Severity.ToString().ToLower()">
+                                    @pattern.Severity
+                                </span>
+                            </div>
+                            <div class="pattern-stats-v2">
+                                <div class="pattern-stat-item-v2">
+                                    <span class="value">@pattern.TotalComplaints</span>
+                                    <span class="label">Reports</span>
+                                </div>
+                                <div class="pattern-stat-item-v2">
+                                    <span class="value">₹@FormatAmount(pattern.TotalFraudAmount)</span>
+                                    <span class="label">Lost</span>
+                                </div>
+                                <div class="pattern-stat-item-v2">
+                                    <span class="value">@pattern.AffectedStates.Count</span>
+                                    <span class="label">States</span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+        else if (activeTab == "radar")
+        {
+            <!-- Community Radar Section -->
+            <section class="radar-section-v2">
+                <div class="radar-header-v2">
+                    <div class="radar-title-v2">
+                        <i class="bi bi-radar"></i>
+                        <h2>@LangService.T("scamHub.communityRadar")</h2>
+                    </div>
+                    <span class="live-badge-v2">
+                        <span class="pulse-dot"></span>
+                        @LangService.T("scamHub.liveUpdates")
+                    </span>
+                </div>
+                <p class="section-description" style="color: var(--text-secondary); margin-bottom: 1.5rem;">@LangService.T("scamHub.radarDescription")</p>
+
+                <!-- Trending Scams -->
+                <div class="scam-trends" style="margin-bottom: 2rem;">
+                    <h3 style="color: var(--text-primary); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; justify-content: space-between;">
+                        <span style="display: flex; align-items: center; gap: 0.5rem;"><i class="bi bi-graph-up-arrow" style="color: var(--primary-gold);"></i> @LangService.T("scamHub.trendingScams")</span>
+                        <button @onclick="EnhanceTrendsWithAI" disabled="@isEnhancingTrends" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; border-radius: 8px; border: none; background: linear-gradient(135deg, #667eea, #764ba2); color: white; cursor: pointer; display: flex; align-items: center; gap: 0.4rem;">
+                            @if (isEnhancingTrends)
+                            {
+                                <i class="bi bi-hourglass-split"></i> <span>Enhancing...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-stars"></i> <span>Enhance with AI</span>
+                            }
+                        </button>
+                    </h3>
+                    <div class="quick-reports-grid-v2">
+                        @foreach (var trend in cachedTrends)
+                        {
+                            <div class="report-card-v2">
+                                <div class="report-card-header-v2">
+                                    <span class="report-type-badge-v2">@trend.Type</span>
+                                    <span class="report-time-v2">@trend.Count reports</span>
+                                </div>
+                                <div class="report-meta-v2">
+                                    <span class="meta-item-v2"><i class="bi bi-geo-alt"></i> @string.Join(", ", trend.Locations.Take(3))</span>
+                                </div>
+                                <div style="margin-top: 0.75rem; display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                                    @foreach (var keyword in trend.TrendingKeywords.Take(3))
+                                    {
+                                        <span style="padding: 0.25rem 0.5rem; background: rgba(212, 175, 55, 0.1); border-radius: 6px; font-size: 0.75rem; color: var(--primary-gold);">@keyword</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Community Report Form -->
+                <div class="report-section-v2" style="margin-bottom: 2rem;">
+                    <div class="section-header-v2">
+                        <i class="bi bi-megaphone"></i>
+                        <h2>@LangService.T("scamHub.reportCommunity")</h2>
+                    </div>
+                    <form class="report-form-v2" @onsubmit="HandleCommunitySubmit" @onsubmit:preventDefault="true">
+                        <div class="form-row-v2">
+                            <div class="form-group-v2">
+                                <label class="form-label-v2">@LangService.T("form.scamType")</label>
+                                <select @bind="newCommunityReport.Type" class="form-select-v2">
+                                    @foreach (var t in Enum.GetValues(typeof(CommunityScamType)).Cast<CommunityScamType>())
+                                    {
+                                        <option value="@t">@FormatEnumName(t.ToString())</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="form-group-v2">
+                                <label class="form-label-v2">@LangService.T("form.location")</label>
+                                <input class="form-input-v2" @bind="newCommunityReport.Location" placeholder="@LangService.T("form.cityDistrict")" />
+                            </div>
+                        </div>
+                        <div class="form-group-v2 full-width">
+                            <label class="form-label-v2">@LangService.T("form.description")</label>
+                            <textarea class="form-textarea-v2" @bind="newCommunityReport.Description" rows="3" placeholder="@LangService.T("form.describeWhatHappened")"></textarea>
+                        </div>
+                        <div class="form-row-v2">
+                            <div class="form-group-v2">
+                                <label class="form-label-v2">@LangService.T("form.phoneUpi")</label>
+                                <input class="form-input-v2" @bind="newCommunityReport.PhoneNumber" placeholder="Phone or UPI id" />
+                            </div>
+                            <div class="form-group-v2">
+                                <label class="form-label-v2">@LangService.T("form.keywords")</label>
+                                <input class="form-input-v2" @bind="keywordsText" placeholder="e.g., lottery, processing fee" />
+                            </div>
+                        </div>
+                        <div class="form-actions" style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                            <button class="analyze-btn-v2" type="submit">
+                                <i class="bi bi-send"></i>
+                                <span>@LangService.T("form.submitReport")</span>
+                            </button>
+                            @if (!string.IsNullOrEmpty(communitySubmitMessage))
+                            {
+                                <span style="font-size: 0.9rem; color: @(communitySubmitMessage.StartsWith("✅") ? "#4CAF50" : "#F44336");">@communitySubmitMessage</span>
+                            }
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Recent Reports -->
+                <div class="radar-section-v2">
+                    <div class="section-header-v2">
+                        <i class="bi bi-clock-history"></i>
+                        <h2>@LangService.T("scamHub.recentReports")</h2>
+                    </div>
+                    <div class="quick-reports-grid-v2">
+                        @foreach (var report in ScamRadarService.GetRecentReports())
+                        {
+                            <div class="report-card-v2">
+                                <div class="report-card-header-v2">
+                                    <span class="report-type-badge-v2">@report.Type</span>
+                                    <span class="report-time-v2">@report.Timestamp.ToLocalTime().ToString("dd MMM, HH:mm")</span>
+                                </div>
+                                <p class="report-description-v2">@report.Description</p>
+                                <div class="report-meta-v2">
+                                    <span class="meta-item-v2"><i class="bi bi-geo-alt"></i> @report.Location</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </section>
+        }
+        else if (activeTab == "search")
+        {
+            <!-- Quick Search Section -->
+            <section class="search-section-v2">
+                <div class="section-header-v2">
+                    <i class="bi bi-search"></i>
+                    <h2>@LangService.T("scamHub.quickSearch")</h2>
+                </div>
+
+                <div class="search-bar-v2">
+                    <div class="search-input-wrapper-v2">
+                        <i class="bi bi-search"></i>
+                        <input type="text" 
+                               class="search-input-v2" 
+                               placeholder="@LangService.T("scamHub.searchPlaceholder")"
+                               @bind="searchQuery"
+                               @onkeyup="HandleSearchKeyUp" />
+                    </div>
+                    <button class="search-btn-v2" @onclick="PerformSearch">
+                        <i class="bi bi-search"></i>
+                        @LangService.T("form.search")
+                    </button>
+                </div>
+
+                @if (searchResults.Any())
+                {
+                    <div class="search-results-v2">
+                        @foreach (var result in searchResults.Take(10))
+                        {
+                            <div class="search-result-item-v2">
+                                <div class="result-info-v2">
+                                    <h4>@FormatEnumName(result.Category.ToString())</h4>
+                                    <p>@result.State, @result.City</p>
+                                </div>
+                                <div class="result-amount-v2">
+                                    <span class="amount">₹@result.AmountLost.ToString("N0")</span>
+                                    <span class="date">@result.ReportedDate.ToString("dd MMM yyyy")</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(searchQuery))
+                {
+                    <div class="no-results">
+                        <i class="bi bi-search"></i>
+                        <p>@LangService.T("scamHub.noResults") "<strong>@searchQuery</strong>"</p>
+                        <span>@LangService.T("scamHub.tryDifferent")</span>
+                    </div>
+                }
+            </section>
+        }
+</div>
+</CustomErrorBoundary>
+
+@code {
+    private string activeTab = "detector";
+    private ScamReport newReport = new();
+    private CommunityScamReport newCommunityReport = new();
+    private ScamAnalysisResult? analysisResult;
+    private ScamStatistics statistics = new();
+    private List<ScamPattern> patterns = new();
+    private List<ScamReport> searchResults = new();
+    private string searchQuery = "";
+    private string keywordsText = "";
+    private string communitySubmitMessage = "";
+    private bool isAnalyzing = false;
+    private List<CommunityScamTrend> cachedTrends = new();
+    private bool isEnhancingTrends = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Subscribe to language changes
+        LangService.OnLanguageChanged += HandleLanguageChanged;
+        await LoadData();
+    }
+
+    private async Task EnhanceTrendsWithAI()
+    {
+        isEnhancingTrends = true;
+        try
+        {
+            var aiTrends = await ScamRadarService.GetTrendsWithAIAsync();
+            if (aiTrends.Any())
+            {
+                cachedTrends = aiTrends;
+            }
+        }
+        catch { /* AI enhancement failed — basic trends remain */ }
+        finally
+        {
+            isEnhancingTrends = false;
+        }
+    }
+
+    private void HandleLanguageChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        LangService.OnLanguageChanged -= HandleLanguageChanged;
+    }
+
+    private void SetActiveTab(string tab)
+    {
+        activeTab = tab;
+        StateHasChanged();
+    }
+
+    private async Task LoadData()
+    {
+        statistics = ScamPatternService.GetStatistics();
+        patterns = ScamPatternService.GetPatterns();
+        cachedTrends = ScamRadarService.GetTrends().ToList();
+        await Task.CompletedTask;
+    }
+
+    private async Task AnalyzeAndSubmit()
+    {
+        if (string.IsNullOrWhiteSpace(newReport.Description))
+            return;
+
+        isAnalyzing = true;
+        StateHasChanged();
+
+        try
+        {
+            // First analyze
+            analysisResult = await ScamPatternService.AnalyzeComplaintAsync(newReport.Description, newReport);
+            
+            // Then submit
+            newReport.ReportedDate = DateTime.Now;
+            await ScamPatternService.SubmitReportAsync(newReport);
+            
+            // Refresh statistics
+            await LoadData();
+            
+            // Reset form but keep results visible
+            newReport = new ScamReport { Category = newReport.Category, State = newReport.State };
+        }
+        finally
+        {
+            isAnalyzing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleCommunitySubmit()
+    {
+        // Basic validation
+        if (string.IsNullOrWhiteSpace(newCommunityReport.Description) || string.IsNullOrWhiteSpace(newCommunityReport.Location))
+        {
+            communitySubmitMessage = "Please provide a short description and location.";
+            return;
+        }
+
+        // Parse keywords
+        newCommunityReport.Keywords = (keywordsText ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(k => k.Trim())
+            .Where(k => !string.IsNullOrEmpty(k))
+            .ToList();
+
+        newCommunityReport.Timestamp = DateTime.UtcNow;
+        ScamRadarService.SubmitReport(newCommunityReport);
+
+        communitySubmitMessage = "✅ Report submitted. Thank you for helping keep the community safe.";
+
+        // Reset form
+        newCommunityReport = new CommunityScamReport();
+        keywordsText = string.Empty;
+
+        // Refresh UI
+        StateHasChanged();
+        await Task.CompletedTask;
+    }
+
+    private async Task PerformSearch()
+    {
+        if (string.IsNullOrWhiteSpace(searchQuery))
+        {
+            searchResults.Clear();
+            return;
+        }
+
+        searchResults = ScamPatternService.SearchByIdentifier(searchQuery);
+        await Task.CompletedTask;
+        StateHasChanged();
+    }
+
+    private async Task HandleSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await PerformSearch();
+        }
+    }
+
+    private string FormatAmount(decimal amount)
+    {
+        if (amount >= 10000000) // 1 Cr
+            return $"{(amount / 10000000):F1}Cr";
+        if (amount >= 100000) // 1 L
+            return $"{(amount / 100000):F1}L";
+        if (amount >= 1000)
+            return $"{(amount / 1000):F1}K";
+        return amount.ToString("N0");
+    }
+
+    private string FormatEnumName(string enumName)
+    {
+        // Insert spaces before capital letters
+        return System.Text.RegularExpressions.Regex.Replace(enumName, "(\\B[A-Z])", " $1");
+    }
+
+    private string GetRecoveryClass(string recoveryProspect)
+    {
+        if (recoveryProspect.StartsWith("HIGH"))
+            return "high-chance";
+        if (recoveryProspect.StartsWith("GOOD"))
+            return "good-chance";
+        if (recoveryProspect.StartsWith("MODERATE"))
+            return "moderate-chance";
+        return "low-chance";
+    }
+}

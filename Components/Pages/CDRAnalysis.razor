@@ -1,0 +1,622 @@
+@page "/cdr-analysis"
+@rendermode InteractiveServer
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@using AILegalAsst.Components.Shared
+@inject CDRAnalysisService CDRService
+@inject AzureMapsService MapsService
+@inject IJSRuntime JS
+
+<PageTitle>CDR Analysis - JurisAI</PageTitle>
+
+<link href="cdr-analysis.css" rel="stylesheet" />
+
+<div class="cdr-container">
+    <!-- Header Section -->
+    <div class="page-header">
+        <div class="header-content">
+            <div class="header-icon">
+                <i class="bi bi-phone-vibrate"></i>
+            </div>
+            <div class="header-text">
+                <h1>CDR Analysis Engine</h1>
+                <p>Advanced Call Detail Record Analysis with AI-Powered Pattern Detection</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="btn-glass btn-primary" @onclick="ShowUploadModal">
+                <i class="bi bi-upload"></i> Upload CDR
+            </button>
+            <button class="btn-glass" @onclick="RefreshAnalyses">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon blue">
+                <i class="bi bi-file-earmark-bar-graph"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value">@analyses.Count</span>
+                <span class="stat-label">Total Analyses</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon green">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value">@analyses.Count(a => a.Status == "Completed")</span>
+                <span class="stat-label">Completed</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon orange">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value">@analyses.Sum(a => a.DetectedPatterns?.Count(p => p.Severity == "Critical" || p.Severity == "High") ?? 0)</span>
+                <span class="stat-label">High Risk Patterns</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon red">
+                <i class="bi bi-lightning-charge"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value">@analyses.Sum(a => a.BurstActivities?.Count ?? 0)</span>
+                <span class="stat-label">Burst Activities</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="content-grid">
+        <!-- Analyses List -->
+        <div class="glass-panel analyses-list">
+            <div class="panel-header">
+                <h3><i class="bi bi-list-ul"></i> CDR Analyses</h3>
+                <div class="search-box">
+                    <i class="bi bi-search"></i>
+                    <input type="text" placeholder="Search analyses..." @bind="searchQuery" @bind:event="oninput" />
+                </div>
+            </div>
+            <div class="panel-content">
+                @if (filteredAnalyses.Any())
+                {
+                    @foreach (var analysis in filteredAnalyses)
+                    {
+                        <div class="analysis-card @(selectedAnalysis?.Id == analysis.Id ? "selected" : "")" 
+                             @onclick="() => SelectAnalysis(analysis)">
+                            <div class="analysis-header">
+                                <span class="analysis-id">@analysis.Id</span>
+                                <span class="status-badge @GetStatusClass(analysis.Status)">@analysis.Status</span>
+                            </div>
+                            <div class="analysis-info">
+                                <div class="info-row">
+                                    <i class="bi bi-telephone"></i>
+                                    <span>@analysis.PrimaryNumber</span>
+                                </div>
+                                <div class="info-row">
+                                    <i class="bi bi-folder2"></i>
+                                    <span>@analysis.CaseId</span>
+                                </div>
+                                <div class="info-row">
+                                    <i class="bi bi-calendar3"></i>
+                                    <span>@analysis.AnalysisStartDate.ToString("dd MMM") - @analysis.AnalysisEndDate.ToString("dd MMM yyyy")</span>
+                                </div>
+                            </div>
+                            <div class="analysis-stats">
+                                <span class="mini-stat"><i class="bi bi-telephone-outbound"></i> @analysis.TotalCalls</span>
+                                <span class="mini-stat"><i class="bi bi-chat-dots"></i> @analysis.TotalSMS</span>
+                                <span class="mini-stat"><i class="bi bi-people"></i> @analysis.UniqueContacts</span>
+                            </div>
+                            <div class="risk-indicator">
+                                <span class="risk-label">Risk Score</span>
+                                <div class="risk-bar">
+                                    <div class="risk-fill @GetRiskClass(analysis.RiskScore)" style="width: @(analysis.RiskScore)%"></div>
+                                </div>
+                                <span class="risk-value">@analysis.RiskScore%</span>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <i class="bi bi-inbox"></i>
+                        <p>No CDR analyses found</p>
+                        <button class="btn-glass btn-primary" @onclick="ShowUploadModal">Upload CDR Data</button>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Analysis Details -->
+        <div class="glass-panel analysis-details">
+            @if (selectedAnalysis != null)
+            {
+                <div class="panel-header">
+                    <h3><i class="bi bi-graph-up"></i> Analysis Details</h3>
+                    <div class="header-actions">
+                        <button class="btn-icon" title="Export Report" @onclick="ExportReport">
+                            <i class="bi bi-file-earmark-pdf"></i>
+                        </button>
+                        <button class="btn-icon" title="Delete Analysis" @onclick="() => DeleteAnalysis(selectedAnalysis.Id)">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="panel-content">
+                    <!-- Tabs -->
+                    <div class="tab-navigation">
+                        <button class="tab-btn @(activeTab == "overview" ? "active" : "")" @onclick="@(() => activeTab = "overview")">
+                            <i class="bi bi-speedometer2"></i> Overview
+                        </button>
+                        <button class="tab-btn @(activeTab == "patterns" ? "active" : "")" @onclick="@(() => activeTab = "patterns")">
+                            <i class="bi bi-diagram-3"></i> Patterns
+                        </button>
+                        <button class="tab-btn @(activeTab == "contacts" ? "active" : "")" @onclick="@(() => activeTab = "contacts")">
+                            <i class="bi bi-person-lines-fill"></i> Contacts
+                        </button>
+                        <button class="tab-btn @(activeTab == "locations" ? "active" : "")" @onclick="@(() => activeTab = "locations")">
+                            <i class="bi bi-geo-alt"></i> Locations
+                        </button>
+                        <button class="tab-btn @(activeTab == "timeline" ? "active" : "")" @onclick="@(() => activeTab = "timeline")">
+                            <i class="bi bi-clock-history"></i> Timeline
+                        </button>
+                    </div>
+
+                    <!-- Tab Content -->
+                    <div class="tab-content">
+                        @if (activeTab == "overview")
+                        {
+                            <div class="overview-tab">
+                                <!-- AI Insights -->
+                                <div class="insights-section">
+                                    <h4><i class="bi bi-robot"></i> AI Insights</h4>
+                                    <div class="insights-list">
+                                        @foreach (var insight in selectedAnalysis.AIInsights ?? new List<string>())
+                                        {
+                                            <div class="insight-item">@insight</div>
+                                        }
+                                    </div>
+                                </div>
+
+                                <!-- Summary Stats -->
+                                <div class="summary-grid">
+                                    <div class="summary-item">
+                                        <span class="summary-label">Total Records</span>
+                                        <span class="summary-value">@selectedAnalysis.TotalRecords.ToString("N0")</span>
+                                    </div>
+                                    <div class="summary-item">
+                                        <span class="summary-label">Analysis Period</span>
+                                        <span class="summary-value">@((selectedAnalysis.AnalysisEndDate - selectedAnalysis.AnalysisStartDate).Days) days</span>
+                                    </div>
+                                    <div class="summary-item">
+                                        <span class="summary-label">Analyzed By</span>
+                                        <span class="summary-value">@selectedAnalysis.AnalyzedBy</span>
+                                    </div>
+                                    <div class="summary-item">
+                                        <span class="summary-label">Completed</span>
+                                        <span class="summary-value">@(selectedAnalysis.CompletedAt?.ToString("dd MMM yyyy HH:mm") ?? "In Progress")</span>
+                                    </div>
+                                </div>
+
+                                <!-- Hourly Activity Chart -->
+                                <div class="chart-section">
+                                    <h4><i class="bi bi-bar-chart"></i> Hourly Activity Distribution</h4>
+                                    <div class="hourly-chart">
+                                        @foreach (var hour in selectedAnalysis.HourlyDistribution ?? new List<HourlyActivity>())
+                                        {
+                                            var maxActivity = selectedAnalysis.HourlyDistribution?.Max(h => h.CallCount + h.SMSCount) ?? 0;
+                                            var heightPercent = maxActivity > 0 ? (double)(hour.CallCount + hour.SMSCount) / maxActivity * 100 : 0;
+                                            <div class="chart-bar" title="@hour.Hour:00 - Calls: @hour.CallCount, SMS: @hour.SMSCount">
+                                                <div class="bar-fill @GetTimeClass(hour.Hour)" style="height: @(heightPercent)%"></div>
+                                                <span class="bar-label">@hour.Hour</span>
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="chart-legend">
+                                        <span class="legend-item"><span class="legend-color day"></span> Day (6-18)</span>
+                                        <span class="legend-item"><span class="legend-color evening"></span> Evening (18-23)</span>
+                                        <span class="legend-item"><span class="legend-color night"></span> Night (23-6)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        else if (activeTab == "patterns")
+                        {
+                            <div class="patterns-tab">
+                                <h4><i class="bi bi-exclamation-diamond"></i> Detected Patterns</h4>
+                                @if (selectedAnalysis.DetectedPatterns?.Any() == true)
+                                {
+                                    <div class="patterns-list">
+                                        @foreach (var pattern in selectedAnalysis.DetectedPatterns.OrderByDescending(p => p.RiskScore))
+                                        {
+                                            <div class="pattern-card @GetSeverityClass(pattern.Severity)">
+                                                <div class="pattern-header">
+                                                    <span class="pattern-type">@pattern.PatternType</span>
+                                                    <span class="severity-badge @GetSeverityClass(pattern.Severity)">@pattern.Severity</span>
+                                                </div>
+                                                <p class="pattern-desc">@pattern.Description</p>
+                                                <div class="pattern-meta">
+                                                    <span><i class="bi bi-hash"></i> @pattern.OccurrenceCount occurrences</span>
+                                                    <span><i class="bi bi-shield-exclamation"></i> Risk: @pattern.RiskScore%</span>
+                                                </div>
+                                                @if (pattern.RelatedNumbers?.Any() == true)
+                                                {
+                                                    <div class="related-numbers">
+                                                        <span class="label">Related Numbers:</span>
+                                                        @foreach (var num in pattern.RelatedNumbers.Take(3))
+                                                        {
+                                                            <span class="number-tag">@num</span>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="empty-state small">
+                                        <i class="bi bi-check-circle"></i>
+                                        <p>No suspicious patterns detected</p>
+                                    </div>
+                                }
+
+                                <!-- Burst Activities -->
+                                @if (selectedAnalysis.BurstActivities?.Any() == true)
+                                {
+                                    <h4 class="mt-4"><i class="bi bi-lightning-charge"></i> Burst Activities</h4>
+                                    <div class="burst-list">
+                                        @foreach (var burst in selectedAnalysis.BurstActivities)
+                                        {
+                                            <div class="burst-card">
+                                                <div class="burst-time">
+                                                    <i class="bi bi-alarm"></i>
+                                                    @burst.StartTime.ToString("dd MMM yyyy HH:mm") - @burst.EndTime.ToString("HH:mm")
+                                                </div>
+                                                <div class="burst-stats">
+                                                    <span><i class="bi bi-telephone"></i> @burst.CallCount calls</span>
+                                                    <span><i class="bi bi-chat"></i> @burst.SMSCount SMS</span>
+                                                    <span><i class="bi bi-people"></i> @burst.UniqueNumbers contacts</span>
+                                                    <span><i class="bi bi-speedometer"></i> Peak: @burst.PeakCallsPerMinute/min</span>
+                                                </div>
+                                                <div class="burst-reason">@burst.TriggerReason</div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else if (activeTab == "contacts")
+                        {
+                            <div class="contacts-tab">
+                                <h4><i class="bi bi-person-lines-fill"></i> Frequent Contacts</h4>
+                                <div class="contacts-table">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Phone Number</th>
+                                                <th>Calls</th>
+                                                <th>SMS</th>
+                                                <th>Duration</th>
+                                                <th>Risk</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var contact in selectedAnalysis.FrequentContacts?.OrderByDescending(c => c.RiskScore).ToList() ?? new List<FrequentContact>())
+                                            {
+                                                <tr class="@(contact.RiskScore >= 70 ? "high-risk" : contact.RiskScore >= 40 ? "medium-risk" : "")">
+                                                    <td>
+                                                        <div class="contact-number">
+                                                            <span>@contact.PhoneNumber</span>
+                                                            @if (!string.IsNullOrEmpty(contact.ContactName) && contact.ContactName != "Unknown")
+                                                            {
+                                                                <small>@contact.ContactName</small>
+                                                            }
+                                                        </div>
+                                                    </td>
+                                                    <td>@contact.TotalCalls</td>
+                                                    <td>@contact.TotalSMS</td>
+                                                    <td>@contact.TotalDuration.ToString(@"hh\:mm\:ss")</td>
+                                                    <td>
+                                                        <div class="risk-badge @GetRiskClass(contact.RiskScore)">@contact.RiskScore%</div>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        }
+                        else if (activeTab == "locations")
+                        {
+                            <div class="locations-tab">
+                                <h4><i class="bi bi-geo-alt"></i> Location Clusters (Cell Tower Analysis)</h4>
+                                
+                                <!-- Interactive Map View -->
+                                <div class="cdr-map-section glass-panel">
+                                    <div class="map-header">
+                                        <h5><i class="bi bi-map"></i> Tower Location Map</h5>
+                                        <button class="btn-glass btn-sm" @onclick="ShowAllTowersOnMap">
+                                            <i class="bi bi-arrow-repeat"></i> Refresh Map
+                                        </button>
+                                    </div>
+                                    <AzureMapViewer @ref="cdrMapViewer"
+                                        Height="400px"
+                                        InitialZoom="11"
+                                        ShowControls="true"
+                                        ShowStyleSelector="true"
+                                        AllowCurrentLocation="false" />
+                                </div>
+
+                                <div class="locations-grid">
+                                    @foreach (var location in selectedAnalysis.LocationClusters ?? new List<LocationCluster>())
+                                    {
+                                        <div class="location-card" @onclick="() => FocusMapOnCluster(location)">
+                                            <div class="location-header">
+                                                <i class="bi bi-geo-alt-fill"></i>
+                                                <span class="location-name">@location.ClusterName</span>
+                                            </div>
+                                            <div class="location-area">@location.Area</div>
+                                            <div class="location-stats">
+                                                <div class="stat">
+                                                    <span class="label">Tower Hits</span>
+                                                    <span class="value">@location.TotalHits</span>
+                                                </div>
+                                                <div class="stat">
+                                                    <span class="label">Avg. Time</span>
+                                                    <span class="value">@location.AverageTimeSpent.ToString(@"h\h\ m\m")</span>
+                                                </div>
+                                                <div class="stat">
+                                                    <span class="label">Towers</span>
+                                                    <span class="value">@location.CellTowerIds.Count</span>
+                                                </div>
+                                            </div>
+                                            <div class="location-period">
+                                                <i class="bi bi-calendar-range"></i>
+                                                @location.FirstSeen.ToString("dd MMM") - @location.LastSeen.ToString("dd MMM yyyy")
+                                            </div>
+                                            @if (location.Latitude.HasValue && location.Longitude.HasValue)
+                                            {
+                                                <div class="location-coords clickable-coords">
+                                                    <i class="bi bi-pin-map"></i>
+                                                    @location.Latitude.Value.ToString("F4"), @location.Longitude.Value.ToString("F4")
+                                                    <i class="bi bi-box-arrow-up-right" style="margin-left:4px; font-size:0.7rem;"></i>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        else if (activeTab == "timeline")
+                        {
+                            <div class="timeline-tab">
+                                <h4><i class="bi bi-clock-history"></i> Daily Activity Timeline</h4>
+                                <div class="daily-chart">
+                                    @if (selectedAnalysis.DailyDistribution?.Any() == true)
+                                    {
+                                        var maxDaily = selectedAnalysis.DailyDistribution.Max(d => d.CallCount + d.SMSCount);
+                                        @foreach (var day in selectedAnalysis.DailyDistribution.TakeLast(14))
+                                        {
+                                            var heightPercent = maxDaily > 0 ? (double)(day.CallCount + day.SMSCount) / maxDaily * 100 : 0;
+                                            <div class="daily-bar" title="@day.Date.ToString("dd MMM") - Calls: @day.CallCount, SMS: @day.SMSCount, Contacts: @day.UniqueContacts">
+                                                <div class="bar-segments">
+                                                    <div class="bar-calls" style="height: @((double)day.CallCount / maxDaily * 100)%"></div>
+                                                    <div class="bar-sms" style="height: @((double)day.SMSCount / maxDaily * 100)%"></div>
+                                                </div>
+                                                <span class="bar-date">@day.Date.ToString("dd")</span>
+                                                <span class="bar-month">@day.Date.ToString("MMM")</span>
+                                            </div>
+                                        }
+                                    }
+                                </div>
+                                <div class="chart-legend">
+                                    <span class="legend-item"><span class="legend-color calls"></span> Calls</span>
+                                    <span class="legend-item"><span class="legend-color sms"></span> SMS</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="empty-state">
+                    <i class="bi bi-bar-chart-line"></i>
+                    <h3>Select an Analysis</h3>
+                    <p>Choose an analysis from the list to view detailed patterns and insights</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Upload Modal -->
+@if (showUploadModal)
+{
+    <div class="modal-overlay" @onclick="CloseUploadModal">
+        <div class="modal-content" @onclick:stopPropagation>
+            <div class="modal-header">
+                <h3><i class="bi bi-upload"></i> Upload CDR Data</h3>
+                <button class="btn-close" @onclick="CloseUploadModal">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Case ID</label>
+                    <input type="text" @bind="uploadCaseId" placeholder="e.g., FIR-2024-1234" />
+                </div>
+                <div class="form-group">
+                    <label>Primary Phone Number</label>
+                    <input type="text" @bind="uploadPhoneNumber" placeholder="e.g., +91-9876543210" />
+                </div>
+                <div class="form-group">
+                    <label>CDR File (CSV)</label>
+                    <div class="file-upload-area">
+                        <i class="bi bi-cloud-upload"></i>
+                        <p>Drag & drop CSV file here or click to browse</p>
+                        <small>Supported columns: CallingNumber, CalledNumber, DateTime, Duration, Type, CellTower</small>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Analyzed By</label>
+                    <input type="text" @bind="uploadAnalyzedBy" placeholder="Officer name" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-glass" @onclick="CloseUploadModal">Cancel</button>
+                <button class="btn-glass btn-primary" @onclick="ProcessUpload">
+                    <i class="bi bi-cpu"></i> Analyze CDR
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<AILegalAsst.Models.CDRAnalysis> analyses = new();
+    private AILegalAsst.Models.CDRAnalysis? selectedAnalysis;
+    private string searchQuery = "";
+    private string activeTab = "overview";
+    private bool showUploadModal = false;
+    private AzureMapViewer? cdrMapViewer;
+
+    // Upload form fields
+    private string uploadCaseId = "";
+    private string uploadPhoneNumber = "";
+    private string uploadAnalyzedBy = "";
+
+    private IEnumerable<AILegalAsst.Models.CDRAnalysis> filteredAnalyses => string.IsNullOrWhiteSpace(searchQuery)
+        ? analyses
+        : analyses.Where(a =>
+            a.Id.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+            a.CaseId.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+            a.PrimaryNumber.Contains(searchQuery, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAnalyses();
+    }
+
+    private async Task RefreshAnalyses()
+    {
+        analyses = await CDRService.GetAllAnalysesAsync();
+        if (analyses.Any() && selectedAnalysis == null)
+        {
+            selectedAnalysis = analyses.First();
+        }
+    }
+
+    private void SelectAnalysis(AILegalAsst.Models.CDRAnalysis analysis)
+    {
+        selectedAnalysis = analysis;
+        activeTab = "overview";
+    }
+
+    private void ShowUploadModal()
+    {
+        showUploadModal = true;
+    }
+
+    private void CloseUploadModal()
+    {
+        showUploadModal = false;
+        uploadCaseId = "";
+        uploadPhoneNumber = "";
+        uploadAnalyzedBy = "";
+    }
+
+    private async Task ProcessUpload()
+    {
+        // In production, this would handle file upload and processing
+        CloseUploadModal();
+        await RefreshAnalyses();
+    }
+
+    private async Task ExportReport()
+    {
+        if (selectedAnalysis != null)
+        {
+            await JS.InvokeVoidAsync("alert", $"Generating PDF report for analysis {selectedAnalysis.Id}...");
+        }
+    }
+
+    private async Task DeleteAnalysis(string id)
+    {
+        await CDRService.DeleteAnalysisAsync(id);
+        if (selectedAnalysis?.Id == id)
+        {
+            selectedAnalysis = null;
+        }
+        await RefreshAnalyses();
+    }
+
+    private string GetStatusClass(string status) => status?.ToLower() switch
+    {
+        "completed" => "status-completed",
+        "processing" => "status-processing",
+        "failed" => "status-failed",
+        _ => "status-pending"
+    };
+
+    private string GetRiskClass(int riskScore) => riskScore switch
+    {
+        >= 70 => "risk-high",
+        >= 40 => "risk-medium",
+        _ => "risk-low"
+    };
+
+    private string GetSeverityClass(string severity) => severity?.ToLower() switch
+    {
+        "critical" => "severity-critical",
+        "high" => "severity-high",
+        "medium" => "severity-medium",
+        _ => "severity-low"
+    };
+
+    private string GetTimeClass(int hour) => hour switch
+    {
+        >= 6 and < 18 => "time-day",
+        >= 18 and < 23 => "time-evening",
+        _ => "time-night"
+    };
+
+    private async Task ShowAllTowersOnMap()
+    {
+        if (cdrMapViewer == null || selectedAnalysis == null) return;
+
+        await cdrMapViewer.ClearMarkersAsync();
+
+        var clusters = selectedAnalysis.LocationClusters ?? new List<LocationCluster>();
+        foreach (var cluster in clusters)
+        {
+            if (cluster.Latitude.HasValue && cluster.Longitude.HasValue)
+            {
+                var loc = new LocationData
+                {
+                    Latitude = cluster.Latitude.Value,
+                    Longitude = cluster.Longitude.Value,
+                    Address = cluster.ClusterName,
+                    City = cluster.Area
+                };
+                var color = cluster.TotalHits > 50 ? "red" : cluster.TotalHits > 20 ? "orange" : "blue";
+                await cdrMapViewer.AddMarkerAsync(loc, $"{cluster.ClusterName} ({cluster.TotalHits} hits)", color);
+            }
+        }
+    }
+
+    private async Task FocusMapOnCluster(LocationCluster cluster)
+    {
+        if (cdrMapViewer == null || !cluster.Latitude.HasValue || !cluster.Longitude.HasValue) return;
+        await cdrMapViewer.CenterMapAsync(cluster.Latitude.Value, cluster.Longitude.Value, 14);
+    }
+}

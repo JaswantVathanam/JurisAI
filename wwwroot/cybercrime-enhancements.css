@@ -1,0 +1,789 @@
+/* ============================================
+   CYBERCRIME PAGE - ENHANCEMENTS
+   Loading States, Accessibility, Export, Filters
+   ============================================ */
+
+/* ============================================
+   LOADING STATES & SKELETON SCREENS
+   ============================================ */
+
+.skeleton-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0;
+}
+
+.skeleton-stat-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    border-radius: 12px;
+    padding: 1.5rem;
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.skeleton-reports-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0;
+}
+
+.skeleton-report-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    border-radius: 12px;
+    padding: 1.5rem;
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.skeleton {
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.05) 0px,
+        rgba(255, 255, 255, 0.15) 40px,
+        rgba(255, 255, 255, 0.05) 80px
+    );
+    background-size: 200px 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+    border-radius: 4px;
+}
+
+.skeleton-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    margin-bottom: 1rem;
+}
+
+.skeleton-number {
+    height: 32px;
+    width: 60%;
+    margin-bottom: 0.5rem;
+}
+
+.skeleton-label {
+    height: 16px;
+    width: 80%;
+}
+
+.skeleton-header {
+    height: 24px;
+    width: 70%;
+    margin-bottom: 0.75rem;
+}
+
+.skeleton-text {
+    height: 16px;
+    width: 100%;
+    margin-bottom: 0.5rem;
+}
+
+.skeleton-text-short {
+    height: 14px;
+    width: 40%;
+    margin-bottom: 0.5rem;
+}
+
+.skeleton-badge {
+    height: 28px;
+    width: 100px;
+    display: inline-block;
+    margin-right: 0.5rem;
+}
+
+.skeleton-meta {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.skeleton-meta-item {
+    height: 16px;
+    width: 100%;
+}
+
+@keyframes skeleton-loading {
+    0% {
+        background-position: -200px 0;
+    }
+    100% {
+        background-position: calc(200px + 100%) 0;
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+/* ============================================
+   ACCESSIBILITY IMPROVEMENTS
+   ============================================ */
+
+/* Screen Reader Only */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Focus Visible Styles */
+*:focus-visible {
+    outline: 2px solid var(--gold, #d4af37);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+button:focus-visible,
+.btn-link:focus-visible,
+.report-card-fixed:focus-visible,
+.law-section-card:focus-visible {
+    outline: 2px solid var(--gold, #d4af37);
+    outline-offset: 2px;
+}
+
+/* Keyboard Navigation Enhancement */
+.report-card-fixed[tabindex="0"]:hover,
+.report-card-fixed[tabindex="0"]:focus,
+.law-section-card[tabindex="0"]:hover,
+.law-section-card[tabindex="0"]:focus {
+    transform: translateY(-2px);
+    border-color: rgba(212, 175, 55, 0.5);
+    cursor: pointer;
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+    .stat-card-fixed,
+    .report-card-fixed,
+    .law-section-card {
+        border: 2px solid rgba(212, 175, 55, 0.8);
+    }
+    
+    .skeleton {
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+    .skeleton,
+    .skeleton-stat-card,
+    .skeleton-report-card,
+    .spinner-small,
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* ============================================
+   EXPORT & PRINT BUTTONS
+   ============================================ */
+
+.header-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.btn-print,
+.btn-export {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    border-radius: 8px;
+    color: white;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-print:hover:not(:disabled),
+.btn-export:hover:not(:disabled) {
+    background: rgba(212, 175, 55, 0.2);
+    border-color: rgba(212, 175, 55, 0.6);
+    transform: translateY(-1px);
+}
+
+.btn-print:disabled,
+.btn-export:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-print i,
+.btn-export i {
+    font-size: 1.1rem;
+}
+
+/* Export Dropdown */
+.export-dropdown-container,
+.export-section {
+    position: relative;
+}
+
+.export-dropdown {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    background: rgba(20, 20, 30, 0.95);
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    border-radius: 8px;
+    padding: 0.5rem 0;
+    min-width: 180px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
+    z-index: 1000;
+    animation: dropdownSlide 0.2s ease-out;
+}
+
+.export-option {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    color: rgba(255, 255, 255, 0.9);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.export-option:hover {
+    background: rgba(212, 175, 55, 0.2);
+    color: white;
+}
+
+.export-option i {
+    font-size: 1.2rem;
+    color: var(--gold, #d4af37);
+}
+
+@keyframes dropdownSlide {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Loading Spinner */
+.spinner-small {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ============================================
+   ENHANCED FILTER BAR
+   ============================================ */
+
+.enhanced-filter-bar {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    border: 1px solid rgba(212, 175, 55, 0.2);
+}
+
+.filter-row-enhanced {
+    display: grid;
+    grid-template-columns: 2fr repeat(3, 1fr);
+    gap: 1rem;
+    align-items: end;
+}
+
+.filter-group-enhanced {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.filter-group-enhanced label {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 500;
+}
+
+.filter-group-enhanced input,
+.filter-group-enhanced select {
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 8px;
+    color: white;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+
+.filter-group-enhanced input:focus,
+.filter-group-enhanced select:focus {
+    outline: none;
+    border-color: rgba(212, 175, 55, 0.6);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.filter-group-enhanced input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* Search Box Enhancement */
+.search-box-enhanced {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-box-enhanced i {
+    position: absolute;
+    left: 1rem;
+    color: rgba(255, 255, 255, 0.5);
+    pointer-events: none;
+    font-size: 1.1rem;
+}
+
+.search-box-enhanced input {
+    padding-left: 3rem !important;
+    width: 100%;
+}
+
+/* Filter Actions */
+.filter-actions-enhanced {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 1rem;
+}
+
+.btn-clear-filters {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    background: rgba(255, 59, 48, 0.1);
+    border: 1px solid rgba(255, 59, 48, 0.4);
+    border-radius: 8px;
+    color: rgba(255, 100, 100, 0.9);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-clear-filters:hover {
+    background: rgba(255, 59, 48, 0.2);
+    border-color: rgba(255, 59, 48, 0.6);
+    color: white;
+}
+
+.btn-clear-filters i {
+    font-size: 1rem;
+}
+
+/* Sort Controls */
+.sort-controls-enhanced {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.sort-label {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* ============================================
+   TOAST NOTIFICATION
+   ============================================ */
+
+.toast-notification {
+    position: fixed;
+    top: 2rem;
+    right: 2rem;
+    background: rgba(20, 20, 30, 0.95);
+    border: 1px solid rgba(212, 175, 55, 0.6);
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
+    z-index: 10000;
+    min-width: 300px;
+    animation: toastSlide 0.3s ease-out;
+}
+
+.toast-notification i {
+    font-size: 1.5rem;
+    color: #4caf50;
+}
+
+.toast-notification.error i {
+    color: #f44336;
+}
+
+.toast-notification.warning i {
+    color: #ff9800;
+}
+
+.toast-notification span {
+    flex: 1;
+    color: white;
+    font-weight: 500;
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.toast-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+@keyframes toastSlide {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* ============================================
+   RESULTS INFO
+   ============================================ */
+
+.results-info-enhanced {
+    padding: 0.75rem 1.25rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    border-left: 3px solid var(--gold, #d4af37);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.results-info-enhanced p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.95rem;
+}
+
+.results-info-enhanced strong {
+    color: white;
+    font-weight: 600;
+}
+
+.results-info-enhanced .filter-summary {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* ============================================
+   ENHANCED REPORT CARDS
+   ============================================ */
+
+.report-card-fixed {
+    transition: all 0.3s ease;
+}
+
+.report-card-fixed:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(212, 175, 55, 0.2);
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+@media (max-width: 768px) {
+    .filter-row-enhanced {
+        grid-template-columns: 1fr;
+    }
+
+    .sort-controls-enhanced {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .export-dropdown {
+        left: 0;
+        right: auto;
+        min-width: 100%;
+    }
+
+    .toast-notification {
+        right: 1rem;
+        left: 1rem;
+        min-width: auto;
+    }
+
+    .skeleton-stats-grid,
+    .skeleton-reports-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .header-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .header-actions > * {
+        width: 100%;
+    }
+
+    .btn-print,
+    .btn-export {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .results-info-enhanced {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+}
+
+/* ============================================
+   URGENT INDICATOR ENHANCEMENT
+   ============================================ */
+
+.report-card-fixed.urgent {
+    border-left: 4px solid #d32f2f;
+    animation: urgentPulse 2s ease-in-out infinite;
+}
+
+@keyframes urgentPulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 20px 5px rgba(211, 47, 47, 0.2);
+    }
+}
+
+/* ============================================
+   DATE RANGE PICKER STYLING
+   ============================================ */
+
+input[type="date"] {
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 8px;
+    color: white;
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+
+input[type="date"]:focus {
+    outline: none;
+    border-color: rgba(212, 175, 55, 0.6);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+}
+
+/* ============================================
+   CHECKBOX ENHANCEMENT
+   ============================================ */
+
+.checkbox-enhanced {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.checkbox-enhanced:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.checkbox-enhanced input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.checkbox-enhanced label {
+    margin: 0;
+    cursor: pointer;
+    user-select: none;
+}
+
+/* ============================================
+   EDIT MODE FORM STYLES
+   ============================================ */
+
+.report-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.btn-save {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
+    border-color: #28a745 !important;
+}
+
+.btn-save:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+}
+
+.status-select {
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(212, 175, 55, 0.4);
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 200px;
+    margin-bottom: 0.5rem;
+}
+
+.status-select:focus {
+    outline: none;
+    border-color: var(--primary-gold);
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.status-select option {
+    background: #1e293b;
+    color: white;
+}
+
+.form-control-inline {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    color: white;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+    flex: 1;
+    max-width: 300px;
+}
+
+.form-control-inline:focus {
+    outline: none;
+    border-color: var(--primary-gold);
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+}
+
+.form-control-inline::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.section-content .form-control,
+.section-content textarea {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    color: white;
+    font-size: 1rem;
+    width: 100%;
+    transition: all 0.3s ease;
+}
+
+.section-content .form-control:focus,
+.section-content textarea:focus {
+    outline: none;
+    border-color: var(--primary-gold);
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+}
+
+.section-content textarea {
+    resize: vertical;
+    min-height: 120px;
+    font-family: 'Inter', sans-serif;
+    line-height: 1.6;
+}
+
+.fir-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.fir-item .form-control-inline {
+    max-width: 250px;
+}
+
+/* Edit Mode Indicators */
+.report-modal-header .status-select {
+    animation: pulse-border 2s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+    0%, 100% {
+        border-color: rgba(212, 175, 55, 0.4);
+    }
+    50% {
+        border-color: rgba(212, 175, 55, 0.8);
+    }
+}

@@ -1,0 +1,528 @@
+{
+  "title": "Course of Law - Criminal Procedure in India",
+  "description": "Complete step-by-step procedure from FIR to final judgment in criminal cases under Criminal Procedure Code and new Bharatiya Suraksha Sanhita 2023",
+  "source": "Criminal Procedure Code 1973 & Bharatiya Suraksha Sanhita 2023",
+  "phases": [
+    {
+      "phaseNumber": 1,
+      "phaseName": "Information & FIR Registration",
+      "description": "When crime is committed, any person can give information to police. Police registers FIR for cognizable offence.",
+      "timeFrame": "Immediate (within 24 hours of crime being reported)",
+      "section": "CrPC 154 / BSA 36",
+      "steps": [
+        "Person reports crime to police station (orally or written)",
+        "Police records information in FIR Register",
+        "FIR is given unique number and registered",
+        "Informant/victim gets copy of FIR free of charge",
+        "FIR details recorded: crime date, time, location, persons involved, nature of offence"
+      ],
+      "rights": [
+        "Right to register FIR for any cognizable crime",
+        "Right to get free copy of FIR",
+        "Right to remain anonymous if fear exists"
+      ],
+      "documentation": [
+        "First Information Report (FIR) - Official record"
+      ]
+    },
+    {
+      "phaseNumber": 2,
+      "phaseName": "Police Investigation",
+      "description": "Police investigates the crime, collects evidence, records statements, and identifies accused.",
+      "timeFrame": "Usually 90 days (can extend to 180 days with magistrate approval)",
+      "section": "CrPC 156-173 / BSA 40-52",
+      "steps": [
+        "Police visits crime scene, collects physical evidence",
+        "Police records statements of victim and witnesses",
+        "Police searches for accused person",
+        "Police seizes relevant documents and exhibits",
+        "Post-mortem conducted if death involved",
+        "Forensic/medical examination conducted",
+        "Police files inquest report (if death) or investigation report",
+        "Police submits investigation to higher officer for verification"
+      ],
+      "rights": [
+        "Right to privacy of victim",
+        "Right to protection during investigation",
+        "Right to have access to investigation reports (through court)"
+      ],
+      "documentation": [
+        "Investigation Report",
+        "Witness Statements",
+        "Forensic Reports",
+        "Medical Examination Reports",
+        "Seizure List of Evidence"
+      ]
+    },
+    {
+      "phaseNumber": 3,
+      "phaseName": "Arrest of Accused",
+      "description": "When sufficient evidence of crime is found, police can arrest the accused person.",
+      "timeFrame": "During or after investigation, anytime before chargesheet filed",
+      "section": "CrPC 41-60 / BSA 55-72",
+      "steps": [
+        "Police identifies and arrests suspect",
+        "Police informs accused of grounds for arrest",
+        "Arrest is recorded in station diary with name, time, date",
+        "Accused is given right to inform family member",
+        "Accused is given right to consult with lawyer",
+        "Personal search conducted (video recorded)",
+        "Accused produced for medical examination if needed",
+        "Mugshots and fingerprints taken"
+      ],
+      "rights": [
+        "Right to know grounds of arrest",
+        "Right to remain silent (cannot be forced to confess)",
+        "Right to consult lawyer of choice",
+        "Right to inform family member about arrest",
+        "Right to medical examination",
+        "Protection against torture and abuse",
+        "Right to get copy of FIR"
+      ],
+      "documentation": [
+        "Arrest Memo",
+        "Station Diary Entry",
+        "Medical Examination Report"
+      ]
+    },
+    {
+      "phaseNumber": 4,
+      "phaseName": "First Production Before Magistrate",
+      "description": "Arrested person must be produced before magistrate within 24 hours. Magistrate verifies legality of arrest.",
+      "timeFrame": "Within 24 hours of arrest (strict rule)",
+      "section": "CrPC 50-60 / BSA 72",
+      "steps": [
+        "Arrested person produced before magistrate",
+        "Magistrate verifies identity and arrest legality",
+        "Police presents case before magistrate",
+        "Victim or witness can give statement",
+        "Accused gets right to speak in own defense",
+        "Magistrate decides whether to remand or grant bail"
+      ],
+      "rights": [
+        "Right to know charges against you",
+        "Right to speak in own defense",
+        "Right to cross-examine prosecution witness",
+        "Right to apply for bail",
+        "Right to legal representation"
+      ],
+      "documentation": [
+        "Magistrate's Order (Bail or Remand)"
+      ]
+    },
+    {
+      "phaseNumber": 5,
+      "phaseName": "Bail or Remand Decision",
+      "description": "Magistrate decides if accused should be released on bail or kept in police/judicial custody.",
+      "timeFrame": "Decided at first production or within 15 days",
+      "section": "CrPC 436-450 / BSA 100-125",
+      "steps": [
+        "Bail: If bailable offence, accused has right to bail. Police must release on bail.",
+        "Remand (Police): If needed for further investigation, accused remanded to police custody for 3-7 days",
+        "Remand (Judicial): Accused held in judicial custody in jail for investigation continuation",
+        "Bail conditions: Accused may be released on bond and bail amount"
+      ],
+      "bailTypes": {
+        "rightToBail": {
+          "bailable": "For bailable offences, police must release on bail (right to bail)",
+          "nonBailable": "For non-bailable offences, bail is discretionary with magistrate",
+          "ipc302": "Murder (IPC 302, BNS 103) is non-bailable"
+        },
+        "bailConditions": "Usually depositing security, not leaving jurisdiction without court permission, not tampering with evidence"
+      },
+      "remandTypes": [
+        "Police Remand: Custody with police, maximum 15 days total, maximum 7 days at a time",
+        "Judicial Remand: Custody in jail, can be extended as long as investigation continuing"
+      ],
+      "rights": [
+        "Right to bail if bailable offence",
+        "Right to apply for bail multiple times",
+        "Right to know bail conditions",
+        "Right to protect personal liberty",
+        "Right to challenge remand in higher court"
+      ],
+      "documentation": [
+        "Bail Order or Remand Order"
+      ]
+    },
+    {
+      "phaseNumber": 6,
+      "phaseName": "Investigation Continuation (if Remanded)",
+      "description": "If accused remanded, police continues investigation. Interrogation of accused happens.",
+      "timeFrame": "Maximum 15 days police remand, can extend judicial remand",
+      "section": "CrPC 167-172 / BSA 52-56",
+      "steps": [
+        "Accused questioned in custody (interrogation)",
+        "Confession (if given) recorded properly with magistrate",
+        "Scene visits with accused if needed",
+        "Evidence linked to accused",
+        "Chargesheet preparation starts",
+        "Accused produced again before magistrate (every 3 days for bail/remand extension)"
+      ],
+      "interrogationRights": [
+        "Right to silence - cannot be forced to speak",
+        "Right to have lawyer present during questioning (if demanded)",
+        "Right to protection from torture",
+        "Confession to police not admissible in court unless confirmed before magistrate",
+        "No narcotic/drug induced statements"
+      ],
+      "documentation": [
+        "Interrogation Notes",
+        "Confessional Statement (recorded with magistrate)",
+        "Scene Visit Reports"
+      ]
+    },
+    {
+      "phaseNumber": 7,
+      "phaseName": "Chargesheet Filing",
+      "description": "Police submits detailed chargesheet with evidence showing they have case against accused.",
+      "timeFrame": "Within 60-90 days for regular cases (extendable with magistrate permission)",
+      "section": "CrPC 173 / BSA 52",
+      "steps": [
+        "Police prepares chargesheet with all evidence and witness details",
+        "Chargesheet lists all sections of law violated",
+        "Chargesheet mentions bail status of accused",
+        "Copy given to accused free of charge",
+        "Chargesheet filed with magistrate",
+        "Case transferred to court for further proceeding"
+      ],
+      "chargesheetContents": [
+        "Case number and FIR details",
+        "Names and addresses of accused",
+        "Sections of IPC/BNS violated",
+        "Names and addresses of witnesses",
+        "Property seized (list with descriptions)",
+        "Evidence collected (documents, videos, forensics)",
+        "Police opinion on sufficiency of evidence",
+        "Request for bail/no bail"
+      ],
+      "rights": [
+        "Right to get free copy of chargesheet",
+        "Right to challenge chargesheet claim in court",
+        "Right to file counter statement",
+        "Right to additional investigation petition"
+      ],
+      "documentation": [
+        "Chargesheet (criminal case statement)",
+        "Annexures with evidence"
+      ]
+    },
+    {
+      "phaseNumber": 8,
+      "phaseName": "Discharge/Framing of Charges",
+      "description": "Court reads chargesheet. If sufficient evidence, court frames charges. If not, accused discharged.",
+      "timeFrame": "90 days after chargesheet (can extend with good reason)",
+      "section": "CrPC 227-229 / BSA 224-226",
+      "steps": [
+        "Reading of chargesheet before magistrate/sessions court",
+        "Accused given copy of chargesheet and list of witnesses/documents",
+        "Accused hears evidence summary and prosecution arguments",
+        "Magistrate decides if sufficient evidence for trial",
+        "If YES: Framing of charges (list of offences accused will be tried for)",
+        "If NO: Discharge of accused (case ends, accused is free)"
+      ],
+      "chargingProcess": {
+        "framingCharges": "Court frames charges specifying sections accused violated and facts to be proved",
+        "accused": "Accused asked whether they plead guilty or not guilty"
+      },
+      "rights": [
+        "Right to be heard before charges framed",
+        "Right to challenge chargesheet",
+        "Right to seek additional time to meet evidence",
+        "Right to examine evidence before trial"
+      ],
+      "documentation": [
+        "Order Framing Charges",
+        "Discharge Order (if discharged)"
+      ]
+    },
+    {
+      "phaseNumber": 9,
+      "phaseName": "Trial - Prosecution Evidence",
+      "description": "Prosecution presents evidence to prove guilt. Witnesses examined by prosecutor.",
+      "timeFrame": "Weeks to months depending on case complexity",
+      "section": "CrPC 233-258 / BSA 256-300",
+      "steps": [
+        "Prosecution presents witnesses one by one",
+        "Witness gives evidence under oath before court",
+        "Prosecutor questions witness (examination-in-chief)",
+        "Accused or defense lawyer cross-examines witness",
+        "Prosecutor can re-examine if needed (limited scope)",
+        "Documents and exhibits presented and authenticated",
+        "Physical evidence shown (weapons, stolen items, etc.)",
+        "Forensic evidence presented by experts"
+      ],
+      "evidenceShown": [
+        "Eyewitness testimony",
+        "Expert witnesses (doctors, forensic scientists)",
+        "Documentary evidence (letters, records, contracts)",
+        "Physical evidence (weapons, stolen goods)",
+        "Digital evidence (CCTV, phone records, emails)"
+      ],
+      "rights": [
+        "Right to cross-examine prosecution witnesses",
+        "Right to challenge evidence",
+        "Right to legal representation during prosecution case",
+        "Right to remain silent"
+      ],
+      "documentation": [
+        "Evidence List",
+        "Witness Statements (court records)",
+        "Expert Reports"
+      ]
+    },
+    {
+      "phaseNumber": 10,
+      "phaseName": "Trial - Defense Evidence",
+      "description": "Accused presents defense evidence. Accused can present witnesses and evidence favoring innocence.",
+      "timeFrame": "After prosecution completes its case",
+      "section": "CrPC 259-275 / BSA 308-327",
+      "steps": [
+        "Accused has right to present defense",
+        "Accused can present own witnesses",
+        "Accused can testify in own behalf (optional)",
+        "Defense witnesses examined and cross-examined",
+        "Defense documents and evidence presented",
+        "Defense arguments presented before court"
+      ],
+      "defenseEvidence": [
+        "Alibi evidence (proof of being elsewhere when crime occurred)",
+        "Character witnesses",
+        "Expert witnesses supporting defense",
+        "Documents supporting innocence"
+      ],
+      "rights": [
+        "Right to present defense evidence",
+        "Right to testify or remain silent (accused's choice)",
+        "Right to cross-examine prosecution witnesses",
+        "Right to legal representation",
+        "Right to call witnesses (can be compelled by court)"
+      ],
+      "documentation": [
+        "Defense Evidence List",
+        "Witness Statements"
+      ]
+    },
+    {
+      "phaseNumber": 11,
+      "phaseName": "Arguments/Hearing",
+      "description": "Both sides present final arguments. Prosecutor and defense lawyer argue case before judge.",
+      "timeFrame": "After all evidence presented",
+      "section": "CrPC 282-290 / BSA 332-345",
+      "steps": [
+        "Prosecution presents closing arguments (what evidence proves guilt)",
+        "Defense presents closing arguments (why evidence doesn't prove guilt)",
+        "Both sides can cite legal precedents",
+        "Both sides address judge's questions",
+        "Jury argument (if jury trial, which is rare in India)",
+        "Judge reserves judgment or takes time to decide"
+      ],
+      "arguments": [
+        "Prosecution argues how evidence proves guilt beyond reasonable doubt",
+        "Defense argues how evidence leaves reasonable doubt about guilt"
+      ],
+      "rights": [
+        "Right to legal representation during arguments",
+        "Right to present oral arguments",
+        "Right to challenge prosecution theory"
+      ],
+      "documentation": [
+        "Court Hearing Minutes"
+      ]
+    },
+    {
+      "phaseNumber": 12,
+      "phaseName": "Judgment - Acquittal or Conviction",
+      "description": "Judge pronounces verdict - either acquitting (not guilty) or convicting (guilty) the accused.",
+      "timeFrame": "Judge decides based on evidence presented",
+      "section": "CrPC 354-357 / BSA 369-372",
+      "steps": [
+        "Judge analyzes all evidence",
+        "Judge considers burden of proof (guilt beyond reasonable doubt)",
+        "Judge checks if each element of offence is proved",
+        "Judge pronounces verdict: GUILTY or NOT GUILTY",
+        "Judge gives written judgment with detailed reasoning",
+        "Judgment must follow law and precedents"
+      ],
+      "verdictTypes": {
+        "acquittal": "Not guilty - Accused is set free, charges dismissed",
+        "conviction": "Guilty - Pronounced culpable. Proceeds to sentencing."
+      },
+      "burdenOfProof": "Prosecution must prove guilt BEYOND REASONABLE DOUBT. Mere suspicion is insufficient. If any reasonable doubt, must acquit.",
+      "rights": [
+        "Right to reasoned judgment",
+        "Right to know why verdictgiven",
+        "Right to appeal verdict",
+        "Right to bail pending appeal"
+      ],
+      "documentation": [
+        "Judgment (Written Order)",
+        "Reasons for Verdict (Detailed explanation)"
+      ]
+    },
+    {
+      "phaseNumber": 13,
+      "phaseName": "Sentencing (If Convicted)",
+      "description": "Judge decides punishment - either fine, imprisonment, or both, or other sentence.",
+      "timeFrame": "Immediately after or within few days of conviction",
+      "section": "CrPC 354-356 / BSA 369-371",
+      "steps": [
+        "Judge considers severity of crime",
+        "Judge considers criminal history of convict",
+        "Judge hears victim impact statement",
+        "Judge considers convict's background and circumstances",
+        "Judge considers sentencing guidelines and precedents",
+        "Judge awards sentence: Fine, Imprisonment, or Both"
+      ],
+      "sentenceTypes": [
+        "Simple Imprisonment: Without hard labor",
+        "Rigorous Imprisonment: With hard labor",
+        "Life Imprisonment: Till natural death (parole possible)",
+        "Death Penalty: For rarest of rare cases (e.g., murder)",
+        "Fine: Monetary punishment",
+        "Probation: Release under supervision for minor offences",
+        "Suspended Sentence: Release with threat of jail if reoffend"
+      ],
+      "rights": [
+        "Right to know reason for sentence",
+        "Right to appeal sentence",
+        "Right to mercy petition",
+        "Right to parole/remission after serving time"
+      ],
+      "documentation": [
+        "Sentencing Order",
+        "Jail Warrant"
+      ]
+    },
+    {
+      "phaseNumber": 14,
+      "phaseName": "Appeal",
+      "description": "Convicted person can appeal to higher court to challenge verdict or sentence.",
+      "timeFrame": "Within 90 days of judgment, appeal can be filed",
+      "section": "CrPC 401-491 / BSA 376-444",
+      "steps": [
+        "Convict (through lawyer) files appeal petition in high court",
+        "Appeal states grounds for challenging conviction/sentence",
+        "Copy of judgment and entire case file sent to high court",
+        "Prosecution files counter-submission",
+        "High court reads entire record",
+        "High court hearing scheduled",
+        "Convict and prosecution arguments heard",
+        "High court decision: Confirm conviction or set aside"
+      ],
+      "appealGrounds": [
+        "Verdict is against evidence or law",
+        "Sentence is harsh or improper",
+        "Procedural error occurred",
+        "Judge was biased",
+        "Wrong law applied"
+      ],
+      "highCourtDecision": [
+        "Confirm conviction - Case ends",
+        "Set aside conviction and acquit",
+        "Order new trial",
+        "Reduce or enhance sentence",
+        "Grant bail pending further hearing"
+      ],
+      "rights": [
+        "Right to free legal aid on appeal",
+        "Right to bail pending appeal (in some cases)",
+        "Right to be heard in appeal",
+        "Right to further appeal to Supreme Court"
+      ],
+      "documentation": [
+        "Appeal Petition",
+        "High Court Judgment",
+        "Bail Order (if granted)"
+      ]
+    },
+    {
+      "phaseNumber": 15,
+      "phaseName": "Supreme Court Appeal",
+      "description": "Final appeal to Supreme Court against high court judgment (only on important legal questions).",
+      "timeFrame": "Within 30 days of high court judgment (special leave petition)",
+      "section": "CrPC 379, 401 (Constitution Article 136)",
+      "steps": [
+        "Convict files petition for special leave to appeal in Supreme Court",
+        "Supreme Court reviews if case raises important legal question",
+        "If permitted, Supreme Court hears the case",
+        "Supreme Court examines entire record and hearing arguments",
+        "Supreme Court pronounces final verdict"
+      ],
+      "supremeCourtDecision": [
+        "Confirm conviction",
+        "Set aside conviction",
+        "Order retrial",
+        "Modify sentence",
+        "Grant or extend bail"
+      ],
+      "rights": [
+        "Right to petition Supreme Court",
+        "Right to be heard in Supreme Court",
+        "Right to free legal aid"
+      ],
+      "documentation": [
+        "Supreme Court Petition",
+        "Supreme Court Judgment (Final)"
+      ]
+    },
+    {
+      "phaseNumber": 16,
+      "phaseName": "Post-Conviction - Jail & Parole",
+      "description": "Convict serves sentence. Can apply for parole or remission.",
+      "timeFrame": "Duration of sentence (years or life)",
+      "section": "Jail Manual Acts, Prisons Act 1894",
+      "steps": [
+        "Convict sent to jail for imprisonment",
+        "Undertaking jail discipline",
+        "Studying behavior record for parole eligibility",
+        "Parole application after serving minimum 50% sentence",
+        "State parole authority reviews application",
+        "Release on parole with conditions or life imprisonment sentence reduction after certain years"
+      ],
+      "paroleRights": [
+        "Right to apply for parole after serving minimum time",
+        "Right to remission for good behavior",
+        "Right to work in jail",
+        "Right to family visits",
+        "Right to medical care in jail"
+      ],
+      "documentation": [
+        "Jail Records",
+        "Parole Application",
+        "Parole Order (if granted)"
+      ]
+    }
+  ],
+  "civilProcedure": {
+    "title": "Civil Procedure - Dispute Resolution",
+    "summary": "In civil cases (non-criminal), disputes between parties are resolved through courts. Burden of proof is 'preponderance of probabilities' (more likely than not), NOT beyond reasonable doubt.",
+    "phases": [
+      {
+        "phase": "Filing Suit",
+        "timeFrame": "Before statute of limitations expires",
+        "description": "Plaintiff files suit against defendant in appropriate court"
+      },
+      {
+        "phase": "Pleadings",
+        "timeFrame": "Within statutory periods",
+        "description": "Both parties file written statements and arguments"
+      },
+      {
+        "phase": "Discovery",
+        "timeFrame": "Before trial",
+        "description": "Both sides exchange evidence and documents"
+      },
+      {
+        "phase": "Settlement/Judgment",
+        "timeFrame": "Months to years",
+        "description": "Case settles or judge passes judgment based on evidence"
+      },
+      {
+        "phase": "Appeal",
+        "timeFrame": "Within 90-120 days of judgment",
+        "description": "Losing party can appeal to higher court"
+      }
+    ]
+  }
+}

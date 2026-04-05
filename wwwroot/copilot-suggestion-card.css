@@ -1,0 +1,194 @@
+/* Copilot Suggestion Card Styles - Dark Mode Compatible */
+
+:root {
+    --card-bg: rgba(30, 39, 70, 0.95);
+    --card-border: rgba(255, 255, 255, 0.1);
+    --card-hover-border: #667eea;
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+    --suggestion-explanation-bg: rgba(102, 126, 234, 0.1);
+}
+
+.suggestion-card {
+    background: var(--card-bg) !important;
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.suggestion-card:hover {
+    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.2);
+    border-color: var(--card-hover-border);
+    transform: translateY(-2px);
+}
+
+.suggestion-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.suggestion-type-badge .badge {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.suggestion-priority {
+    display: flex;
+    gap: 2px;
+}
+
+.suggestion-priority i {
+    font-size: 12px;
+    color: #d4af37;
+}
+
+.suggestion-priority i.bi-star {
+    color: rgba(212, 175, 55, 0.3);
+}
+
+.suggestion-content {
+    margin-bottom: 14px;
+}
+
+.suggestion-text {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-primary) !important;
+    margin: 0 0 10px 0;
+}
+
+.suggestion-explanation {
+    background: var(--suggestion-explanation-bg);
+    border-left: 3px solid #667eea;
+    padding: 10px 12px;
+    border-radius: 0 8px 8px 0;
+    font-size: 13px;
+    color: var(--text-secondary) !important;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+}
+
+.suggestion-explanation i {
+    color: #667eea;
+    margin-top: 2px;
+}
+
+.suggestion-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.suggestion-meta {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--text-muted) !important;
+}
+
+.meta-item i {
+    color: #667eea;
+}
+
+.suggestion-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.suggestion-actions .btn {
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.2s ease;
+}
+
+.suggestion-actions .btn-success {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border: none;
+    color: white !important;
+}
+
+.suggestion-actions .btn-success:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.suggestion-actions .btn-outline-secondary {
+    background: transparent;
+    border: 1px solid var(--card-border);
+    color: var(--text-secondary) !important;
+}
+
+.suggestion-actions .btn-outline-secondary:hover {
+    border-color: #ef4444;
+    color: #ef4444 !important;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+/* No suggestions / No actions message styling */
+.no-suggestions,
+.no-actions {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-muted) !important;
+    background: rgba(102, 126, 234, 0.05);
+    border-radius: 8px;
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.no-suggestions p,
+.no-actions p {
+    margin: 0;
+    color: var(--text-muted) !important;
+}
+
+/* Loading spinner styling */
+.loading-spinner {
+    padding: 30px;
+    text-align: center;
+    color: var(--text-secondary) !important;
+}
+
+.loading-spinner p {
+    color: var(--text-secondary) !important;
+}
+
+@media (max-width: 576px) {
+    .suggestion-footer {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .suggestion-actions {
+        width: 100%;
+    }
+
+    .suggestion-actions button {
+        flex: 1;
+    }
+}

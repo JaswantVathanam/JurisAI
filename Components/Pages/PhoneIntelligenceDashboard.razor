@@ -1,0 +1,1055 @@
+@page "/phone-intelligence"
+@page "/phone-intel"
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@using AILegalAsst.Components.Shared
+@inject PhoneIntelligenceService PhoneIntelService
+@inject SuspectNetworkService NetworkService
+@inject IntelligenceGatheringService IntelligenceService
+@inject AuthenticationService AuthService
+@inject NavigationManager Navigation
+@inject LanguageService LangService
+@inject AzureMapsService MapsService
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+@implements IDisposable
+
+<PageTitle>Phone Intelligence Dashboard - JurisAI</PageTitle>
+
+<link rel="stylesheet" href="phone-intelligence.css" />
+
+<CustomErrorBoundary ShowDetails="true" ShowReportButton="true">
+
+@if (currentUser?.Role != UserRole.Police && currentUser?.Role != UserRole.Admin)
+{
+    <div class="access-denied-container">
+        <div class="access-denied-icon">
+            <i class="bi bi-shield-lock-fill"></i>
+        </div>
+        <h2>Access Restricted</h2>
+        <p>This feature is available only for verified Police officers.</p>
+        <button class="btn-primary" @onclick="@(() => Navigation.NavigateTo("/"))">
+            <i class="bi bi-house"></i> Go to Home
+        </button>
+    </div>
+}
+else
+{
+    <div class="phone-intel-page">
+        <!-- Header -->
+        <header class="page-header">
+            <div class="header-content">
+                <div class="header-icon">
+                    <i class="bi bi-telephone-fill"></i>
+                </div>
+                <div class="header-text">
+                    <h1>Phone Intelligence Dashboard</h1>
+                    <p class="subtitle">Deep analysis of phone numbers for cybercrime investigation</p>
+                </div>
+            </div>
+            <div class="header-badge">
+                <span class="ai-badge">
+                    <i class="bi bi-robot"></i> AI-Powered
+                </span>
+            </div>
+        </header>
+
+        <!-- Search Section -->
+        <section class="search-section glass-card">
+            <div class="search-container">
+                <div class="search-input-wrapper">
+                    <i class="bi bi-search"></i>
+                    <input type="text" 
+                           class="search-input" 
+                           placeholder="Enter phone number (e.g., 9876543210)"
+                           @bind="searchPhone"
+                           @bind:event="oninput"
+                           @onkeypress="HandleKeyPress"
+                           disabled="@isSearching" />
+                    @if (!string.IsNullOrEmpty(searchPhone))
+                    {
+                        <button class="clear-btn" @onclick="ClearSearch">
+                            <i class="bi bi-x-circle"></i>
+                        </button>
+                    }
+                </div>
+                <button class="search-btn" @onclick="SearchPhone" disabled="@isSearching">
+                    @if (isSearching)
+                    {
+                        <span class="spinner-small"></span>
+                        <span>Analyzing...</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-cpu"></i>
+                        <span>Analyze</span>
+                    }
+                </button>
+            </div>
+            
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="error-alert">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <span>@errorMessage</span>
+                </div>
+            }
+            
+            <!-- Quick Search Tags -->
+            <div class="quick-search-tags">
+                <span class="tag-label">Quick Test:</span>
+                @foreach (var sample in samplePhones)
+                {
+                    <button class="quick-tag" @onclick="() => QuickSearch(sample.phone)" title="@sample.desc">
+                        @sample.phone
+                    </button>
+                }
+            </div>
+        </section>
+
+        @if (networkGraph != null && !isSearching)
+        {
+            <!-- Results Dashboard -->
+            <div class="results-dashboard">
+                <!-- Risk Summary Card -->
+                <section class="risk-summary-card glass-card @GetRiskClass(currentProfile?.RiskLevel)">
+                    <div class="risk-header">
+                        <div class="phone-info">
+                            <h2>@searchPhone</h2>
+                            <span class="provider-badge">
+                                <i class="bi bi-sim"></i> @GetProvider(searchPhone)
+                            </span>
+                        </div>
+                        <div class="risk-meter">
+                            <div class="risk-score">
+                                <span class="score-value">@(currentProfile?.CentralityScore ?? 0)</span>
+                                <span class="score-label">Risk Score</span>
+                            </div>
+                            <div class="risk-gauge">
+                                <div class="gauge-fill" style="width: @(currentProfile?.CentralityScore ?? 0)%"></div>
+                            </div>
+                            <span class="risk-level-badge @GetRiskClass(currentProfile?.RiskLevel)">
+                                @(currentProfile?.RiskLevel ?? "Unknown")
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="risk-stats">
+                        <div class="stat-item">
+                            <i class="bi bi-telephone-outbound"></i>
+                            <div class="stat-content">
+                                <span class="stat-value">@(currentProfile?.TotalCallsMade ?? 0)</span>
+                                <span class="stat-label">Total Calls</span>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <i class="bi bi-people"></i>
+                            <div class="stat-content">
+                                <span class="stat-value">@(currentProfile?.ConnectionCount ?? 0)</span>
+                                <span class="stat-label">Connections</span>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <i class="bi bi-currency-rupee"></i>
+                            <div class="stat-content">
+                                <span class="stat-value">₹@((currentProfile?.TotalMoneyReceived ?? 0).ToString("N0"))</span>
+                                <span class="stat-label">Money Received</span>
+                            </div>
+                        </div>
+                        <div class="stat-item @(currentProfile?.IsLeader == true ? "highlight" : "")">
+                            <i class="bi @(currentProfile?.IsLeader == true ? "bi-crown-fill" : "bi-person")"></i>
+                            <div class="stat-content">
+                                <span class="stat-value">@(currentProfile?.Role ?? "Unknown")</span>
+                                <span class="stat-label">Network Role</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    @if (currentProfile?.IsLeader == true)
+                    {
+                        <div class="leader-alert">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <span>⚠️ This number is identified as the NETWORK LEADER</span>
+                        </div>
+                    }
+                </section>
+
+                <!-- Main Content Grid -->
+                <div class="content-grid">
+                    <!-- Network Visualization -->
+                    <section class="network-section glass-card">
+                        <div class="section-header">
+                            <h3><i class="bi bi-diagram-3"></i> Suspect Network</h3>
+                            <div class="section-actions">
+                                <div class="view-toggle">
+                                    <button class="toggle-btn @(networkViewMode == "graph" ? "active" : "")" @onclick='() => networkViewMode = "graph"'>
+                                        <i class="bi bi-diagram-3"></i> Graph
+                                    </button>
+                                    <button class="toggle-btn @(networkViewMode == "map" ? "active" : "")" @onclick="SwitchToMapView">
+                                        <i class="bi bi-geo-alt-fill"></i> Map
+                                    </button>
+                                </div>
+                                <button class="btn-icon" @onclick="RefreshNetwork" title="Refresh">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                </button>
+                                <button class="btn-icon" @onclick="ExpandNetwork" title="Expand Depth">
+                                    <i class="bi bi-arrows-fullscreen"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="network-visualization" id="networkContainer">
+                            @if (networkViewMode == "graph")
+                            {
+                                @if (networkGraph.Nodes.Any())
+                                {
+                                    <div class="network-canvas">
+                                        <svg class="network-svg" viewBox="0 0 800 500">
+                                            <!-- Edges -->
+                                            @{ var displayedNodes = networkGraph.Nodes.Take(20).ToList(); }
+                                            @foreach (var edge in networkGraph.Edges.Take(30))
+                                            {
+                                                var sourceNode = displayedNodes.FirstOrDefault(n => n.PhoneNumber == edge.SourcePhone);
+                                                var targetNode = displayedNodes.FirstOrDefault(n => n.PhoneNumber == edge.TargetPhone);
+                                                if (sourceNode != null && targetNode != null)
+                                                {
+                                                    var sourcePos = GetNodePosition(sourceNode, displayedNodes);
+                                                    var targetPos = GetNodePosition(targetNode, displayedNodes);
+                                                    <line x1="@sourcePos.x" y1="@sourcePos.y"
+                                                          x2="@targetPos.x" y2="@targetPos.y"
+                                                          class="edge @GetEdgeClass(edge)"
+                                                          stroke-width="@Math.Max(1, Math.Min(edge.Weight / 15, 5))" />
+                                                }
+                                            }
+
+                                            <!-- Nodes -->
+                                            @foreach (var node in displayedNodes)
+                                            {
+                                                var pos = GetNodePosition(node, displayedNodes);
+                                                var nodeRadius = GetNodeRadius(node);
+                                                var nodeClass = GetNodeClass(node);
+                                                var isSelected = selectedNode?.PhoneNumber == node.PhoneNumber;
+                                                var phoneLabel = node.PhoneNumber?.Substring(Math.Max(0, (node.PhoneNumber?.Length ?? 0) - 4)) ?? "";
+                                                var suspectLabel = node.SuspectName?.Split(' ').FirstOrDefault() ?? phoneLabel;
+                                                <g class="node-group" @onclick="() => SelectNode(node)" style="cursor:pointer">
+                                                    @if (isSelected)
+                                                    {
+                                                        <circle cx="@pos.x" cy="@pos.y" r="@(nodeRadius + 6)"
+                                                                class="node-pulse" fill="none" stroke="white" stroke-width="2" opacity="0.4" />
+                                                    }
+                                                    <circle cx="@pos.x" cy="@pos.y"
+                                                            r="@nodeRadius"
+                                                            class="node @nodeClass @(isSelected ? "selected" : "")" />
+                                                    @if (node.IsLeader)
+                                                    {
+                                                        @((MarkupString)$"<text x=\"{pos.x}\" y=\"{pos.y - nodeRadius - 8}\" class=\"leader-crown\" font-size=\"16\">👑</text>")
+                                                    }
+                                                    @((MarkupString)$"<text x=\"{pos.x}\" y=\"{pos.y + nodeRadius + 14}\" class=\"node-label\">{suspectLabel}</text>")
+                                                </g>
+                                            }
+                                        </svg>
+
+                                        <div class="network-legend">
+                                            <div class="legend-item"><span class="legend-dot suspect"></span> Suspect</div>
+                                            <div class="legend-item"><span class="legend-dot victim"></span> Victim</div>
+                                            <div class="legend-item"><span class="legend-dot unknown"></span> Unknown</div>
+                                            <div class="legend-item"><span class="legend-dot leader"></span> Leader</div>
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="no-data">
+                                        <i class="bi bi-diagram-3"></i>
+                                        <p>No network connections found</p>
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <!-- Map View with Pinpoints -->
+                                <div class="network-map-view">
+                                    <AzureMapViewer @ref="networkMapViewer"
+                                                    Height="420px"
+                                                    ShowControls="true"
+                                                    ShowStyleSelector="true"
+                                                    InitialZoom="10" />
+
+                                    <div class="map-legend-inline">
+                                        <span class="legend-pin"><i class="bi bi-geo-alt-fill" style="color:#ff1744"></i> Leader</span>
+                                        <span class="legend-pin"><i class="bi bi-geo-alt-fill" style="color:#ff6b6b"></i> Critical</span>
+                                        <span class="legend-pin"><i class="bi bi-geo-alt-fill" style="color:#ff9800"></i> High Risk</span>
+                                        <span class="legend-pin"><i class="bi bi-geo-alt-fill" style="color:#00d4ff"></i> Suspect</span>
+                                        <span class="legend-pin"><i class="bi bi-geo-alt-fill" style="color:#4caf50"></i> Victim</span>
+                                    </div>
+
+                                    @if (networkGraph?.Nodes?.Any(n => !string.IsNullOrEmpty(n.Location)) == true)
+                                    {
+                                        <div class="map-node-chips">
+                                            @foreach (var node in networkGraph.Nodes.Where(n => !string.IsNullOrEmpty(n.Location)).Take(12))
+                                            {
+                                                var chipClass = node.IsLeader ? "leader" : node.RiskLevel == "Critical" ? "critical" : node.RiskLevel == "High" ? "high" : "";
+                                                <span class="map-chip @chipClass @(selectedNode?.PhoneNumber == node.PhoneNumber ? "active" : "")"
+                                                      @onclick="() => FocusOnSuspect(node)">
+                                                    <i class="bi @(node.IsLeader ? "bi-crown-fill" : node.NodeType == "victim" ? "bi-shield-fill" : "bi-person-fill")"></i>
+                                                    @(node.SuspectName ?? node.PhoneNumber?.Substring(Math.Max(0, (node.PhoneNumber?.Length ?? 0) - 4)))
+                                                    <small>@node.Location</small>
+                                                </span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        
+                        <!-- Network Stats -->
+                        <div class="network-stats">
+                            <div class="stat-pill">
+                                <i class="bi bi-people-fill"></i>
+                                <span>@networkGraph.Nodes.Count Suspects</span>
+                            </div>
+                            <div class="stat-pill">
+                                <i class="bi bi-link-45deg"></i>
+                                <span>@networkGraph.Edges.Count Connections</span>
+                            </div>
+                            <div class="stat-pill danger">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <span>@networkGraph.Nodes.Count(n => n.RiskLevel == "High" || n.RiskLevel == "Critical") High Risk</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Selected Node Details -->
+                    <section class="details-section glass-card">
+                        <div class="section-header">
+                            <h3><i class="bi bi-person-badge"></i> Suspect Details</h3>
+                        </div>
+                        
+                        @if (selectedNode != null)
+                        {
+                            <div class="suspect-profile">
+                                <div class="profile-header">
+                                    <div class="profile-avatar @GetRiskClass(selectedNode.RiskLevel)">
+                                        @if (selectedNode.IsLeader)
+                                        {
+                                            <i class="bi bi-crown-fill"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-person-fill"></i>
+                                        }
+                                    </div>
+                                    <div class="profile-info">
+                                        <h4>@selectedNode.SuspectName</h4>
+                                        <span class="phone-number">@selectedNode.PhoneNumber</span>
+                                    </div>
+                                    <span class="role-badge @GetRoleClass(selectedNode.Role)">@selectedNode.Role</span>
+                                </div>
+                                
+                                <div class="profile-details">
+                                    <div class="detail-row">
+                                        <span class="detail-label">Risk Level:</span>
+                                        <span class="detail-value risk-@selectedNode.RiskLevel?.ToLower()">@selectedNode.RiskLevel</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Centrality Score:</span>
+                                        <span class="detail-value">@selectedNode.CentralityScore/100</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Total Calls:</span>
+                                        <span class="detail-value">@selectedNode.TotalCallsMade</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Money Received:</span>
+                                        <span class="detail-value">₹@selectedNode.TotalMoneyReceived.ToString("N0")</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Money Sent:</span>
+                                        <span class="detail-value">₹@selectedNode.TotalMoneySent.ToString("N0")</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Last Active:</span>
+                                        <span class="detail-value">@(selectedNode.LastActiveDate?.ToString("dd MMM yyyy") ?? "Unknown")</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Location:</span>
+                                        <span class="detail-value">@(selectedNode.Location ?? "Unknown")</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="profile-actions">
+                                    <button class="btn-action primary" @onclick="() => AnalyzeInDepth(selectedNode)">
+                                        <i class="bi bi-search"></i> Deep Analysis
+                                    </button>
+                                    <button class="btn-action" @onclick="() => GenerateNotice(selectedNode)">
+                                        <i class="bi bi-file-text"></i> Generate Notice
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="no-selection">
+                                <i class="bi bi-hand-index"></i>
+                                <p>Click on a node in the network to view details</p>
+                            </div>
+                        }
+                    </section>
+                </div>
+
+                <!-- Analysis Panels -->
+                <div class="analysis-grid">
+                    <!-- Communication Patterns -->
+                    <section class="patterns-section glass-card">
+                        <div class="section-header">
+                            <h3><i class="bi bi-clock-history"></i> Communication Patterns</h3>
+                            <button class="btn-sm" @onclick="LoadPatterns" disabled="@isLoadingPatterns">
+                                @if (isLoadingPatterns)
+                                {
+                                    <span class="spinner-tiny"></span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                }
+                            </button>
+                        </div>
+                        
+                        @if (communicationPatterns != null && communicationPatterns.Any())
+                        {
+                            <div class="patterns-list">
+                                @foreach (var pattern in communicationPatterns)
+                                {
+                                    <div class="pattern-card @(pattern.Confidence > 80 ? "high-confidence" : "")">
+                                        <div class="pattern-header">
+                                            <span class="pattern-name">@pattern.PatternName</span>
+                                            <span class="confidence-badge">@pattern.Confidence% confidence</span>
+                                        </div>
+                                        <p class="pattern-desc">@pattern.Description</p>
+                                        <div class="pattern-meta">
+                                            <span><i class="bi bi-clock"></i> @pattern.TimePattern</span>
+                                            <span><i class="bi bi-hash"></i> @pattern.Frequency occurrences</span>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="no-data-small">
+                                <p>Click refresh to detect patterns</p>
+                            </div>
+                        }
+                    </section>
+
+                    <!-- Predictions -->
+                    <section class="predictions-section glass-card">
+                        <div class="section-header">
+                            <h3><i class="bi bi-magic"></i> AI Predictions</h3>
+                            <button class="btn-sm" @onclick="LoadPredictions" disabled="@isLoadingPredictions">
+                                @if (isLoadingPredictions)
+                                {
+                                    <span class="spinner-tiny"></span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-lightning-charge"></i>
+                                }
+                            </button>
+                        </div>
+                        
+                        @if (predictions != null && predictions.Any())
+                        {
+                            <div class="predictions-list">
+                                @foreach (var pred in predictions)
+                                {
+                                    <div class="prediction-card">
+                                        <div class="prediction-header">
+                                            <span class="prediction-type">@pred.PredictionType</span>
+                                            <span class="confidence-badge @(pred.Confidence > 75 ? "high" : "")">@pred.Confidence%</span>
+                                        </div>
+                                        <p class="prediction-desc">@pred.Description</p>
+                                        @if (pred.SupportingEvidence.Any())
+                                        {
+                                            <div class="evidence-list">
+                                                @foreach (var evidence in pred.SupportingEvidence.Take(3))
+                                                {
+                                                    <span class="evidence-item">• @evidence</span>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="no-data-small">
+                                <p>Click lightning bolt to generate predictions</p>
+                            </div>
+                        }
+                    </section>
+
+                    <!-- Intervention Strategy -->
+                    <section class="strategy-section glass-card">
+                        <div class="section-header">
+                            <h3><i class="bi bi-shield-check"></i> Intervention Strategy</h3>
+                            <button class="btn-sm danger" @onclick="LoadStrategy" disabled="@isLoadingStrategy">
+                                @if (isLoadingStrategy)
+                                {
+                                    <span class="spinner-tiny"></span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-crosshair"></i>
+                                }
+                            </button>
+                        </div>
+                        
+                        @if (interventionStrategy != null)
+                        {
+                            <div class="strategy-content">
+                                @if (interventionStrategy.RecommendedArrestOrder.Any())
+                                {
+                                    <div class="arrest-order">
+                                        <h4>Recommended Arrest Order:</h4>
+                                        <ol class="arrest-list">
+                                            @foreach (var phone in interventionStrategy.RecommendedArrestOrder.Take(5))
+                                            {
+                                                <li>@phone</li>
+                                            }
+                                        </ol>
+                                    </div>
+                                }
+                                
+                                <div class="recommendations">
+                                    @foreach (var rec in interventionStrategy.Recommendations.Take(5))
+                                    {
+                                        <p class="rec-item">@rec</p>
+                                    }
+                                </div>
+                                
+                                @if (!string.IsNullOrEmpty(interventionStrategy.OptimalTimingRecommendation))
+                                {
+                                    <div class="timing-box">
+                                        <i class="bi bi-alarm"></i>
+                                        <span>@interventionStrategy.OptimalTimingRecommendation</span>
+                                    </div>
+                                }
+                                
+                                @if (interventionStrategy.CriticalEvidenceToPreserve.Any())
+                                {
+                                    <div class="evidence-section">
+                                        <h4>Critical Evidence to Preserve:</h4>
+                                        <ul class="evidence-list">
+                                            @foreach (var item in interventionStrategy.CriticalEvidenceToPreserve.Take(5))
+                                            {
+                                                <li>@item</li>
+                                            }
+                                        </ul>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="no-data-small">
+                                <p>Click crosshair to generate strategy</p>
+                            </div>
+                        }
+                    </section>
+                </div>
+
+                <!-- AI Analysis -->
+                @if (!string.IsNullOrEmpty(aiAnalysis))
+                {
+                    <section class="ai-analysis-section glass-card">
+                        <div class="section-header">
+                            <h3><i class="bi bi-robot"></i> AI Network Analysis</h3>
+                            <button class="btn-sm" @onclick="RefreshAIAnalysis" disabled="@isLoadingAI">
+                                @if (isLoadingAI)
+                                {
+                                    <span class="spinner-tiny"></span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                }
+                            </button>
+                        </div>
+                        <div class="ai-content markdown-content">
+                            @((MarkupString)ConvertMarkdown(aiAnalysis))
+                        </div>
+                    </section>
+                }
+            </div>
+        }
+        else if (!isSearching && string.IsNullOrEmpty(searchPhone))
+        {
+            <!-- Empty State -->
+            <section class="empty-state glass-card">
+                <div class="empty-icon">
+                    <i class="bi bi-telephone-plus"></i>
+                </div>
+                <h2>Enter a Phone Number to Begin</h2>
+                <p>Analyze any phone number to uncover criminal networks, communication patterns, and AI-powered insights.</p>
+                <div class="feature-highlights">
+                    <div class="feature">
+                        <i class="bi bi-diagram-3"></i>
+                        <span>Network Visualization</span>
+                    </div>
+                    <div class="feature">
+                        <i class="bi bi-clock-history"></i>
+                        <span>Pattern Detection</span>
+                    </div>
+                    <div class="feature">
+                        <i class="bi bi-magic"></i>
+                        <span>AI Predictions</span>
+                    </div>
+                    <div class="feature">
+                        <i class="bi bi-shield-check"></i>
+                        <span>Intervention Strategy</span>
+                    </div>
+                </div>
+            </section>
+        }
+    </div>
+}
+
+</CustomErrorBoundary>
+
+@code {
+    private User? currentUser;
+    private string searchPhone = "";
+    private string errorMessage = "";
+    private bool isSearching = false;
+    private bool isLoadingPatterns = false;
+    private bool isLoadingPredictions = false;
+    private bool isLoadingStrategy = false;
+    private bool isLoadingAI = false;
+    private int networkDepth = 2;
+    
+    // Data
+    private SuspectNetworkGraph? networkGraph;
+    private NetworkNode? currentProfile;
+    private NetworkNode? selectedNode;
+    private AzureMapViewer? networkMapViewer;
+    private string networkViewMode = "graph";
+    private List<CommunicationPatternAnalysis>? communicationPatterns;
+    private List<PredictionSummary>? predictions;
+    private NetworkInterventionStrategy? interventionStrategy;
+    private string aiAnalysis = "";
+    
+    // Sample phones for quick testing
+    private readonly (string phone, string desc)[] samplePhones = new[]
+    {
+        ("9876543210", "Known Leader - Critical Risk"),
+        ("9876543211", "Money Handler - High Risk"),
+        ("9999888877", "Unknown Caller - Investigation")
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentUser = AuthService.GetCurrentUser();
+        LangService.OnLanguageChanged += OnLanguageChanged;
+    }
+    
+    private void OnLanguageChanged()
+    {
+        StateHasChanged();
+    }
+    
+    public void Dispose()
+    {
+        LangService.OnLanguageChanged -= OnLanguageChanged;
+    }
+    
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SearchPhone();
+        }
+    }
+    
+    private void ClearSearch()
+    {
+        searchPhone = "";
+        networkGraph = null;
+        currentProfile = null;
+        selectedNode = null;
+        communicationPatterns = null;
+        predictions = null;
+        interventionStrategy = null;
+        aiAnalysis = "";
+        errorMessage = "";
+    }
+    
+    private async Task QuickSearch(string phone)
+    {
+        searchPhone = phone;
+        await SearchPhone();
+    }
+    
+    private async Task SearchPhone()
+    {
+        if (string.IsNullOrWhiteSpace(searchPhone))
+        {
+            errorMessage = "Please enter a phone number";
+            return;
+        }
+        
+        // Clean phone number
+        var cleanPhone = System.Text.RegularExpressions.Regex.Replace(searchPhone, @"[^\d]", "");
+        if (cleanPhone.Length < 10)
+        {
+            errorMessage = "Phone number must be at least 10 digits";
+            return;
+        }
+        
+        isSearching = true;
+        errorMessage = "";
+        selectedNode = null;
+        
+        try
+        {
+            // Build network graph
+            var result = await NetworkService.BuildNetworkGraphAsync(cleanPhone, networkDepth);
+            
+            if (result.IsSuccess && result.Data != null)
+            {
+                networkGraph = result.Data;
+                currentProfile = networkGraph.Nodes.FirstOrDefault(n => n.PhoneNumber == cleanPhone);
+                
+                // Auto-select the root node
+                selectedNode = currentProfile;
+                
+                // Load AI analysis
+                await LoadAIAnalysis();
+            }
+            else
+            {
+                errorMessage = result.ErrorMessage ?? "Failed to build network graph";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isSearching = false;
+        }
+    }
+    
+    private async Task RefreshNetwork()
+    {
+        if (!string.IsNullOrEmpty(searchPhone))
+        {
+            await SearchPhone();
+        }
+    }
+    
+    private async Task ExpandNetwork()
+    {
+        networkDepth = Math.Min(networkDepth + 1, 4);
+        await SearchPhone();
+    }
+    
+    private async Task SelectNode(NetworkNode node)
+    {
+        selectedNode = node;
+        if (networkViewMode == "map" && networkMapViewer != null && !string.IsNullOrEmpty(node.Location))
+        {
+            await FocusOnSuspect(node);
+        }
+    }
+
+    private async Task SwitchToMapView()
+    {
+        networkViewMode = "map";
+        StateHasChanged();
+        await Task.Delay(400);
+        await PlotNetworkLocations();
+    }
+    
+    private async Task LoadPatterns()
+    {
+        if (networkGraph == null || !networkGraph.Nodes.Any()) return;
+        
+        isLoadingPatterns = true;
+        try
+        {
+            var phones = networkGraph.Nodes.Select(n => n.PhoneNumber ?? "").Where(p => !string.IsNullOrEmpty(p)).ToList();
+            var result = await NetworkService.DetectCommunicationPatternsAsync(phones);
+            if (result.IsSuccess)
+            {
+                communicationPatterns = result.Data ?? new List<CommunicationPatternAnalysis>();
+            }
+        }
+        finally
+        {
+            isLoadingPatterns = false;
+        }
+    }
+    
+    private async Task LoadPredictions()
+    {
+        if (string.IsNullOrEmpty(searchPhone)) return;
+        
+        isLoadingPredictions = true;
+        try
+        {
+            var result = await NetworkService.PredictNextActivityAsync(searchPhone);
+            if (result.IsSuccess)
+            {
+                predictions = result.Data ?? new List<PredictionSummary>();
+            }
+        }
+        finally
+        {
+            isLoadingPredictions = false;
+        }
+    }
+    
+    private async Task LoadStrategy()
+    {
+        if (networkGraph == null || !networkGraph.Nodes.Any()) return;
+        
+        isLoadingStrategy = true;
+        try
+        {
+            var phones = networkGraph.Nodes.Select(n => n.PhoneNumber ?? "").Where(p => !string.IsNullOrEmpty(p)).ToList();
+            var result = await NetworkService.RecommendInterventionStrategyAsync(phones);
+            if (result.IsSuccess)
+            {
+                interventionStrategy = result.Data;
+            }
+        }
+        finally
+        {
+            isLoadingStrategy = false;
+        }
+    }
+    
+    private async Task LoadAIAnalysis()
+    {
+        if (networkGraph == null || string.IsNullOrEmpty(searchPhone)) return;
+        
+        isLoadingAI = true;
+        try
+        {
+            var result = await NetworkService.GetAINetworkAnalysisAsync(searchPhone, networkGraph);
+            if (result.IsSuccess)
+            {
+                aiAnalysis = result.Data ?? "";
+            }
+        }
+        finally
+        {
+            isLoadingAI = false;
+        }
+    }
+    
+    private async Task RefreshAIAnalysis()
+    {
+        await LoadAIAnalysis();
+    }
+    
+    private void AnalyzeInDepth(NetworkNode node)
+    {
+        if (node?.PhoneNumber != null)
+        {
+            searchPhone = node.PhoneNumber;
+            SearchPhone();
+        }
+    }
+    
+    private void GenerateNotice(NetworkNode node)
+    {
+        if (node?.PhoneNumber != null)
+        {
+            Navigation.NavigateTo($"/legal-notices?phone={node.PhoneNumber}");
+        }
+    }
+    
+    private async Task PlotNetworkLocations()
+    {
+        if (networkMapViewer == null || networkGraph == null) return;
+
+        try
+        {
+            await networkMapViewer.ClearMarkersAsync();
+            LocationData? firstLocation = null;
+
+            foreach (var node in networkGraph.Nodes.Where(n => !string.IsNullOrEmpty(n.Location)))
+            {
+                var loc = await MapsService.GeocodeAddressAsync(node.Location!);
+                if (loc != null)
+                {
+                    var color = node.IsLeader ? "#ff1744" :
+                                node.RiskLevel == "Critical" ? "#ff6b6b" :
+                                node.RiskLevel == "High" ? "#ff9800" :
+                                node.NodeType == "victim" ? "#4caf50" : "#00d4ff";
+
+                    var title = $"{node.SuspectName ?? "Unknown"} ({node.PhoneNumber?.Substring(Math.Max(0, (node.PhoneNumber?.Length ?? 0) - 4))}) — {node.Role}";
+                    await networkMapViewer.AddMarkerAsync(loc, title, color);
+
+                    firstLocation ??= loc;
+                }
+            }
+
+            if (firstLocation != null)
+            {
+                await networkMapViewer.CenterMapAsync(firstLocation.Latitude, firstLocation.Longitude, 11);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Map error: {ex.Message}");
+        }
+    }
+
+    private async Task FocusOnSuspect(NetworkNode node)
+    {
+        selectedNode = node;
+        if (networkMapViewer == null || string.IsNullOrEmpty(node.Location)) return;
+
+        try
+        {
+            var loc = await MapsService.GeocodeAddressAsync(node.Location);
+            if (loc != null)
+            {
+                await networkMapViewer.CenterMapAsync(loc.Latitude, loc.Longitude, 15);
+            }
+        }
+        catch { }
+    }
+
+    // Helper methods
+    private string GetProvider(string phone)
+    {
+        if (string.IsNullOrEmpty(phone) || phone.Length < 4) return "Unknown";
+        var prefix = phone.Substring(0, 4);
+        return prefix switch
+        {
+            "9876" or "9877" or "9878" => "Airtel",
+            "9999" or "9998" or "9997" => "Jio",
+            "9876" or "9871" or "9872" => "Vodafone",
+            _ => "Unknown Provider"
+        };
+    }
+    
+    private string GetRiskClass(string? riskLevel)
+    {
+        return riskLevel?.ToLower() switch
+        {
+            "critical" => "risk-critical",
+            "high" => "risk-high",
+            "medium" => "risk-medium",
+            "low" => "risk-low",
+            _ => ""
+        };
+    }
+    
+    private string GetRoleClass(string? role)
+    {
+        return role?.ToLower() switch
+        {
+            "leader" => "role-leader",
+            "money handler" => "role-money",
+            "caller" => "role-caller",
+            "recruiter" => "role-recruiter",
+            _ => "role-associate"
+        };
+    }
+    
+    private string GetNodeClass(NetworkNode node)
+    {
+        var classes = new List<string>();
+        
+        if (node.IsLeader) classes.Add("leader");
+        else if (node.NodeType == "victim") classes.Add("victim");
+        else if (node.NodeType == "suspect") classes.Add("suspect");
+        else classes.Add("unknown");
+        
+        if (node.RiskLevel == "High" || node.RiskLevel == "Critical")
+            classes.Add("high-risk");
+            
+        return string.Join(" ", classes);
+    }
+    
+    private string GetEdgeClass(NetworkEdge edge)
+    {
+        if (edge.MoneyTransferred > 50000) return "money-flow";
+        if (edge.CallCount > 50) return "frequent";
+        return "normal";
+    }
+    
+    private int GetNodeRadius(NetworkNode node)
+    {
+        var baseRadius = 15;
+        if (node.IsLeader) return baseRadius + 10;
+        if (node.CentralityScore > 70) return baseRadius + 5;
+        return baseRadius;
+    }
+    
+    private (int x, int y) GetNodePosition(NetworkNode node, List<NetworkNode> allNodes)
+    {
+        // Center of the 800x500 viewBox
+        int cx = 400, cy = 250;
+
+        // Root node at center
+        if (node.PhoneNumber == networkGraph?.RootPhoneNumber)
+            return (cx, cy);
+
+        // Separate nodes into rings by role/risk
+        var others = allNodes.Where(n => n.PhoneNumber != networkGraph?.RootPhoneNumber).ToList();
+
+        int ring;
+        double radius;
+        if (node.IsLeader)
+        {
+            ring = 0; radius = 100;
+        }
+        else if (node.RiskLevel == "Critical" || node.RiskLevel == "High")
+        {
+            ring = 1; radius = 180;
+        }
+        else
+        {
+            ring = 2; radius = 230;
+        }
+
+        // Nodes in the same ring
+        var sameRing = others.Where(n =>
+            ring == 0 ? n.IsLeader :
+            ring == 1 ? (!n.IsLeader && (n.RiskLevel == "Critical" || n.RiskLevel == "High")) :
+            (!n.IsLeader && n.RiskLevel != "Critical" && n.RiskLevel != "High")).ToList();
+
+        var ringIdx = sameRing.IndexOf(node);
+        var ringCount = Math.Max(sameRing.Count, 1);
+
+        // Offset each ring so nodes don't line up
+        var angleOffset = ring * Math.PI / 5.0;
+        var angle = angleOffset + (2 * Math.PI * ringIdx) / ringCount;
+
+        var x = Math.Clamp((int)(cx + radius * Math.Cos(angle)), 35, 765);
+        var y = Math.Clamp((int)(cy + radius * Math.Sin(angle)), 35, 465);
+
+        return (x, y);
+    }
+    
+    private string ConvertMarkdown(string markdown)
+    {
+        if (string.IsNullOrEmpty(markdown)) return "";
+        
+        // Simple markdown conversion
+        var html = markdown
+            .Replace("## ", "<h4>").Replace("\n\n", "</h4>\n")
+            .Replace("### ", "<h5>").Replace("**", "<strong>").Replace("**", "</strong>")
+            .Replace("- ", "<li>").Replace("\n", "<br/>");
+            
+        return html;
+    }
+}

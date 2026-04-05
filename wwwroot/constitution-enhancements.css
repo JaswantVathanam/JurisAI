@@ -1,0 +1,675 @@
+/* ============================================
+   CONSTITUTION PAGE - ENHANCEMENTS
+   Loading states, accessibility, focus management
+   ============================================ */
+
+/* ===================
+   LOADING STATES
+   =================== */
+
+/* Skeleton Loading Animation */
+@keyframes skeleton-loading {
+    0% {
+        background-position: -1000px 0;
+    }
+    100% {
+        background-position: 1000px 0;
+    }
+}
+
+.skeleton-v2 {
+    background-color: var(--glass-surface-2);
+    background-image: linear-gradient(
+        90deg,
+        var(--glass-surface-2) 0%,
+        var(--glass-surface-3) 50%,
+        var(--glass-surface-2) 100%
+    );
+    background-size: 1000px 100%;
+    animation: skeleton-loading 2s infinite;
+}
+
+/* Skeleton Elements */
+.skeleton-header-v2 {
+    height: 2.5rem;
+    width: 80%;
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+}
+
+.skeleton-text-v2 {
+    height: 0.95rem;
+    width: 100%;
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
+}
+
+.skeleton-text-v2:last-child {
+    margin-bottom: 0;
+}
+
+.skeleton-badge-v2 {
+    height: 1.5rem;
+    width: 80px;
+    border-radius: 20px;
+    display: inline-block;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.skeleton-card-v2 {
+    background: var(--glass-surface-1);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 1.5rem;
+}
+
+.skeleton-card-v2 .skeleton-header-v2 {
+    height: 1.5rem;
+    width: 70%;
+    margin-bottom: 1rem;
+}
+
+.skeleton-card-v2 .skeleton-text-v2 {
+    margin-bottom: 0.5rem;
+}
+
+.skeleton-avatar-v2 {
+    height: 60px;
+    width: 60px;
+    border-radius: 12px;
+    display: inline-block;
+}
+
+/* Loading Spinner */
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-spinner-v2 {
+    display: inline-block;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 3px solid rgba(212, 175, 55, 0.2);
+    border-top-color: var(--gold-400);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+.loading-state-v2 {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 2rem;
+    text-align: center;
+}
+
+.loading-state-v2 p {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+/* Grid Skeleton Loading */
+.articles-grid-loading-v2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.articles-grid-loading-v2 .skeleton-card-v2 {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.articles-grid-loading-v2 .skeleton-card-v2 > * {
+    margin: 0;
+}
+
+/* Detail View Skeleton */
+.detail-skeleton-v2 {
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    gap: 2rem;
+}
+
+@media (max-width: 1024px) {
+    .detail-skeleton-v2 {
+        grid-template-columns: 1fr;
+    }
+}
+
+.detail-skeleton-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.detail-skeleton-main .skeleton-header-v2 {
+    height: 1.75rem;
+    width: 90%;
+}
+
+.detail-skeleton-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.detail-skeleton-section {
+    background: var(--glass-surface-1);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* ===================
+   FOCUS MANAGEMENT
+   =================== */
+
+/* Focus Visible Outline */
+.article-card-v2:focus-visible,
+.btn-primary-v2:focus-visible,
+.btn-secondary-v2:focus-visible,
+.btn-action-v2:focus-visible,
+.search-input-v2 input:focus-visible {
+    outline: 2px solid var(--gold-400);
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
+/* Skip Link */
+.skip-to-main-v2 {
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+    z-index: 9999;
+    padding: 0.75rem 1.25rem;
+    background: var(--gold-400);
+    color: #000;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: top 0.2s, left 0.2s;
+}
+
+.skip-to-main-v2:focus {
+    top: 1rem;
+    left: 1rem;
+    z-index: 10000;
+}
+
+/* Focus Trap Warning */
+.focus-trap-warning {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    padding: 1rem;
+    background: rgba(212, 175, 55, 0.1);
+    border: 1px solid var(--gold-400);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    z-index: 1000;
+    display: none;
+}
+
+.focus-trap-warning.active {
+    display: block;
+    animation: slideInUp 0.3s ease-out;
+}
+
+@keyframes slideInUp {
+    from {
+        transform: translateY(1rem);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* ===================
+   SCREEN READER ONLY
+   =================== */
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+.sr-only-focusable:active,
+.sr-only-focusable:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+}
+
+/* ARIA Live Announcements */
+[aria-live="polite"],
+[aria-live="assertive"] {
+    position: relative;
+}
+
+/* ARIA Expanded Indicators */
+[aria-expanded="true"] .chevron-icon-v2 {
+    transform: rotate(180deg);
+}
+
+/* ARIA Loading State */
+[aria-busy="true"] {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+/* ARIA Invalid State */
+[aria-invalid="true"] {
+    border-color: #ef4444 !important;
+    background-color: rgba(239, 68, 68, 0.05) !important;
+}
+
+input[aria-invalid="true"]::placeholder {
+    color: #fca5a5;
+}
+
+/* ===================
+   KEYBOARD NAVIGATION
+   =================== */
+
+/* Tab Navigation Indicators */
+.btn-primary-v2:focus-visible,
+.btn-secondary-v2:focus-visible,
+.article-card-v2:focus-visible,
+input:focus-visible,
+select:focus-visible,
+button:focus-visible {
+    outline: 2px solid var(--gold-400);
+    outline-offset: 2px;
+}
+
+/* Keyboard Visible Class */
+.keyboard-focus *:focus-visible {
+    outline: 2px dashed var(--gold-400);
+    outline-offset: 3px;
+}
+
+/* Navigation Focus Trap */
+.modal-focus-trap-v2 {
+    position: relative;
+}
+
+.modal-focus-trap-v2:after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border: 2px solid transparent;
+}
+
+.modal-focus-trap-v2.has-focus:after {
+    border-color: var(--gold-400);
+}
+
+/* ===================
+   HIGH CONTRAST MODE
+   =================== */
+
+@media (prefers-contrast: high) {
+    /* Cards with stronger borders */
+    .article-card-v2,
+    .article-section-v2,
+    .article-info-v2,
+    .keywords-cloud-v2,
+    .applicability-v2,
+    .search-panel-v2 {
+        border: 2px solid var(--gold-400);
+    }
+
+    /* Buttons with stronger contrast */
+    .btn-primary-v2 {
+        border: 2px solid #000;
+        color: #000;
+        font-weight: 700;
+    }
+
+    .btn-secondary-v2 {
+        border: 2px solid var(--text-primary);
+        color: var(--text-primary);
+        font-weight: 700;
+    }
+
+    /* Links more visible */
+    a {
+        font-weight: 600;
+        text-decoration: always underline;
+    }
+
+    /* Text darker */
+    .article-text-v2,
+    .case-summary-v2 {
+        color: #000;
+        font-weight: 500;
+    }
+
+    /* Remove opacity effects */
+    .article-card-v2::before {
+        opacity: 1;
+    }
+
+    /* Badge borders stronger */
+    .keyword-tag-v2,
+    .meta-badge-v2 {
+        border: 2px solid var(--text-primary);
+        font-weight: 600;
+    }
+}
+
+/* ===================
+   DARK MODE CONTRAST
+   =================== */
+
+@media (prefers-color-scheme: dark) {
+    .skeleton-v2 {
+        background-color: rgba(212, 175, 55, 0.05);
+    }
+
+    /* Higher contrast for dark mode */
+    .article-text-v2 {
+        color: #e0e0e0;
+    }
+
+    .case-summary-v2 {
+        color: #d0d0d0;
+    }
+}
+
+/* ===================
+   REDUCED MOTION
+   =================== */
+
+@media (prefers-reduced-motion: reduce) {
+    /* Disable all animations and transitions */
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        transition-delay: 0s !important;
+    }
+
+    /* Keep scroll behavior */
+    scroll-behavior: auto;
+
+    /* Disable hover transforms */
+    .article-card-v2:hover {
+        transform: none;
+    }
+
+    .related-article-item-v2:hover {
+        transform: none;
+    }
+
+    .btn-primary-v2:hover {
+        transform: none;
+    }
+
+    /* Disable spin animation */
+    .loading-spinner-v2 {
+        animation: none;
+        border-top-color: transparent;
+        border-right-color: var(--gold-400);
+    }
+
+    /* Remove moving gradients */
+    .skeleton-v2,
+    .articles-page-header-v2 h1 {
+        animation: none;
+        background-image: none;
+    }
+
+    /* Focus-visible still visible */
+    *:focus-visible {
+        outline: 2px solid var(--gold-400);
+        outline-offset: 2px;
+    }
+}
+
+/* ===================
+   FONT SIZE ADJUSTMENTS
+   =================== */
+
+/* User-defined font size increase */
+@media (max-width: 1500px) {
+    html[data-text-size="large"] {
+        font-size: 18px;
+    }
+
+    html[data-text-size="larger"] {
+        font-size: 20px;
+    }
+
+    html[data-text-size="largest"] {
+        font-size: 22px;
+    }
+}
+
+/* ===================
+   MOTION SENSITIVE
+   =================== */
+
+@media (prefers-reduced-motion: reduce) {
+    ::-webkit-scrollbar-thumb {
+        background: var(--gold-400);
+        border-radius: 0;
+    }
+
+    body {
+        scroll-behavior: auto;
+    }
+}
+
+/* ===================
+   TOUCH DEVICE OPTIMIZATIONS
+   =================== */
+
+@media (hover: none) and (pointer: coarse) {
+    /* Larger touch targets */
+    .btn-primary-v2,
+    .btn-secondary-v2,
+    .btn-action-v2,
+    .article-card-v2 {
+        min-height: 48px;
+        min-width: 48px;
+    }
+
+    .btn-primary-v2,
+    .btn-secondary-v2 {
+        padding: 1rem 1.5rem;
+    }
+
+    .btn-action-v2 {
+        padding: 1rem;
+    }
+
+    /* Touch-friendly spacing */
+    .article-card-v2 {
+        padding: 1.75rem;
+    }
+
+    /* Remove hover effects on touch */
+    .article-card-v2:hover,
+    .related-article-item-v2:hover,
+    .btn-primary-v2:hover,
+    .btn-secondary-v2:hover {
+        transform: none;
+    }
+
+    /* Active state for touch */
+    .article-card-v2:active {
+        background: var(--glass-surface-2);
+    }
+
+    .btn-primary-v2:active {
+        opacity: 0.9;
+    }
+}
+
+/* ===================
+   ERROR HANDLING
+   =================== */
+
+.error-message-v2 {
+    padding: 1rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid #ef4444;
+    border-radius: 10px;
+    color: #dc2626;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.error-message-v2 i {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.error-message-v2::before {
+    content: "⚠";
+    font-weight: bold;
+}
+
+/* Success Message */
+.success-message-v2 {
+    padding: 1rem;
+    background: rgba(76, 175, 80, 0.1);
+    border: 1px solid #4caf50;
+    border-radius: 10px;
+    color: #2e7d32;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.success-message-v2 i {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+    color: #4caf50;
+}
+
+/* Warning Message */
+.warning-message-v2 {
+    padding: 1rem;
+    background: rgba(255, 193, 7, 0.1);
+    border: 1px solid #ffc107;
+    border-radius: 10px;
+    color: #f57f17;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Info Message */
+.info-message-v2 {
+    padding: 1rem;
+    background: rgba(33, 150, 243, 0.1);
+    border: 1px solid #2196f3;
+    border-radius: 10px;
+    color: #1565c0;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+/* ===================
+   TOOLTIP & POPOVER
+   =================== */
+
+.tooltip-v2 {
+    position: relative;
+    display: inline-block;
+}
+
+.tooltip-v2 .tooltip-text {
+    visibility: hidden;
+    width: 200px;
+    background-color: var(--glass-surface-3);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    text-align: center;
+    border-radius: 8px;
+    padding: 0.75rem;
+    position: absolute;
+    z-index: 1000;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -100px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 0.85rem;
+    backdrop-filter: blur(20px);
+}
+
+.tooltip-v2 .tooltip-text::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: var(--glass-surface-3) transparent transparent transparent;
+}
+
+.tooltip-v2:hover .tooltip-text,
+.tooltip-v2:focus-within .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* ===================
+   ANIMATIONS FALLBACK
+   =================== */
+
+@media (prefers-reduced-motion: reduce) {
+    .tooltip-v2 .tooltip-text {
+        transition: none;
+    }
+
+    .loading-spinner-v2 {
+        border-top-width: 0;
+        border-right-width: 3px;
+    }
+}

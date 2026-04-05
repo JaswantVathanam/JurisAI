@@ -1,0 +1,106 @@
+@inherits Microsoft.AspNetCore.Components.Web.ErrorBoundary
+@inject NavigationManager Navigation
+
+<link rel="stylesheet" href="error-boundary.css" />
+
+<CascadingValue Value="this">
+    @if (CurrentException is not null)
+    {
+        <div class="error-boundary" role="alert" aria-live="assertive">
+            <div class="error-content">
+                <div class="error-icon" aria-hidden="true">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                </div>
+                <h2>Oops! Something went wrong</h2>
+                <p class="error-message">@GetUserFriendlyMessage(CurrentException)</p>
+                
+                @if (ShowDetails)
+                {
+                    <details class="error-details">
+                        <summary>Technical Details</summary>
+                        <pre>@CurrentException.ToString()</pre>
+                    </details>
+                }
+                
+                <div class="error-actions">
+                    <button class="btn-error-primary" @onclick="RecoverFromError" aria-label="Try again">
+                        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+                        <span>Try Again</span>
+                    </button>
+                    <button class="btn-error-secondary" @onclick="GoHome" aria-label="Go to home page">
+                        <i class="bi bi-house-fill" aria-hidden="true"></i>
+                        <span>Go to Home</span>
+                    </button>
+                    @if (ShowReportButton)
+                    {
+                        <button class="btn-error-secondary" @onclick="ReportError" aria-label="Report this issue">
+                            <i class="bi bi-flag-fill" aria-hidden="true"></i>
+                            <span>Report Issue</span>
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        @ChildContent
+    }
+</CascadingValue>
+
+@code {
+    [Parameter]
+    public bool ShowDetails { get; set; } = false;
+
+    [Parameter]
+    public bool ShowReportButton { get; set; } = true;
+
+    [Parameter]
+    public EventCallback OnError { get; set; }
+
+    [Parameter]
+    public EventCallback OnRecover { get; set; }
+
+    protected override async Task OnErrorAsync(Exception exception)
+    {
+        await OnError.InvokeAsync();
+        await base.OnErrorAsync(exception);
+    }
+
+    public void HandleError(Exception exception)
+    {
+        // Delegate to the built-in ErrorBoundary mechanism
+        // This allows child components to manually report errors
+        OnErrorAsync(exception);
+        StateHasChanged();
+    }
+
+    private string GetUserFriendlyMessage(Exception exception)
+    {
+        return exception switch
+        {
+            UnauthorizedAccessException => "You don't have permission to access this resource.",
+            InvalidOperationException => "The operation could not be completed. Please check your input and try again.",
+            ArgumentException => "Invalid input provided. Please check your data and try again.",
+            TimeoutException => "The operation took too long to complete. Please try again.",
+            _ => "An unexpected error occurred. Our team has been notified."
+        };
+    }
+
+    private async Task RecoverFromError()
+    {
+        Recover();
+        await OnRecover.InvokeAsync();
+    }
+
+    private void GoHome()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    private void ReportError()
+    {
+        Console.WriteLine($"Error reported: {CurrentException}");
+        Navigation.NavigateTo("/support");
+    }
+}

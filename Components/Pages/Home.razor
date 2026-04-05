@@ -1,0 +1,333 @@
+@page "/"
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@inject AuthenticationService AuthService
+@inject CaseService CaseService
+@inject LanguageService LangService
+@inject NavigationManager NavigationManager
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@implements IDisposable
+
+<PageTitle>Dashboard - JurisAI</PageTitle>
+
+<div class="page-container">
+    <div class="content-wrapper">
+        @if (currentUser != null)
+        {
+            <div class="home-header-v2">
+                <h1 class="home-greeting-v2">@LangService.T("home.welcomeBack"), <span class="user-name-v2">@currentUser.Name</span></h1>
+                <p class="home-subtitle-v2">@GetRoleWelcomeMessage()</p>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div class="stats-grid-v2">
+                @if (currentUser.Role == UserRole.Citizen)
+                {
+                    <div class="stat-card-v2">
+                        <div class="stat-icon-v2">
+                            <i class="bi bi-folder"></i>
+                        </div>
+                        <div class="stat-content-v2">
+                            <div class="stat-value-v2">@totalCases</div>
+                            <div class="stat-label-v2">@LangService.T("home.myCases")</div>
+                        </div>
+                    </div>
+                    <div class="stat-card-v2 variant-blue">
+                        <div class="stat-icon-v2">
+                            <i class="bi bi-shield-exclamation"></i>
+                        </div>
+                        <div class="stat-content-v2">
+                            <div class="stat-value-v2">@cyberCases</div>
+                            <div class="stat-label-v2">@LangService.T("home.cyberCases")</div>
+                        </div>
+                    </div>
+                    <div class="stat-card-v2 variant-green">
+                        <div class="stat-icon-v2">
+                            <i class="bi bi-clock-history"></i>
+                        </div>
+                        <div class="stat-content-v2">
+                            <div class="stat-value-v2">@activeCases</div>
+                            <div class="stat-label-v2">@LangService.T("home.activeCases")</div>
+                        </div>
+                    </div>
+                }
+                else if (currentUser.Role == UserRole.Lawyer)
+                {
+                    <div class="stat-card-v2">
+                        <div class="stat-icon-v2">
+                            <i class="bi bi-briefcase"></i>
+                        </div>
+                        <div class="stat-content-v2">
+                            <div class="stat-value-v2">@totalCases</div>
+                            <div class="stat-label-v2">@LangService.T("home.totalCases")</div>
+                        </div>
+                    </div>
+                    <div class="stat-card-v2 variant-purple">
+                        <div class="stat-icon-v2">
+                            <i class="bi bi-book"></i>
+                        </div>
+                        <div class="stat-content-v2">
+                            <div class="stat-value-v2">245</div>
+                            <div class="stat-label-v2">@LangService.T("home.precedents")</div>
+                        </div>
+                    </div>
+                    <div class="stat-card-v2 variant-green">
+                        <div class="stat-icon-v2">
+                            <i class="bi bi-trophy"></i>
+                        </div>
+                        <div class="stat-content-v2">
+                            <div class="stat-value-v2">87%</div>
+                            <div class="stat-label-v2">@LangService.T("home.successRate")</div>
+                        </div>
+                    </div>
+                }
+                else if (currentUser.Role == UserRole.Police)
+                {
+                    <div class="stat-card-v2">
+                        <div class="stat-icon-v2">
+                            <i class="bi bi-folder-check"></i>
+                        </div>
+                        <div class="stat-content-v2">
+                            <div class="stat-value-v2">@totalCases</div>
+                            <div class="stat-label-v2">@LangService.T("home.investigations")</div>
+                        </div>
+                    </div>
+                    <div class="stat-card-v2 variant-blue">
+                        <div class="stat-icon-v2">
+                            <i class="bi bi-shield-exclamation"></i>
+                        </div>
+                        <div class="stat-content-v2">
+                            <div class="stat-value-v2">@cyberCases</div>
+                            <div class="stat-label-v2">@LangService.T("home.cybercrimes")</div>
+                        </div>
+                    </div>
+                    <div class="stat-card-v2 variant-purple">
+                        <div class="stat-icon-v2">
+                            <i class="bi bi-hourglass-split"></i>
+                        </div>
+                        <div class="stat-content-v2">
+                            <div class="stat-value-v2">@activeCases</div>
+                            <div class="stat-label-v2">@LangService.T("home.pending")</div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions-v2">
+                <h2 class="section-title-v2">@LangService.T("home.quickActions")</h2>
+                <div class="actions-grid-v2">
+                    @if (currentUser.Role == UserRole.Citizen)
+                    {
+                        <button class="action-btn-v2 primary" @onclick="@(() => NavigateTo("/cases"))">
+                            <div class="action-icon-v2">
+                                <i class="bi bi-plus-circle"></i>
+                            </div>
+                            <span class="action-label-v2">@LangService.T("home.fileComplaint")</span>
+                        </button>
+                        <button class="action-btn-v2" @onclick="@(() => NavigateTo("/cybercrime"))">
+                            <div class="action-icon-v2">
+                                <i class="bi bi-shield-exclamation"></i>
+                            </div>
+                            <span class="action-label-v2">@LangService.T("home.reportCybercrime")</span>
+                        </button>
+                        <button class="action-btn-v2" @onclick="@(() => NavigateTo("/cases"))">
+                            <div class="action-icon-v2">
+                                <i class="bi bi-search"></i>
+                            </div>
+                            <span class="action-label-v2">@LangService.T("home.trackCases")</span>
+                        </button>
+                    }
+                    else if (currentUser.Role == UserRole.Lawyer)
+                    {
+                        <button class="action-btn-v2 primary" @onclick="@(() => NavigateTo("/cases"))">
+                            <div class="action-icon-v2">
+                                <i class="bi bi-folder-plus"></i>
+                            </div>
+                            <span class="action-label-v2">@LangService.T("home.newCase")</span>
+                        </button>
+                        <button class="action-btn-v2" @onclick="@(() => NavigateTo("/precedents"))">
+                            <div class="action-icon-v2">
+                                <i class="bi bi-search"></i>
+                            </div>
+                            <span class="action-label-v2">Search Precedents</span>
+                        </button>
+                        <button class="action-btn-v2" @onclick="@(() => NavigateTo("/database"))">
+                            <div class="action-icon-v2">
+                                <i class="bi bi-journal-text"></i>
+                            </div>
+                            <span class="action-label-v2">Legal Research</span>
+                        </button>
+                    }
+                    else if (currentUser.Role == UserRole.Police)
+                    {
+                        <button class="action-btn-v2 primary" @onclick="@(() => NavigateTo("/cases"))">
+                            <div class="action-icon-v2">
+                                <i class="bi bi-file-earmark-plus"></i>
+                            </div>
+                            <span class="action-label-v2">File FIR</span>
+                        </button>
+                        <button class="action-btn-v2" @onclick="@(() => NavigateTo("/cybercrime"))">
+                            <div class="action-icon-v2">
+                                <i class="bi bi-shield-check"></i>
+                            </div>
+                            <span class="action-label-v2">Cybercrime Tools</span>
+                        </button>
+                        <button class="action-btn-v2" @onclick="@(() => NavigateTo("/database"))">
+                            <div class="action-icon-v2">
+                                <i class="bi bi-database"></i>
+                            </div>
+                            <span class="action-label-v2">Legal Database</span>
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <!-- Recent Cases -->
+            @if (recentCases != null && recentCases.Any())
+            {
+                <div class="recent-cases-v2">
+                    <h2 class="section-title-v2">Recent Cases</h2>
+                    @foreach (var case_ in recentCases.Take(3))
+                    {
+                        <div class="case-item-v2">
+                            <div class="case-header-v2">
+                                <div>
+                                    <div class="case-number-v2">@case_.CaseNumber</div>
+                                    <h3 class="case-title-v2">@case_.Title</h3>
+                                </div>
+                                <span class="status-v2 @GetStatusClassV2(case_.Status)">@case_.Status</span>
+                            </div>
+                            <p class="case-desc-v2">@case_.Description</p>
+                            <div class="case-footer-v2">
+                                <div class="case-date-v2">
+                                    <i class="bi bi-calendar3"></i>
+                                    Filed: @case_.FiledDate.ToString("MMM dd, yyyy")
+                                </div>
+                                <button class="case-action-v2" @onclick="@(() => NavigateToCaseDetails(case_.Id))">
+                                    View Details
+                                    <i class="bi bi-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+
+            <!-- JurisAI CTA -->
+            <div class="ai-cta-v2">
+                <div class="ai-cta-icon-v2">
+                    <i class="bi bi-robot"></i>
+                </div>
+                <h2 class="ai-cta-title-v2">Need Legal Assistance?</h2>
+                <p class="ai-cta-desc-v2">
+                    Our AI-powered legal assistant is available 24/7 to help you with legal queries, case analysis, and procedural guidance.
+                </p>
+                <button class="ai-cta-btn-v2" @onclick="OpenChat">
+                    <i class="bi bi-chat-dots"></i>
+                    <span>Chat with AI Assistant</span>
+                </button>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private User? currentUser;
+    private List<Case> recentCases = new();
+    private int totalCases = 0;
+    private int cyberCases = 0;
+    private int activeCases = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        LangService.OnLanguageChanged += OnLanguageChanged;
+        currentUser = AuthService.GetCurrentUser();
+
+        if (currentUser == null)
+        {
+            NavigationManager.NavigateTo("/login", false);
+            return;
+        }
+        
+        if (currentUser != null)
+        {
+            // Get user-specific cases or all cases based on role
+            List<Case> userCases;
+            
+            if (currentUser.Role == UserRole.Citizen)
+            {
+                // Citizens see only their own cases
+                userCases = await CaseService.GetCasesByUserAsync(currentUser.Email);
+            }
+            else if (currentUser.Role == UserRole.Admin)
+            {
+                // Admin sees all cases
+                userCases = await CaseService.GetAllCasesAsync();
+            }
+            else
+            {
+                // Police and Lawyers see all cases (for now)
+                // TODO: Implement role-based filtering
+                userCases = await CaseService.GetAllCasesAsync();
+            }
+            
+            recentCases = userCases.OrderByDescending(c => c.FiledDate).Take(5).ToList();
+            
+            totalCases = userCases.Count;
+            cyberCases = userCases.Count(c => c.IsCybercrime);
+            activeCases = userCases.Count(c => c.Status == CaseStatus.Filed || 
+                                               c.Status == CaseStatus.UnderInvestigation || 
+                                               c.Status == CaseStatus.TrialInProgress);
+        }
+    }
+
+    private string GetRoleWelcomeMessage()
+    {
+        return currentUser?.Role switch
+        {
+            UserRole.Citizen => "Your one-stop platform for legal assistance and case tracking",
+            UserRole.Lawyer => "Manage cases, research precedents, and leverage AI-powered legal insights",
+            UserRole.Police => "Efficient case management and cybercrime investigation tools",
+            _ => "Welcome to JurisAI"
+        };
+    }
+
+    private string GetStatusClassV2(CaseStatus status)
+    {
+        return status switch
+        {
+            CaseStatus.Filed => "filed",
+            CaseStatus.UnderInvestigation => "investigation",
+            CaseStatus.ChargesheetFiled => "chargesheet",
+            CaseStatus.TrialInProgress => "trial",
+            CaseStatus.Closed => "closed",
+            _ => ""
+        };
+    }
+
+    private void NavigateTo(string url)
+    {
+        NavigationManager.NavigateTo(url);
+    }
+
+    private void NavigateToCaseDetails(int caseId)
+    {
+        NavigationManager.NavigateTo($"/cases/{caseId}");
+    }
+
+    private void OpenChat()
+    {
+        NavigationManager.NavigateTo("/chat");
+    }
+
+    private void OnLanguageChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        LangService.OnLanguageChanged -= OnLanguageChanged;
+    }
+}

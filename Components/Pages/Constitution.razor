@@ -1,0 +1,460 @@
+@page "/constitution"
+@page "/constitution/{ArticleNumber}"
+@rendermode InteractiveServer
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@using AILegalAsst.Components.Shared
+@inject AuthenticationService AuthService
+@inject LawbookService LawbookService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject LanguageService LangService
+@implements IDisposable
+
+<PageTitle>Constitution of India - JurisAI</PageTitle>
+
+<link rel="stylesheet" href="constitution-v2.css" />
+<link rel="stylesheet" href="constitution-enhancements.css" />
+<link rel="stylesheet" href="constitution-print.css" media="print" />
+
+<CustomErrorBoundary ShowDetails="true" ShowReportButton="true">
+<div class="constitution-page-v2">
+    <div class="constitution-container-v2">
+    @if (!AuthService.IsAuthenticated())
+    {
+        <div class="auth-required-v2">
+            <i class="bi bi-lock"></i>
+            <h2>Authentication Required</h2>
+            <p>Please log in to access the Constitution of India.</p>
+            <a href="/login" class="btn-primary-v2">
+                <i class="bi bi-box-arrow-in-right"></i> Go to Login
+            </a>
+        </div>
+        return;
+    }
+
+    @if (!string.IsNullOrEmpty(ArticleNumber) && selectedArticle != null)
+    {
+        <!-- Article Detail View -->
+        <div class="law-detail-header-v2">
+            <button class="btn-back-v2" @onclick="@(() => NavigateTo("/constitution"))">
+                <i class="bi bi-arrow-left"></i> Back to Constitution
+            </button>
+            <h2><i class="bi bi-scroll"></i> Article @selectedArticle.ArticleNumber</h2>
+            <div class="law-meta-full-v2">
+                <span><i class="bi bi-bookmark"></i> @selectedArticle.Title</span>
+                <span><i class="bi bi-folder"></i> @selectedArticle.Part</span>
+                <span><i class="bi bi-tag"></i> @selectedArticle.Category</span>
+            </div>
+        </div>
+
+        <div class="laws-split-view-v2" style="grid-template-columns: 1fr;">
+            <div class="law-detail-panel-v2">
+                <!-- Article Content -->
+                <div class="law-description-full-v2">
+                    <h3 style="color: var(--text-primary); margin-bottom: 1rem;">
+                        <i class="bi bi-file-text" style="color: var(--gold-400);"></i> Article Text
+                    </h3>
+                    <p>@selectedArticle.Content</p>
+                </div>
+
+                <!-- Short Summary -->
+                @if (!string.IsNullOrEmpty(selectedArticle.ShortText))
+                {
+                    <div class="section-card-detail-v2">
+                        <span class="section-number-v2">Summary</span>
+                        <p>@selectedArticle.ShortText</p>
+                    </div>
+                }
+
+                <!-- Notes -->
+                @if (!string.IsNullOrEmpty(selectedArticle.Notes))
+                {
+                    <div class="section-card-detail-v2">
+                        <span class="section-number-v2">Notes</span>
+                        <p>@selectedArticle.Notes</p>
+                    </div>
+                }
+
+                <!-- Applicability -->
+                @if (!string.IsNullOrEmpty(selectedArticle.AppliesTo))
+                {
+                    <div class="section-card-detail-v2">
+                        <span class="section-number-v2">Applies To</span>
+                        <p>@selectedArticle.AppliesTo</p>
+                    </div>
+                }
+
+                <!-- Source -->
+                @if (!string.IsNullOrEmpty(selectedArticle.Source))
+                {
+                    <div class="section-card-detail-v2">
+                        <span class="section-number-v2">Source</span>
+                        <p>@selectedArticle.Source</p>
+                    </div>
+                }
+
+                <!-- Actions -->
+                <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem; flex-wrap: wrap;">
+                    <button class="btn-primary-v2" @onclick="PrintArticle">
+                        <i class="bi bi-printer"></i> Print
+                    </button>
+                    <button class="filter-btn-v2" @onclick="@(() => NavigateTo("/constitution"))">
+                        <i class="bi bi-list"></i> View All Articles
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Articles List View -->
+        <div class="page-header-v2">
+            <div class="header-content-v2">
+                <h1><i class="bi bi-scroll"></i> @GetPageTitle()</h1>
+                <p class="header-subtitle-v2">Enacted January 26, 1950 · The supreme law of India</p>
+            </div>
+        </div>
+
+        <!-- Search Section -->
+        <div class="search-section-v2">
+            <div class="search-container-v2">
+                <i class="bi bi-search"></i>
+                <input type="text"
+                       class="search-input-v2"
+                       placeholder="Search articles by title, content, or article number..."
+                       @bind="searchQuery"
+                       @bind:event="oninput"
+                       @onkeyup="SearchArticles"
+                       aria-label="Search articles" />
+                @if (!string.IsNullOrEmpty(searchQuery))
+                {
+                    <button class="search-clear-v2" @onclick="ClearSearch">✕</button>
+                }
+            </div>
+            <div class="filter-options-v2">
+                <button class="filter-btn-v2 @(filterCategory == "all" ? "active" : "")"
+                        @onclick='@(() => SetFilter("all"))'>
+                    <i class="bi bi-grid"></i> All
+                </button>
+                <button class="filter-btn-v2 @(filterCategory == "Fundamental Rights" ? "active" : "")"
+                        @onclick='@(() => SetFilter("Fundamental Rights"))'>
+                    <i class="bi bi-shield-check"></i> Fundamental Rights
+                </button>
+                <button class="filter-btn-v2 @(filterCategory == "Directive Principles" ? "active" : "")"
+                        @onclick='@(() => SetFilter("Directive Principles"))'>
+                    <i class="bi bi-compass"></i> Directive Principles
+                </button>
+                <button class="filter-btn-v2 @(filterCategory == "Fundamental Duties" ? "active" : "")"
+                        @onclick='@(() => SetFilter("Fundamental Duties"))'>
+                    <i class="bi bi-flag"></i> Fundamental Duties
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab Navigation for Parts -->
+        <div class="law-tabs-v2">
+            <button class="tab-btn-v2 @(activePart == "all" ? "active" : "")"
+                    @onclick='@(() => SetPart("all"))'>
+                <i class="bi bi-book"></i> All Parts
+            </button>
+            <button class="tab-btn-v2 @(activePart == "III" ? "active" : "")"
+                    @onclick='@(() => SetPart("III"))'>
+                <i class="bi bi-shield-check"></i> Part III
+            </button>
+            <button class="tab-btn-v2 @(activePart == "IV" ? "active" : "")"
+                    @onclick='@(() => SetPart("IV"))'>
+                <i class="bi bi-compass"></i> Part IV
+            </button>
+            <button class="tab-btn-v2 @(activePart == "IVA" ? "active" : "")"
+                    @onclick='@(() => SetPart("IVA"))'>
+                <i class="bi bi-flag"></i> Part IVA
+            </button>
+        </div>
+
+        <!-- Results Count -->
+        @if (!isLoading)
+        {
+            <div style="margin-bottom: 1rem; font-size: 0.9rem; color: var(--text-secondary);" role="status" aria-live="polite">
+                Found <strong style="color: var(--gold-400);">@filteredArticles.Count</strong> article(s)
+            </div>
+        }
+
+        <!-- Loading State -->
+        @if (isLoading)
+        {
+            <div class="loading-state-v2">
+                <div class="spinner-v2"></div>
+                <p>Loading Constitution articles...</p>
+            </div>
+        }
+        else if (!filteredArticles.Any())
+        {
+            <div class="empty-state-v2">
+                <i class="bi bi-inbox"></i>
+                <h3>No articles found</h3>
+                <p>Try adjusting your search or filter criteria</p>
+            </div>
+        }
+        else
+        {
+            <!-- Split View: List + Detail -->
+            <div class="laws-split-view-v2">
+                <!-- Left: Article List -->
+                <div class="laws-list-panel-v2" role="list" aria-label="Constitution articles list">
+                    @foreach (var article in filteredArticles)
+                    {
+                        <div class="law-list-card-v2 @(previewArticle?.ArticleNumber == article.ArticleNumber ? "selected" : "")"
+                             @onclick="@(() => SelectPreview(article))"
+                             tabindex="0"
+                             role="listitem"
+                             aria-label="Article @article.ArticleNumber: @article.Title"
+                             @onkeydown="@(e => HandleKeyPress(e, () => SelectPreview(article)))">
+                            <div class="law-title-v2">
+                                <i class="bi bi-bookmark-fill"></i>
+                                <span>Art. @article.ArticleNumber — @article.Title</span>
+                            </div>
+                            <p class="law-meta-short-v2">
+                                <span><i class="bi bi-folder"></i> @article.Part</span> ·
+                                <span>@article.Category</span>
+                            </p>
+                            @if (!string.IsNullOrEmpty(article.Category) && article.Category == "Fundamental Rights")
+                            {
+                                <span class="law-badge-v2">
+                                    <i class="bi bi-shield-check"></i> Fundamental Right
+                                </span>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <!-- Right: Article Detail Preview -->
+                <div class="law-detail-panel-v2">
+                    @if (previewArticle != null)
+                    {
+                        <div class="law-detail-header-v2">
+                            <h2><i class="bi bi-scroll"></i> Article @previewArticle.ArticleNumber</h2>
+                            <div class="law-meta-full-v2">
+                                <span><i class="bi bi-bookmark"></i> @previewArticle.Title</span>
+                                <span><i class="bi bi-folder"></i> Part @previewArticle.Part</span>
+                                <span><i class="bi bi-tag"></i> @previewArticle.Category</span>
+                                @if (!string.IsNullOrEmpty(previewArticle.AppliesTo))
+                                {
+                                    <span><i class="bi bi-people"></i> @previewArticle.AppliesTo</span>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="law-description-full-v2">
+                            <p>@previewArticle.Content</p>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(previewArticle.ShortText))
+                        {
+                            <div class="sections-grid-v2">
+                                <div class="section-card-detail-v2">
+                                    <span class="section-number-v2">Summary</span>
+                                    <p>@previewArticle.ShortText</p>
+                                </div>
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(previewArticle.Notes))
+                        {
+                            <div class="sections-grid-v2">
+                                <div class="section-card-detail-v2">
+                                    <span class="section-number-v2">Notes</span>
+                                    <p>@previewArticle.Notes</p>
+                                </div>
+                            </div>
+                        }
+
+                        <div style="margin-top: 1.5rem;">
+                            <button class="btn-primary-v2" @onclick="@(() => ViewArticleDetail(previewArticle.ArticleNumber))">
+                                <i class="bi bi-arrow-up-right-square"></i> View Full Article
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="empty-detail-panel-v2">
+                            <i class="bi bi-scroll"></i>
+                            <h3>Select an Article</h3>
+                            <p>Click on any article from the list to view its details here</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+    </div>
+</div>
+</CustomErrorBoundary>
+
+@code {
+    [Parameter]
+    public string? ArticleNumber { get; set; }
+
+    private User? currentUser;
+    private List<ConstitutionArticle> allArticles = new();
+    private List<ConstitutionArticle> filteredArticles = new();
+    private ConstitutionArticle? selectedArticle;
+    private ConstitutionArticle? previewArticle;
+
+    private bool isLoading = true;
+    private string searchQuery = "";
+    private string filterCategory = "all";
+    private string activePart = "all";
+
+    protected override async Task OnInitializedAsync()
+    {
+        LangService.OnLanguageChanged += OnLanguageChanged;
+
+        currentUser = AuthService.GetCurrentUser();
+
+        if (currentUser == null)
+        {
+            NavigationManager.NavigateTo("/login", true);
+            return;
+        }
+
+        await LoadArticles();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrEmpty(ArticleNumber))
+        {
+            await LoadArticleDetail(ArticleNumber);
+        }
+        else
+        {
+            selectedArticle = null;
+        }
+    }
+
+    private async Task LoadArticles()
+    {
+        isLoading = true;
+        allArticles = await LawbookService.GetConstitutionArticlesAsync();
+        ApplyFilters();
+        isLoading = false;
+    }
+
+    private async Task LoadArticleDetail(string articleNumber)
+    {
+        var articles = await LawbookService.GetConstitutionArticlesAsync();
+        selectedArticle = articles.FirstOrDefault(a =>
+            a.ArticleNumber?.Equals(articleNumber, StringComparison.OrdinalIgnoreCase) == true);
+
+        if (selectedArticle == null)
+        {
+            NavigationManager.NavigateTo("/constitution");
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        filteredArticles = allArticles;
+
+        if (!string.IsNullOrWhiteSpace(searchQuery))
+        {
+            filteredArticles = filteredArticles.Where(a =>
+                (a.Title?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (a.Content?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (a.ArticleNumber?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (a.ShortText?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (a.Notes?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false)
+            ).ToList();
+        }
+
+        if (filterCategory != "all")
+        {
+            filteredArticles = filteredArticles.Where(a =>
+                a.Category?.Equals(filterCategory, StringComparison.OrdinalIgnoreCase) == true
+            ).ToList();
+        }
+
+        if (activePart != "all")
+        {
+            filteredArticles = filteredArticles.Where(a =>
+                a.Part?.Equals(activePart, StringComparison.OrdinalIgnoreCase) == true
+            ).ToList();
+        }
+    }
+
+    private void SearchArticles()
+    {
+        ApplyFilters();
+    }
+
+    private void ClearSearch()
+    {
+        searchQuery = "";
+        ApplyFilters();
+    }
+
+    private void SetFilter(string category)
+    {
+        filterCategory = category;
+        ApplyFilters();
+    }
+
+    private void SetPart(string part)
+    {
+        activePart = part;
+        ApplyFilters();
+    }
+
+    private void SelectPreview(ConstitutionArticle article)
+    {
+        previewArticle = article;
+    }
+
+    private void ViewArticleDetail(string? articleNumber)
+    {
+        if (!string.IsNullOrEmpty(articleNumber))
+        {
+            NavigationManager.NavigateTo($"/constitution/{Uri.EscapeDataString(articleNumber)}");
+        }
+    }
+
+    private void NavigateTo(string url)
+    {
+        NavigationManager.NavigateTo(url);
+    }
+
+    private string GetPageTitle()
+    {
+        return currentUser?.Role switch
+        {
+            UserRole.Lawyer => "Constitution of India — Legal Reference",
+            UserRole.Police => "Constitutional Provisions",
+            UserRole.Citizen => "Know Your Constitutional Rights",
+            _ => "Constitution of India"
+        };
+    }
+
+    private async Task PrintArticle()
+    {
+        await JSRuntime.InvokeVoidAsync("window.print");
+    }
+
+    private void HandleKeyPress(KeyboardEventArgs e, Action action)
+    {
+        if (e.Key == "Enter" || e.Key == " ")
+        {
+            action.Invoke();
+        }
+    }
+
+    private void OnLanguageChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        LangService.OnLanguageChanged -= OnLanguageChanged;
+    }
+}

@@ -1,0 +1,377 @@
+@using Microsoft.JSInterop
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@inject IJSRuntime JS
+@inject AzureMapsService MapsService
+
+<div class="azure-map-container">
+    <div id="@MapId" class="azure-map" style="height: @Height; width: 100%;"></div>
+    
+    @if (ShowControls)
+    {
+        <div class="map-controls">
+            <button class="btn btn-sm btn-light" @onclick="ZoomIn" title="Zoom In">
+                <i class="bi bi-plus-lg"></i>
+            </button>
+            <button class="btn btn-sm btn-light" @onclick="ZoomOut" title="Zoom Out">
+                <i class="bi bi-dash-lg"></i>
+            </button>
+            <button class="btn btn-sm btn-light" @onclick="ResetView" title="Reset View">
+                <i class="bi bi-house"></i>
+            </button>
+            @if (AllowCurrentLocation)
+            {
+                <button class="btn btn-sm btn-light" @onclick="ShowCurrentLocation" title="My Location">
+                    <i class="bi bi-geo-alt-fill"></i>
+                </button>
+            }
+        </div>
+    }
+
+    @if (ShowStyleSelector)
+    {
+        <div class="map-style-selector">
+            <select class="form-select form-select-sm" @onchange="OnStyleChanged">
+                <option value="road" selected>Road</option>
+                <option value="satellite">Satellite</option>
+                <option value="grayscale_dark">Dark</option>
+                <option value="night">Night</option>
+            </select>
+        </div>
+    }
+
+    @if (ShowLoadingOverlay && isLoading)
+    {
+        <div class="map-loading-overlay">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading map...</span>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string MapId { get; set; } = $"azmap-{Guid.NewGuid():N}";
+    [Parameter] public string Height { get; set; } = "500px";
+    [Parameter] public double? InitialLatitude { get; set; }
+    [Parameter] public double? InitialLongitude { get; set; }
+    [Parameter] public int InitialZoom { get; set; } = 12;
+    [Parameter] public bool ShowControls { get; set; } = true;
+    [Parameter] public bool ShowStyleSelector { get; set; } = true;
+    [Parameter] public bool AllowCurrentLocation { get; set; } = true;
+    [Parameter] public bool ShowLoadingOverlay { get; set; } = true;
+    [Parameter] public EventCallback<(double Latitude, double Longitude)> OnLocationSelected { get; set; }
+    [Parameter] public EventCallback<LocationData> OnMarkerClicked { get; set; }
+
+    private bool isLoading = true;
+    private double currentLat;
+    private double currentLng;
+    private int currentZoom;
+    private DotNetObjectReference<AzureMapViewer>? dotNetRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await InitializeMapAsync();
+        }
+    }
+
+    private async Task InitializeMapAsync()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // Get default center or use provided coordinates
+            var (defaultLat, defaultLng) = MapsService.GetDefaultCenter();
+            currentLat = InitialLatitude ?? defaultLat;
+            currentLng = InitialLongitude ?? defaultLng;
+            currentZoom = InitialZoom > 0 ? InitialZoom : MapsService.GetDefaultZoom();
+
+            var subscriptionKey = MapsService.GetSubscriptionKey();
+
+            // Initialize map via JavaScript
+            await JS.InvokeVoidAsync("initializeAzureMap", 
+                MapId, 
+                subscriptionKey, 
+                currentLat, 
+                currentLng, 
+                currentZoom);
+
+            Console.WriteLine($"[AzureMapViewer] Map initialized: {MapId}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AzureMapViewer] Error initializing map: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Add a single marker to the map
+    /// </summary>
+    public async Task AddMarkerAsync(LocationData location, string? customTitle = null, string color = "red")
+    {
+        try
+        {
+            var title = customTitle ?? location.Address;
+            var description = $"{location.City}, {location.State}";
+
+            await JS.InvokeVoidAsync("addMarker", 
+                location.Latitude, 
+                location.Longitude, 
+                title, 
+                description, 
+                color);
+
+            Console.WriteLine($"[AzureMapViewer] Marker added: {title}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AzureMapViewer] Error adding marker: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Add multiple markers at once
+    /// </summary>
+    public async Task AddMarkersAsync(List<LocationData> locations, Func<LocationData, string>? colorSelector = null)
+    {
+        try
+        {
+            foreach (var location in locations)
+            {
+                var color = colorSelector?.Invoke(location) ?? "red";
+                await AddMarkerAsync(location, null, color);
+            }
+
+            // Fit map to show all markers
+            await JS.InvokeVoidAsync("fitMapToMarkers");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AzureMapViewer] Error adding markers: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Clear all markers from the map
+    /// </summary>
+    public async Task ClearMarkersAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("clearMarkers");
+            Console.WriteLine($"[AzureMapViewer] Markers cleared");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AzureMapViewer] Error clearing markers: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Draw a route on the map
+    /// </summary>
+    public async Task DrawRouteAsync(GeoRoute route, string color = "#2272B9")
+    {
+        try
+        {
+            var coordinates = new List<double[]>
+            {
+                new[] { route.Origin.Longitude, route.Origin.Latitude }
+            };
+
+            foreach (var waypoint in route.Waypoints)
+            {
+                coordinates.Add(new[] { waypoint.Longitude, waypoint.Latitude });
+            }
+
+            coordinates.Add(new[] { route.Destination.Longitude, route.Destination.Latitude });
+
+            await JS.InvokeVoidAsync("drawRoute", coordinates, color, 5);
+            Console.WriteLine($"[AzureMapViewer] Route drawn: {route.TotalDistanceKm:F2} km");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AzureMapViewer] Error drawing route: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Center map on specific coordinates
+    /// </summary>
+    public async Task CenterMapAsync(double latitude, double longitude, int? zoom = null)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("centerMap", latitude, longitude, zoom ?? currentZoom);
+            currentLat = latitude;
+            currentLng = longitude;
+            if (zoom.HasValue) currentZoom = zoom.Value;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AzureMapViewer] Error centering map: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Display heatmap for crime hotspots
+    /// </summary>
+    public async Task ShowHeatmapAsync(List<CrimeHotspot> hotspots)
+    {
+        try
+        {
+            var points = hotspots.Select(h => new
+            {
+                lat = h.Center.Latitude,
+                lng = h.Center.Longitude,
+                weight = h.DensityScore
+            }).ToArray();
+
+            await JS.InvokeVoidAsync("addHeatmapLayer", points);
+            Console.WriteLine($"[AzureMapViewer] Heatmap displayed with {hotspots.Count} points");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AzureMapViewer] Error showing heatmap: {ex.Message}");
+        }
+    }
+
+    private async Task ZoomIn()
+    {
+        currentZoom = Math.Min(currentZoom + 1, 20);
+        await CenterMapAsync(currentLat, currentLng, currentZoom);
+    }
+
+    private async Task ZoomOut()
+    {
+        currentZoom = Math.Max(currentZoom - 1, 1);
+        await CenterMapAsync(currentLat, currentLng, currentZoom);
+    }
+
+    private async Task ResetView()
+    {
+        var (defaultLat, defaultLng) = MapsService.GetDefaultCenter();
+        currentLat = defaultLat;
+        currentLng = defaultLng;
+        currentZoom = MapsService.GetDefaultZoom();
+        await CenterMapAsync(currentLat, currentLng, currentZoom);
+    }
+
+    private async Task ShowCurrentLocation()
+    {
+        try
+        {
+            dotNetRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("getCurrentLocation", dotNetRef);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AzureMapViewer] Error getting current location: {ex.Message}");
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnLocationReceived(LocationResult location)
+    {
+        Console.WriteLine($"[AzureMapViewer] Current location: {location.Latitude}, {location.Longitude}");
+        await CenterMapAsync(location.Latitude, location.Longitude, 15);
+        
+        // Add marker at current location
+        var currentLocation = new LocationData
+        {
+            Latitude = location.Latitude,
+            Longitude = location.Longitude,
+            Address = "Your Current Location",
+            AccuracyMeters = location.Accuracy
+        };
+        await AddMarkerAsync(currentLocation, "📍 You are here", "blue");
+    }
+
+    [JSInvokable]
+    public void OnLocationError(string error)
+    {
+        Console.WriteLine($"[AzureMapViewer] Location error: {error}");
+    }
+
+    private async Task OnStyleChanged(ChangeEventArgs e)
+    {
+        var style = e.Value?.ToString() ?? "road";
+        await JS.InvokeVoidAsync("changeMapStyle", style);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        dotNetRef?.Dispose();
+    }
+
+    public class LocationResult
+    {
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+        public double Accuracy { get; set; }
+    }
+}
+
+<style>
+    .azure-map-container {
+        position: relative;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .azure-map {
+        border-radius: 8px;
+    }
+
+    .map-controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        z-index: 1000;
+    }
+
+    .map-controls .btn {
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        border-radius: 50%;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+
+    .map-style-selector {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 1000;
+    }
+
+    .map-style-selector select {
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+
+    .map-loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+    }
+</style>

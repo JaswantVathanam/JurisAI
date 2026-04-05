@@ -1,0 +1,782 @@
+@page "/evidence-custody"
+@rendermode InteractiveServer
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@using AILegalAsst.Components.Shared
+@inject EvidenceCustodyService EvidenceService
+@inject AzureMapsService MapsService
+@inject IJSRuntime JS
+
+<PageTitle>Evidence Custody Chain - JurisAI</PageTitle>
+
+<link href="evidence-custody.css" rel="stylesheet" />
+
+<div class="evidence-container">
+    <!-- Header Section -->
+    <div class="page-header">
+        <div class="header-content">
+            <div class="header-icon">
+                <i class="bi bi-shield-lock"></i>
+            </div>
+            <div class="header-text">
+                <h1>Evidence Chain of Custody</h1>
+                <p>Blockchain-Style Tamper-Proof Evidence Tracking for Court Admissibility</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="btn-glass btn-primary" @onclick="ShowRegisterModal">
+                <i class="bi bi-plus-circle"></i> Register Evidence
+            </button>
+            <button class="btn-glass" @onclick="VerifyAllEvidence">
+                <i class="bi bi-patch-check"></i> Verify All
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon blue">
+                <i class="bi bi-archive"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value">@statistics.TotalEvidence</span>
+                <span class="stat-label">Total Evidence</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon green">
+                <i class="bi bi-patch-check"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value">@statistics.VerifiedCount</span>
+                <span class="stat-label">Verified</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon orange">
+                <i class="bi bi-hourglass-split"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value">@statistics.UnderAnalysis</span>
+                <span class="stat-label">Under Analysis</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon purple">
+                <i class="bi bi-building"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value">@statistics.CourtSubmitted</span>
+                <span class="stat-label">Court Submitted</span>
+            </div>
+        </div>
+        <div class="stat-card integrity-card">
+            <div class="stat-icon @(statistics.ChainIntegrityRate >= 100 ? "green" : "red")">
+                <i class="bi bi-link-45deg"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value">@statistics.ChainIntegrityRate.ToString("F1")%</span>
+                <span class="stat-label">Chain Integrity</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content-grid">
+        <!-- Evidence List -->
+        <div class="glass-panel evidence-list">
+            <div class="panel-header">
+                <h3><i class="bi bi-list-ul"></i> Evidence Items</h3>
+                <div class="filter-controls">
+                    <select @bind="filterType" class="filter-select">
+                        <option value="">All Types</option>
+                        @foreach (var type in Enum.GetValues<EvidenceType>())
+                        {
+                            <option value="@type">@type.ToString().Replace("_", " ")</option>
+                        }
+                    </select>
+                    <div class="search-box">
+                        <i class="bi bi-search"></i>
+                        <input type="text" placeholder="Search..." @bind="searchQuery" @bind:event="oninput" />
+                    </div>
+                </div>
+            </div>
+            <div class="panel-content">
+                @if (filteredEvidence.Any())
+                {
+                    @foreach (var evidence in filteredEvidence)
+                    {
+                        <div class="evidence-card @(selectedEvidence?.Id == evidence.Id ? "selected" : "") @(evidence.Status == EvidenceStatus.Tampered ? "tampered" : "")"
+                             @onclick="() => SelectEvidence(evidence)">
+                            <div class="evidence-header">
+                                <div class="evidence-type-icon">
+                                    <i class="bi @GetEvidenceTypeIcon(evidence.Type)"></i>
+                                </div>
+                                <div class="evidence-title-info">
+                                    <span class="evidence-number">@evidence.EvidenceNumber</span>
+                                    <span class="evidence-title">@evidence.Title</span>
+                                </div>
+                                <span class="status-badge @GetStatusClass(evidence.Status)">
+                                    @evidence.Status.ToString().Replace("_", " ")
+                                </span>
+                            </div>
+                            <div class="evidence-meta">
+                                <span><i class="bi bi-folder2"></i> @evidence.CaseId</span>
+                                <span><i class="bi bi-calendar3"></i> @evidence.CollectedAt.ToString("dd MMM yyyy")</span>
+                            </div>
+                            <div class="evidence-footer">
+                                <div class="integrity-status">
+                                    @if (evidence.ChainIntegrity)
+                                    {
+                                        <i class="bi bi-check-circle-fill text-success"></i>
+                                        <span>Chain Intact</span>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-exclamation-triangle-fill text-danger"></i>
+                                        <span>Chain Broken</span>
+                                    }
+                                </div>
+                                <span class="transfers">@evidence.TotalCustodyTransfers transfers</span>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <i class="bi bi-archive"></i>
+                        <p>No evidence items found</p>
+                        <button class="btn-glass btn-primary" @onclick="ShowRegisterModal">Register Evidence</button>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Evidence Details -->
+        <div class="glass-panel evidence-details">
+            @if (selectedEvidence != null)
+            {
+                <div class="panel-header">
+                    <h3><i class="bi bi-file-earmark-lock"></i> Evidence Details</h3>
+                    <div class="header-actions">
+                        <button class="btn-icon" title="Verify Integrity" @onclick="() => VerifyEvidence(selectedEvidence.Id)">
+                            <i class="bi bi-shield-check"></i>
+                        </button>
+                        <button class="btn-icon" title="Add Custody Log" @onclick="ShowCustodyModal">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                        <button class="btn-icon" title="Export Chain" @onclick="ExportChain">
+                            <i class="bi bi-download"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="panel-content">
+                    <!-- Evidence Info Card -->
+                    <div class="info-card">
+                        <div class="info-header">
+                            <div class="type-badge @GetTypeClass(selectedEvidence.Type)">
+                                <i class="bi @GetEvidenceTypeIcon(selectedEvidence.Type)"></i>
+                                @selectedEvidence.Type.ToString().Replace("_", " ")
+                            </div>
+                            @if (selectedEvidence.IsCourtSubmitted)
+                            {
+                                <span class="court-badge"><i class="bi bi-building"></i> Court Submitted</span>
+                            }
+                        </div>
+                        <h4>@selectedEvidence.Title</h4>
+                        <p class="description">@selectedEvidence.Description</p>
+
+                        <div class="details-grid">
+                            <div class="detail-item">
+                                <span class="label">Evidence Number</span>
+                                <span class="value">@selectedEvidence.EvidenceNumber</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Case ID</span>
+                                <span class="value">@selectedEvidence.CaseId</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">File Name</span>
+                                <span class="value">@selectedEvidence.FileName</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">File Size</span>
+                                <span class="value">@FormatFileSize(selectedEvidence.FileSize)</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Collected By</span>
+                                <span class="value">@selectedEvidence.CollectedBy</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Collection Date</span>
+                                <span class="value">@selectedEvidence.CollectedAt.ToString("dd MMM yyyy HH:mm")</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Collection Location</span>
+                                <span class="value">@selectedEvidence.CollectionLocation</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Storage Location</span>
+                                <span class="value">@selectedEvidence.StorageLocation</span>
+                            </div>
+                            @if (!string.IsNullOrEmpty(selectedEvidence.WitnessName))
+                            {
+                                <div class="detail-item">
+                                    <span class="label">Witness</span>
+                                    <span class="value">@selectedEvidence.WitnessName</span>
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(selectedEvidence.SeizureMemoNumber))
+                            {
+                                <div class="detail-item">
+                                    <span class="label">Seizure Memo</span>
+                                    <span class="value">@selectedEvidence.SeizureMemoNumber</span>
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Hash Information -->
+                        <div class="hash-section">
+                            <h5><i class="bi bi-fingerprint"></i> Digital Fingerprint</h5>
+                            <div class="hash-item">
+                                <span class="hash-label">SHA-256</span>
+                                <code class="hash-value">@selectedEvidence.SHA256Hash</code>
+                                <button class="btn-copy" @onclick="() => CopyToClipboard(selectedEvidence.SHA256Hash)">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                            <div class="hash-item">
+                                <span class="hash-label">MD5</span>
+                                <code class="hash-value">@selectedEvidence.MD5Hash</code>
+                                <button class="btn-copy" @onclick="() => CopyToClipboard(selectedEvidence.MD5Hash)">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                            @if (selectedEvidence.LastVerifiedAt.HasValue)
+                            {
+                                <div class="last-verified">
+                                    <i class="bi bi-clock-history"></i>
+                                    Last verified: @selectedEvidence.LastVerifiedAt.Value.ToString("dd MMM yyyy HH:mm")
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Tags -->
+                        @if (selectedEvidence.Tags?.Any() == true)
+                        {
+                            <div class="tags-section">
+                                @foreach (var tag in selectedEvidence.Tags)
+                                {
+                                    <span class="tag">@tag</span>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Chain of Custody -->
+                    <div class="chain-section">
+                        <h4><i class="bi bi-link-45deg"></i> Chain of Custody</h4>
+                        <div class="custody-chain">
+                            @foreach (var log in custodyLogs)
+                            {
+                                <div class="chain-block">
+                                    <div class="block-connector">
+                                        <div class="connector-line"></div>
+                                        <div class="block-icon @GetActionClass(log.Action)">
+                                            <i class="bi @GetActionIcon(log.Action)"></i>
+                                        </div>
+                                    </div>
+                                    <div class="block-content">
+                                        <div class="block-header">
+                                            <span class="action-name">@log.Action.ToString().Replace("_", " ")</span>
+                                            <span class="block-time">@log.DateTime.ToString("dd MMM yyyy HH:mm")</span>
+                                        </div>
+                                        <div class="block-details">
+                                            <div class="transfer-info">
+                                                <span class="from">
+                                                    <i class="bi bi-person"></i> @log.FromPerson
+                                                </span>
+                                                <i class="bi bi-arrow-right"></i>
+                                                <span class="to">
+                                                    <i class="bi bi-person-check"></i> @log.ToPerson
+                                                </span>
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(log.FromLocation) && log.FromLocation != log.ToLocation)
+                                            {
+                                                <div class="location-info">
+                                                    <i class="bi bi-geo-alt"></i>
+                                                    @log.FromLocation → @log.ToLocation
+                                                </div>
+                                            }
+                                            @if (!string.IsNullOrEmpty(log.Notes))
+                                            {
+                                                <p class="block-notes">@log.Notes</p>
+                                            }
+                                            @if (!string.IsNullOrEmpty(log.WitnessName))
+                                            {
+                                                <div class="witness-info">
+                                                    <i class="bi bi-eye"></i> Witness: @log.WitnessName
+                                                </div>
+                                            }
+                                        </div>
+                                        <div class="block-hash">
+                                            <span class="hash-label">Block Hash:</span>
+                                            <code>@log.BlockHash.Substring(0, 16)...</code>
+                                            <span class="verified-badge">
+                                                <i class="bi bi-patch-check-fill"></i> Verified
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Evidence Location Map -->
+                    <div class="map-section">
+                        <div class="map-header">
+                            <h4><i class="bi bi-geo-alt-fill"></i> Evidence Location Map</h4>
+                            <button class="btn-glass btn-sm" @onclick="ShowEvidenceLocationsOnMap">
+                                <i class="bi bi-arrow-repeat"></i> Refresh Map
+                            </button>
+                        </div>
+                        <AzureMapViewer @ref="evidenceMapViewer"
+                                        Height="350px"
+                                        ShowControls="true"
+                                        ShowStyleSelector="true" />
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="empty-state">
+                    <i class="bi bi-shield-lock"></i>
+                    <h3>Select Evidence</h3>
+                    <p>Choose an evidence item to view its chain of custody and verification details</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Register Evidence Modal -->
+@if (showRegisterModal)
+{
+    <div class="modal-overlay" @onclick="CloseRegisterModal">
+        <div class="modal-content large" @onclick:stopPropagation>
+            <div class="modal-header">
+                <h3><i class="bi bi-plus-circle"></i> Register New Evidence</h3>
+                <button class="btn-close" @onclick="CloseRegisterModal">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Case ID *</label>
+                        <input type="text" @bind="newEvidence.CaseId" placeholder="e.g., FIR-2024-1234" />
+                    </div>
+                    <div class="form-group">
+                        <label>Evidence Type *</label>
+                        <select @bind="newEvidence.Type">
+                            @foreach (var type in Enum.GetValues<EvidenceType>())
+                            {
+                                <option value="@type">@type.ToString().Replace("_", " ")</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Title *</label>
+                    <input type="text" @bind="newEvidence.Title" placeholder="Evidence title" />
+                </div>
+                <div class="form-group">
+                    <label>Description *</label>
+                    <textarea @bind="newEvidence.Description" rows="3" placeholder="Detailed description of the evidence"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Collected By *</label>
+                        <input type="text" @bind="newEvidence.CollectedBy" placeholder="Officer name and designation" />
+                    </div>
+                    <div class="form-group">
+                        <label>Collection Location *</label>
+                        <input type="text" @bind="newEvidence.CollectionLocation" placeholder="Where evidence was collected" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Witness Name</label>
+                        <input type="text" @bind="newEvidence.WitnessName" placeholder="Panch witness name" />
+                    </div>
+                    <div class="form-group">
+                        <label>Seizure Memo Number</label>
+                        <input type="text" @bind="newEvidence.SeizureMemoNumber" placeholder="SM/XXXX/2024/XXX" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Evidence File</label>
+                    <div class="file-upload-area">
+                        <i class="bi bi-cloud-upload"></i>
+                        <p>Drag & drop file here or click to browse</p>
+                        <small>Hash will be calculated automatically for integrity verification</small>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Tags (comma separated)</label>
+                    <input type="text" @bind="tagInput" placeholder="e.g., Financial, Bank, Digital" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-glass" @onclick="CloseRegisterModal">Cancel</button>
+                <button class="btn-glass btn-primary" @onclick="RegisterEvidence">
+                    <i class="bi bi-shield-plus"></i> Register Evidence
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Add Custody Log Modal -->
+@if (showCustodyModal)
+{
+    <div class="modal-overlay" @onclick="CloseCustodyModal">
+        <div class="modal-content" @onclick:stopPropagation>
+            <div class="modal-header">
+                <h3><i class="bi bi-plus-lg"></i> Add Custody Log</h3>
+                <button class="btn-close" @onclick="CloseCustodyModal">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Action *</label>
+                    <select @bind="custodyAction">
+                        @foreach (var action in Enum.GetValues<CustodyAction>())
+                        {
+                            <option value="@action">@action.ToString().Replace("_", " ")</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>From Person *</label>
+                        <input type="text" @bind="custodyFromPerson" />
+                    </div>
+                    <div class="form-group">
+                        <label>To Person *</label>
+                        <input type="text" @bind="custodyToPerson" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>From Location</label>
+                        <input type="text" @bind="custodyFromLocation" />
+                    </div>
+                    <div class="form-group">
+                        <label>To Location</label>
+                        <input type="text" @bind="custodyToLocation" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea @bind="custodyNotes" rows="3" placeholder="Additional notes"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Witness Name (if applicable)</label>
+                    <input type="text" @bind="custodyWitness" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-glass" @onclick="CloseCustodyModal">Cancel</button>
+                <button class="btn-glass btn-primary" @onclick="AddCustodyLog">
+                    <i class="bi bi-link-45deg"></i> Add to Chain
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<EvidenceItem> evidenceItems = new();
+    private List<CustodyLog> custodyLogs = new();
+    private EvidenceStatistics statistics = new();
+    private EvidenceItem? selectedEvidence;
+    private string searchQuery = "";
+    private string filterType = "";
+    private bool showRegisterModal = false;
+    private bool showCustodyModal = false;
+    private AzureMapViewer? evidenceMapViewer;
+
+    // New evidence form
+    private EvidenceItem newEvidence = new();
+    private string tagInput = "";
+
+    // Custody log form
+    private CustodyAction custodyAction = CustodyAction.TransferredOut;
+    private string custodyFromPerson = "";
+    private string custodyToPerson = "";
+    private string custodyFromLocation = "";
+    private string custodyToLocation = "";
+    private string custodyNotes = "";
+    private string custodyWitness = "";
+
+    private IEnumerable<EvidenceItem> filteredEvidence
+    {
+        get
+        {
+            var filtered = evidenceItems.AsEnumerable();
+            if (!string.IsNullOrEmpty(filterType) && Enum.TryParse<EvidenceType>(filterType, out var type))
+                filtered = filtered.Where(e => e.Type == type);
+            if (!string.IsNullOrWhiteSpace(searchQuery))
+                filtered = filtered.Where(e =>
+                    e.Title.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                    e.EvidenceNumber.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                    e.CaseId.Contains(searchQuery, StringComparison.OrdinalIgnoreCase));
+            return filtered;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshData();
+    }
+
+    private async Task RefreshData()
+    {
+        evidenceItems = await EvidenceService.GetAllEvidenceAsync();
+        statistics = await EvidenceService.GetStatisticsAsync();
+        if (selectedEvidence != null)
+        {
+            custodyLogs = await EvidenceService.GetCustodyLogsAsync(selectedEvidence.Id);
+        }
+    }
+
+    private async Task SelectEvidence(EvidenceItem evidence)
+    {
+        selectedEvidence = evidence;
+        custodyLogs = await EvidenceService.GetCustodyLogsAsync(evidence.Id);
+        await ShowEvidenceLocationsOnMap();
+    }
+
+    private async Task VerifyEvidence(string id)
+    {
+        var result = await EvidenceService.VerifyEvidenceIntegrityAsync(id);
+        await JS.InvokeVoidAsync("alert", result.Message);
+        await RefreshData();
+    }
+
+    private async Task VerifyAllEvidence()
+    {
+        foreach (var evidence in evidenceItems)
+        {
+            await EvidenceService.VerifyEvidenceIntegrityAsync(evidence.Id);
+        }
+        await RefreshData();
+        await JS.InvokeVoidAsync("alert", "All evidence items verified!");
+    }
+
+    private void ShowRegisterModal()
+    {
+        newEvidence = new EvidenceItem();
+        tagInput = "";
+        showRegisterModal = true;
+    }
+
+    private void CloseRegisterModal()
+    {
+        showRegisterModal = false;
+    }
+
+    private async Task RegisterEvidence()
+    {
+        // In production, would handle file upload
+        CloseRegisterModal();
+        await RefreshData();
+    }
+
+    private void ShowCustodyModal()
+    {
+        custodyAction = CustodyAction.TransferredOut;
+        custodyFromPerson = selectedEvidence?.CollectedBy ?? "";
+        custodyToPerson = "";
+        custodyFromLocation = selectedEvidence?.StorageLocation ?? "";
+        custodyToLocation = "";
+        custodyNotes = "";
+        custodyWitness = "";
+        showCustodyModal = true;
+    }
+
+    private void CloseCustodyModal()
+    {
+        showCustodyModal = false;
+    }
+
+    private async Task AddCustodyLog()
+    {
+        if (selectedEvidence != null)
+        {
+            await EvidenceService.AddCustodyLogAsync(
+                selectedEvidence.Id,
+                custodyAction,
+                custodyFromPerson,
+                custodyToPerson,
+                custodyFromLocation,
+                custodyToLocation,
+                custodyNotes,
+                "Current User", // Would be actual logged in user
+                string.IsNullOrEmpty(custodyWitness) ? null : custodyWitness
+            );
+            await SelectEvidence(selectedEvidence);
+        }
+        CloseCustodyModal();
+    }
+
+    private async Task ExportChain()
+    {
+        if (selectedEvidence != null)
+        {
+            await JS.InvokeVoidAsync("alert", $"Exporting custody chain for {selectedEvidence.EvidenceNumber}...");
+        }
+    }
+
+    private async Task CopyToClipboard(string text)
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+        int order = 0;
+        double size = bytes;
+        while (size >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            size /= 1024;
+        }
+        return $"{size:0.##} {sizes[order]}";
+    }
+
+    private string GetStatusClass(EvidenceStatus status) => status switch
+    {
+        EvidenceStatus.Verified => "status-verified",
+        EvidenceStatus.Collected or EvidenceStatus.Secured => "status-pending",
+        EvidenceStatus.UnderAnalysis => "status-analysis",
+        EvidenceStatus.CourtSubmitted => "status-court",
+        EvidenceStatus.Tampered => "status-tampered",
+        EvidenceStatus.Disposed => "status-disposed",
+        _ => "status-default"
+    };
+
+    private string GetTypeClass(EvidenceType type) => type switch
+    {
+        EvidenceType.DigitalDocument or EvidenceType.PDFDocument => "type-document",
+        EvidenceType.MobileDevice or EvidenceType.Computer or EvidenceType.StorageDevice => "type-device",
+        EvidenceType.CCTV or EvidenceType.VideoRecording or EvidenceType.Photograph => "type-media",
+        EvidenceType.FinancialRecord or EvidenceType.BankStatement => "type-financial",
+        _ => "type-default"
+    };
+
+    private string GetEvidenceTypeIcon(EvidenceType type) => type switch
+    {
+        EvidenceType.DigitalDocument or EvidenceType.PDFDocument => "bi-file-earmark-text",
+        EvidenceType.MobileDevice => "bi-phone",
+        EvidenceType.Computer => "bi-laptop",
+        EvidenceType.StorageDevice => "bi-device-hdd",
+        EvidenceType.CCTV or EvidenceType.VideoRecording => "bi-camera-video",
+        EvidenceType.Photograph => "bi-image",
+        EvidenceType.AudioRecording => "bi-mic",
+        EvidenceType.FinancialRecord or EvidenceType.BankStatement => "bi-bank",
+        EvidenceType.EmailCorrespondence => "bi-envelope",
+        EvidenceType.SocialMediaData => "bi-chat-dots",
+        EvidenceType.CDR => "bi-phone-vibrate",
+        EvidenceType.IPDR => "bi-router",
+        EvidenceType.ForensicReport => "bi-file-medical",
+        _ => "bi-file-earmark"
+    };
+
+    private string GetActionClass(CustodyAction action) => action switch
+    {
+        CustodyAction.Collected => "action-collected",
+        CustodyAction.StoredInLocker => "action-stored",
+        CustodyAction.IntegrityVerified => "action-verified",
+        CustodyAction.TransferredOut or CustodyAction.TransferredIn => "action-transfer",
+        CustodyAction.SentForAnalysis or CustodyAction.ReturnedFromAnalysis => "action-analysis",
+        CustodyAction.SubmittedToCourt => "action-court",
+        CustodyAction.TamperDetected => "action-tamper",
+        CustodyAction.Disposed => "action-disposed",
+        _ => "action-default"
+    };
+
+    private string GetActionIcon(CustodyAction action) => action switch
+    {
+        CustodyAction.Collected => "bi-box-seam",
+        CustodyAction.StoredInLocker => "bi-lock",
+        CustodyAction.IntegrityVerified => "bi-patch-check",
+        CustodyAction.TransferredOut => "bi-box-arrow-right",
+        CustodyAction.TransferredIn => "bi-box-arrow-in-left",
+        CustodyAction.SentForAnalysis => "bi-search",
+        CustodyAction.ReturnedFromAnalysis => "bi-arrow-return-left",
+        CustodyAction.SubmittedToCourt => "bi-building",
+        CustodyAction.PhotoDocumented => "bi-camera",
+        CustodyAction.Sealed => "bi-shield-lock",
+        CustodyAction.Unsealed => "bi-shield-slash",
+        CustodyAction.TamperDetected => "bi-exclamation-triangle",
+        CustodyAction.Disposed => "bi-trash",
+        _ => "bi-arrow-right"
+    };
+
+    private async Task ShowEvidenceLocationsOnMap()
+    {
+        if (evidenceMapViewer == null || selectedEvidence == null) return;
+
+        try
+        {
+            await evidenceMapViewer.ClearMarkersAsync();
+
+            // Geocode and plot collection location
+            if (!string.IsNullOrEmpty(selectedEvidence.CollectionLocation))
+            {
+                var loc = await MapsService.GeocodeAddressAsync(selectedEvidence.CollectionLocation);
+                if (loc != null)
+                {
+                    await evidenceMapViewer.AddMarkerAsync(loc, $"Collection Point — {selectedEvidence.CollectedBy}", "#00d4ff");
+                    await evidenceMapViewer.CenterMapAsync(loc.Latitude, loc.Longitude, 13);
+                }
+            }
+
+            // Geocode and plot storage location
+            if (!string.IsNullOrEmpty(selectedEvidence.StorageLocation))
+            {
+                var loc = await MapsService.GeocodeAddressAsync(selectedEvidence.StorageLocation);
+                if (loc != null)
+                {
+                    await evidenceMapViewer.AddMarkerAsync(loc, "Storage Location", "#ffc107");
+                }
+            }
+
+            // Geocode custody transfer destinations
+            int transferIndex = 1;
+            foreach (var log in custodyLogs)
+            {
+                if (!string.IsNullOrEmpty(log.ToLocation))
+                {
+                    var loc = await MapsService.GeocodeAddressAsync(log.ToLocation);
+                    if (loc != null)
+                    {
+                        await evidenceMapViewer.AddMarkerAsync(loc,
+                            $"Transfer #{transferIndex} — {log.Action.ToString().Replace("_", " ")}", "#ff6b6b");
+                    }
+                }
+                transferIndex++;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EvidenceCustody] Failed to plot locations: {ex.Message}");
+        }
+    }
+}

@@ -1,0 +1,331 @@
+/* ============================================
+   REPORTS PAGE - PRINT STYLESHEET
+   Optimized for A4 paper size (portrait)
+   ============================================ */
+
+@media print {
+    /* Page Setup */
+    @page {
+        size: A4 portrait;
+        margin: 2cm 1.5cm;
+    }
+
+    /* Hide non-printable elements */
+    .no-print,
+    .header-actions,
+    .btn-export,
+    button,
+    .activity-section {
+        display: none !important;
+    }
+
+    /* Reset backgrounds and colors */
+    * {
+        background: white !important;
+        color: black !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+    }
+
+    /* Print Header */
+    .print-header {
+        display: block !important;
+        text-align: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #000;
+    }
+
+    .print-header h1 {
+        font-size: 24pt;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+
+    .print-meta {
+        font-size: 10pt;
+        color: #555 !important;
+        margin-top: 0.25rem;
+    }
+
+    /* Page Header */
+    .page-header {
+        margin-bottom: 1.5rem;
+        page-break-after: avoid;
+    }
+
+    .page-header h1 {
+        font-size: 18pt;
+        margin-bottom: 0.5rem;
+    }
+
+    .header-subtitle {
+        font-size: 11pt;
+        color: #666 !important;
+    }
+
+    /* Overview Stats Grid */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        page-break-inside: avoid;
+    }
+
+    .stat-card {
+        border: 1px solid #333;
+        padding: 1rem;
+        page-break-inside: avoid;
+    }
+
+    .stat-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 10pt;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #333 !important;
+    }
+
+    .stat-header i {
+        font-size: 12pt;
+    }
+
+    .stat-value {
+        font-size: 22pt;
+        font-weight: bold;
+        margin: 0.5rem 0;
+    }
+
+    .stat-change {
+        font-size: 9pt;
+        color: #666 !important;
+    }
+
+    .stat-change i {
+        font-size: 8pt;
+    }
+
+    /* Charts Section */
+    .charts-section {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+        page-break-inside: avoid;
+    }
+
+    .chart-card {
+        border: 1px solid #333;
+        padding: 1rem;
+        page-break-inside: avoid;
+    }
+
+    .chart-card h3 {
+        font-size: 13pt;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: #000 !important;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .chart-card h3 i {
+        font-size: 14pt;
+    }
+
+    /* Distribution Stats */
+    .distribution-stats {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .dist-item {
+        page-break-inside: avoid;
+    }
+
+    .dist-bar {
+        width: 100%;
+        height: 25px;
+        background: #f0f0f0 !important;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 0.5rem;
+    }
+
+    .dist-fill {
+        height: 100%;
+        transition: none;
+    }
+
+    .dist-fill.citizen {
+        background: #e0e0e0 !important;
+    }
+
+    .dist-fill.lawyer {
+        background: #d0d0d0 !important;
+    }
+
+    .dist-fill.police {
+        background: #c0c0c0 !important;
+    }
+
+    .dist-fill.verified {
+        background: #b8b8b8 !important;
+    }
+
+    .dist-fill.pending {
+        background: #d8d8d8 !important;
+    }
+
+    .dist-fill.rejected {
+        background: #e8e8e8 !important;
+    }
+
+    .dist-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 10pt;
+    }
+
+    .dist-name {
+        font-weight: 600;
+        color: #333 !important;
+    }
+
+    .dist-value {
+        font-weight: 500;
+        color: #666 !important;
+    }
+
+    /* Summary Table */
+    .summary-section {
+        margin-top: 2rem;
+        page-break-before: avoid;
+        page-break-inside: avoid;
+    }
+
+    .summary-section h2 {
+        font-size: 14pt;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .summary-table {
+        width: 100%;
+        page-break-inside: avoid;
+    }
+
+    .summary-table table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 10pt;
+    }
+
+    .summary-table thead {
+        background: #f0f0f0 !important;
+    }
+
+    .summary-table th {
+        padding: 0.75rem;
+        text-align: left;
+        font-weight: 600;
+        border: 1px solid #333;
+        color: #000 !important;
+    }
+
+    .summary-table td {
+        padding: 0.75rem;
+        border: 1px solid #666;
+        color: #333 !important;
+    }
+
+    .summary-table tbody tr {
+        page-break-inside: avoid;
+    }
+
+    .summary-table tbody tr:nth-child(even) {
+        background: #fafafa !important;
+    }
+
+    .summary-table .positive {
+        color: #000 !important;
+    }
+
+    .summary-table .positive::before {
+        content: '▲ ';
+    }
+
+    .summary-table .negative {
+        color: #000 !important;
+    }
+
+    .summary-table .negative::before {
+        content: '▼ ';
+    }
+
+    /* Section Titles */
+    .overview-section h2,
+    .charts-section h2 {
+        font-size: 14pt;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        margin-top: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        page-break-after: avoid;
+    }
+
+    /* Prevent orphans and widows */
+    p, h1, h2, h3, h4, h5, h6 {
+        orphans: 3;
+        widows: 3;
+    }
+
+    /* Page breaks */
+    .overview-section,
+    .charts-section,
+    .summary-section {
+        page-break-inside: avoid;
+    }
+
+    h2 {
+        page-break-after: avoid;
+    }
+
+    /* Footer with page numbers */
+    @page {
+        @bottom-right {
+            content: "Page " counter(page) " of " counter(pages);
+            font-size: 9pt;
+            color: #666;
+        }
+    }
+
+    /* Print-specific utilities */
+    .print-only {
+        display: block !important;
+    }
+
+    .page-break-before {
+        page-break-before: always;
+    }
+
+    .page-break-after {
+        page-break-after: always;
+    }
+
+    .avoid-break {
+        page-break-inside: avoid;
+    }
+}

@@ -1,0 +1,1358 @@
+@page "/cases"
+@page "/cases/{CaseId:int}"
+@using AILegalAsst.Models
+@using AILegalAsst.Services
+@using AILegalAsst.Components.Shared
+@inject AuthenticationService AuthService
+@inject CaseService CaseService
+@inject LanguageService LangService
+@inject CaseTimelineService TimelineService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+@implements IDisposable
+
+<PageTitle>Cases - JurisAI</PageTitle>
+
+<link rel="stylesheet" href="cases-enhancements.css" />
+<link rel="stylesheet" href="cases-print.css" media="print" />
+<script src="app-utilities.js"></script>
+
+<CustomErrorBoundary ShowDetails="true" ShowReportButton="true">
+<div class="page-container">
+    @if (!AuthService.IsAuthenticated())
+    {
+        <div class="glass-card">
+            <p>Please log in to access case management.</p>
+        </div>
+        return;
+    }
+
+    @if (CaseId.HasValue && selectedCase != null)
+    {
+        <!-- Case Detail View -->
+        <div class="case-detail-header-v2">
+            <button class="btn-back-v2" @onclick="@(() => NavigateTo("/cases"))" aria-label="Back to cases">
+                <i class="bi bi-arrow-left"></i>
+            </button>
+            <div class="case-detail-title-v2">
+                <h1>@selectedCase.Title</h1>
+                <div class="case-detail-subtitle-v2">
+                    <span class="case-detail-number-v2">@selectedCase.CaseNumber</span>
+                    <span class="status-badge-v2 @GetStatusClassV2(selectedCase.Status)">@selectedCase.Status</span>
+                    @if (selectedCase.IsCybercrime)
+                    {
+                        <span class="status-badge-v2 dismissed">
+                            <i class="bi bi-shield-exclamation"></i> Cybercrime
+                        </span>
+                    }
+                </div>
+            </div>
+            @if (currentUser?.Role == UserRole.Police)
+            {
+                <div class="report-actions" style="margin-left: auto;">
+                    <button class="btn-new-case-v2" @onclick='() => NavigateTo($"/caseiq/{selectedCase.Id}")' title="Open CaseIQ - AI Investigation Assistant">
+                        <i class="bi bi-robot"></i> CaseIQ
+                    </button>
+                    <button class="btn-secondary-v2" @onclick="ExportCaseToPDF" title="Download Case as PDF">
+                        <i class="bi bi-file-pdf"></i> Export PDF
+                    </button>
+                    @if (isEditMode)
+                    {
+                        <button class="btn-new-case-v2" @onclick="SaveCase">
+                            <i class="bi bi-check-circle"></i> Save
+                        </button>
+                    }
+                    <button class="btn-secondary-v2" @onclick="ToggleEditMode">
+                        <i class="bi @(isEditMode ? "bi-x-circle" : "bi-pencil-square")"></i>
+                        @(isEditMode ? "Cancel" : "Edit Case")
+                    </button>
+                </div>
+            }
+        </div>
+
+        <div class="case-detail-container">
+            <!-- Detail View Tabs -->
+            <div class="case-detail-tabs-v2">
+                <button class="tab-btn-v2 @(activeDetailTab == "info" ? "active" : "")" @onclick='() => activeDetailTab = "info"'>
+                    <i class="bi bi-info-circle"></i> Case Info
+                </button>
+                <button class="tab-btn-v2 @(activeDetailTab == "timeline" ? "active" : "")" @onclick='() => activeDetailTab = "timeline"'>
+                    <i class="bi bi-clock-history"></i> Timeline
+                </button>
+                <button class="tab-btn-v2 @(activeDetailTab == "documents" ? "active" : "")" @onclick='() => activeDetailTab = "documents"'>
+                    <i class="bi bi-file-earmark"></i> Documents
+                </button>
+            </div>
+
+            @if (activeDetailTab == "timeline")
+            {
+                <!-- Timeline View -->
+                <div class="glass-card">
+                    <CaseTimeline Events="@timelineEvents" 
+                                  Statistics="@timelineStats" 
+                                  ShowStatistics="true" 
+                                  ShowMilestoneBar="true" 
+                                  ShowFilters="true" />
+                </div>
+            }
+            else if (activeDetailTab == "documents")
+            {
+                <!-- Documents View -->
+                <div class="detail-card-v2">
+                    <h3><i class="bi bi-folder2-open"></i> Case Documents</h3>
+                    @if (selectedCase.Documents.Any())
+                    {
+                        <div class="documents-grid-v2">
+                            @foreach (var doc in selectedCase.Documents)
+                            {
+                                <div class="document-card-v2">
+                                    <div class="doc-icon-v2">
+                                        <i class="bi bi-file-earmark-text"></i>
+                                    </div>
+                                    <div class="doc-info-v2">
+                                        <p class="doc-name-v2">@doc.FileName</p>
+                                        <p class="doc-meta-v2">@doc.FileType • @doc.UploadedDate.ToString("MMM dd, yyyy")</p>
+                                    </div>
+                                    <button class="btn-secondary-v2" style="padding: 0.5rem 0.75rem;">
+                                        <i class="bi bi-download"></i>
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="empty-state-v2" style="padding: 2rem;">
+                            <i class="bi bi-folder2-open empty-icon-v2" style="font-size: 2.5rem;"></i>
+                            <p style="margin: 0.5rem 0 0 0;">No documents uploaded yet</p>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+            <div class="row">
+                <!-- Main Content Column -->
+                <div class="col-lg-8">
+                    <!-- Case Information -->
+                    <div class="detail-card-v2">
+                        <h3><i class="bi bi-info-circle"></i> Case Information</h3>
+                        <div class="info-grid-v2">
+                            <div class="info-item-v2">
+                                <label>Filed Date</label>
+                                <p>@selectedCase.FiledDate.ToString("MMMM dd, yyyy")</p>
+                            </div>
+                            <div class="info-item-v2">
+                                <label>Case Type</label>
+                                <p>@selectedCase.Type</p>
+                            </div>
+                            <div class="info-item-v2">
+                                <label>Status</label>
+                                <p>@selectedCase.Status</p>
+                            </div>
+                            <div class="info-item-v2">
+                                <label>Court</label>
+                                <p>@(selectedCase.Court ?? "Not Assigned")</p>
+                            </div>
+                            @if (selectedCase.IsCybercrime)
+                            {
+                                <div class="info-item-v2">
+                                    <label>Cybercrime Category</label>
+                                    <p>@selectedCase.CybercrimeCategory</p>
+                                </div>
+                                <div class="info-item-v2">
+                                    <label>Digital Evidence</label>
+                                    <p>@(selectedCase.DigitalEvidenceCollected ? "Collected" : "Pending")</p>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="detail-card-v2" style="margin-top: 1.25rem;">
+                        <h3><i class="bi bi-file-text"></i> Description</h3>
+                        @if (isEditMode && currentUser?.Role == UserRole.Lawyer)
+                        {
+                            <textarea class="form-textarea-v2" rows="6" @bind="selectedCase.Description"></textarea>
+                        }
+                        else
+                        {
+                            <p class="case-description" style="line-height: 1.7; color: var(--text-secondary);">@selectedCase.Description</p>
+                        }
+                    </div>
+
+                    <!-- Legal Sections -->
+                    @if (selectedCase.ApplicableSections?.Any() == true)
+                    {
+                        <div class="detail-card-v2" style="margin-top: 1.25rem;">
+                            <h3><i class="bi bi-bookmark"></i> Applicable Legal Sections</h3>
+                            <div class="sections-list" style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                                @foreach (var sec in selectedCase.ApplicableSections)
+                                {
+                                    <span class="status-badge-v2 filed">@sec</span>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <!-- AI Analysis (Lawyers only) -->
+                    @if (currentUser?.Role == UserRole.Lawyer && !string.IsNullOrEmpty(selectedCase.AIAnalysis))
+                    {
+                        <div class="detail-card-v2 ai-analysis-v2" style="margin-top: 1.25rem;">
+                            <h3><i class="bi bi-cpu"></i> AI Legal Analysis</h3>
+                            <div class="ai-analysis-content-v2">
+                                <p>@selectedCase.AIAnalysis</p>
+                            </div>
+                            <button class="btn-secondary-v2" style="margin-top: 1rem;" @onclick="GenerateAIAnalysis">
+                                <i class="bi bi-arrow-clockwise"></i> Regenerate Analysis
+                            </button>
+                        </div>
+                    }
+
+                    <!-- Documents -->
+                    @if (selectedCase.Documents?.Any() == true)
+                    {
+                        <div class="detail-card-v2" style="margin-top: 1.25rem;">
+                            <h3><i class="bi bi-file-earmark-text"></i> Documents</h3>
+                            <div class="documents-list">
+                                @foreach (var doc in selectedCase.Documents)
+                                {
+                                    <div class="document-card-v2">
+                                        <div class="doc-icon-v2">
+                                            <i class="bi bi-file-pdf"></i>
+                                        </div>
+                                        <div class="doc-info-v2">
+                                            <p class="doc-name-v2">@doc</p>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Sidebar Column -->
+                <div class="col-lg-4">
+                    <!-- Parties Involved -->
+                    <div class="detail-card-v2">
+                        <h3><i class="bi bi-people"></i> Parties</h3>
+                        @if (!string.IsNullOrEmpty(selectedCase.Plaintiff))
+                        {
+                            <div class="party-item-v2">
+                                <label>Plaintiff</label>
+                                <p>@selectedCase.Plaintiff</p>
+                            </div>
+                        }
+                        @if (!string.IsNullOrEmpty(selectedCase.Defendant))
+                        {
+                            <div class="party-item-v2">
+                                <label>Defendant</label>
+                                <p>@selectedCase.Defendant</p>
+                            </div>
+                        }
+                        @if (!string.IsNullOrEmpty(selectedCase.LawyerName))
+                        {
+                            <div class="party-item-v2">
+                                <label>Lawyer</label>
+                                <p>@selectedCase.LawyerName</p>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Next Hearing -->
+                    @if (selectedCase.NextHearingDate.HasValue)
+                    {
+                        <div class="detail-card-v2" style="margin-top: 1.25rem;">
+                            <h3><i class="bi bi-calendar-event"></i> Next Hearing</h3>
+                            <div class="hearing-card-v2">
+                                <p class="date">@selectedCase.NextHearingDate.Value.ToString("MMM dd, yyyy")</p>
+                                <p class="time">@selectedCase.NextHearingDate.Value.ToString("hh:mm tt")</p>
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Quick Actions -->
+                    <div class="detail-card-v2" style="margin-top: 1.25rem;">
+                        <h3><i class="bi bi-lightning"></i> Actions</h3>
+                        <div class="actions-grid-v2">
+                            @if (currentUser?.Role == UserRole.Lawyer)
+                            {
+                                <button class="btn-action-v2" @onclick="GenerateAIAnalysis">
+                                    <i class="bi bi-cpu"></i> AI Analysis
+                                </button>
+                                <button class="btn-action-v2" @onclick="@(() => NavigateTo("/precedents"))">
+                                    <i class="bi bi-book"></i> Find Precedents
+                                </button>
+                                <button class="btn-action-v2">
+                                    <i class="bi bi-file-earmark-plus"></i> Add Document
+                                </button>
+                            }
+                            @if (currentUser?.Role == UserRole.Police)
+                            {
+                                <button class="btn-action-v2">
+                                    <i class="bi bi-shield-check"></i> Update Investigation
+                                </button>
+                                <button class="btn-action-v2">
+                                    <i class="bi bi-file-earmark-arrow-up"></i> Upload Evidence
+                                </button>
+                            }
+                            @if (currentUser?.Role == UserRole.Citizen)
+                            {
+                                <button class="btn-action-v2">
+                                    <i class="bi bi-printer"></i> Print Details
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+            } @* End of activeDetailTab == info *@
+
+            @if (isEditMode && currentUser?.Role == UserRole.Lawyer)
+            {
+                <div class="glass-card mt-3">
+                    <button class="btn-primary" @onclick="SaveCase">
+                        <i class="bi bi-check-lg"></i> Save Changes
+                    </button>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <!-- Cases List View -->
+        <!-- Print Header (only visible when printing) -->
+        <div class="print-only print-header">
+            <h1>JurisAI - Cases Report</h1>
+            <p>Generated: @DateTime.Now.ToString("MMMM dd, yyyy HH:mm")</p>
+            <p>Total Cases: @filteredCases.Count() | Showing: @filterStatus @filterType</p>
+        </div>
+
+        <div class="cases-page-header-v2">
+            <h1><i class="bi bi-briefcase"></i> @GetPageTitle()</h1>
+            <div class="header-actions-v2 no-print">
+                @if (currentUser?.Role != UserRole.Citizen)
+                {
+                    <button class="btn-new-case-v2" @onclick="ShowNewCaseForm" aria-label="Create new case">
+                        <i class="bi bi-plus-lg" aria-hidden="true"></i> New Case
+                    </button>
+                }
+                
+                <!-- Print Button -->
+                <button class="btn-secondary-v2" @onclick="PrintCases" disabled="@isPrinting" aria-label="Print cases list">
+                    @if (isPrinting)
+                    {
+                        <span class="spinner-small" aria-hidden="true"></span>
+                        <span>Printing...</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-printer" aria-hidden="true"></i>
+                        <span>Print</span>
+                    }
+                </button>
+
+                <!-- Export Button with Dropdown -->
+                <div class="export-dropdown-container">
+                    <button class="btn-secondary-v2" 
+                            @onclick="ToggleExportMenu" 
+                            disabled="@isExporting"
+                            aria-label="Export cases data"
+                            aria-expanded="@showExportMenu"
+                            aria-haspopup="true">
+                        @if (isExporting)
+                        {
+                            <span class="spinner-small" aria-hidden="true"></span>
+                            <span>Exporting...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-download" aria-hidden="true"></i>
+                            <span>Export</span>
+                            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                        }
+                    </button>
+                    @if (showExportMenu)
+                    {
+                        <div class="export-dropdown-v2" role="menu">
+                            <div class="export-option-v2" role="menuitem" @onclick='() => ExportCases("csv")'>
+                                <i class="bi bi-filetype-csv" aria-hidden="true"></i>
+                                <span>Export as CSV</span>
+                            </div>
+                            <div class="export-option-v2" role="menuitem" @onclick='() => ExportCases("pdf")'>
+                                <i class="bi bi-filetype-pdf" aria-hidden="true"></i>
+                                <span>Export as PDF</span>
+                            </div>
+                            <div class="export-option-v2" role="menuitem" @onclick='() => ExportCases("json")'>
+                                <i class="bi bi-filetype-json" aria-hidden="true"></i>
+                                <span>Export as JSON</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced Filters and Search -->
+        <div class="filters-panel-v2" role="search" aria-label="Case filters and search">
+            <div class="filters-header-v2">
+                <h3><i class="bi bi-funnel"></i> Filters & Search</h3>
+            </div>
+            
+            <!-- Search Box -->
+            <div class="search-box-v2">
+                <i class="bi bi-search" aria-hidden="true"></i>
+                <input type="text"
+                       id="caseSearch"
+                       placeholder="Search by title, number, or description..."
+                       @bind="searchQuery"
+                       @bind:event="oninput"
+                       @onkeyup="SearchCases"
+                       aria-label="Search cases by title, number, or description" />
+            </div>
+
+            <!-- Filter Options -->
+            <div class="filters-grid-v2">
+                <div class="filter-group-v2">
+                    <label for="filterStatus">Status</label>
+                    <select id="filterStatus" @bind="filterStatus" aria-label="Filter by case status">
+                        <option value="">All Status</option>
+                        <option value="Draft">Draft</option>
+                        <option value="Filed">Filed</option>
+                        <option value="UnderInvestigation">Under Investigation</option>
+                        <option value="InProgress">In Progress</option>
+                        <option value="OnHold">On Hold</option>
+                        <option value="Closed">Closed</option>
+                        <option value="Dismissed">Dismissed</option>
+                        <option value="Appealed">Appealed</option>
+                    </select>
+                </div>
+
+                <div class="filter-group-v2">
+                    <label for="filterType">Case Type</label>
+                    <select id="filterType" @bind="filterType" aria-label="Filter by case type">
+                        <option value="">All Types</option>
+                        <option value="Criminal">Criminal</option>
+                        <option value="Civil">Civil</option>
+                        <option value="Cybercrime">Cybercrime</option>
+                        <option value="Constitutional">Constitutional</option>
+                    </select>
+                </div>
+
+                <div class="filter-group-v2">
+                    <label for="sortBy">Sort By</label>
+                    <select id="sortBy" @bind="sortColumn" @bind:after="ApplySorting" aria-label="Sort cases by">
+                        <option value="FiledDate">Filed Date</option>
+                        <option value="Title">Title</option>
+                        <option value="CaseNumber">Case Number</option>
+                        <option value="Status">Status</option>
+                        <option value="Type">Type</option>
+                    </select>
+                </div>
+
+                <div class="filter-group-v2">
+                    <label for="sortOrder">Order</label>
+                    <select id="sortOrder" @bind="sortAscending" @bind:after="ApplySorting" aria-label="Sort order">
+                        <option value="false">Newest First</option>
+                        <option value="true">Oldest First</option>
+                    </select>
+                </div>
+
+                <div class="filter-group-v2">
+                    <label for="filterDateFrom">Filed From</label>
+                    <input type="date"
+                           id="filterDateFrom"
+                           @bind="filterDateFrom"
+                           aria-label="Filter cases filed from date" />
+                </div>
+
+                <div class="filter-group-v2">
+                    <label for="filterDateTo">Filed To</label>
+                    <input type="date"
+                           id="filterDateTo"
+                           @bind="filterDateTo"
+                           aria-label="Filter cases filed to date" />
+                </div>
+            </div>
+
+            <!-- Filter Actions -->
+            <div class="filters-actions-v2">
+                <div class="filters-count-v2">
+                    Showing <strong>@filteredCases.Count()</strong> of @allCases.Count cases
+                </div>
+                <button class="btn-clear-v2" @onclick="ClearAllFilters" aria-label="Clear all filters">
+                    <i class="bi bi-x-circle" aria-hidden="true"></i> Clear All
+                </button>
+            </div>
+        </div>
+
+        <!-- Cases Grid with Loading States -->
+        @if (isLoading)
+        {
+            <div class="skeleton-grid-v2" role="status" aria-live="polite" aria-label="Loading cases">
+                <span class="sr-only">Loading cases, please wait...</span>
+                @for (int i = 0; i < 6; i++)
+                {
+                    <div class="skeleton-card-v2">
+                        <div class="skeleton-v2 skeleton-header-v2"></div>
+                        <div class="skeleton-v2 skeleton-text-v2 skeleton-text-short-v2" style="margin-bottom: 1rem;"></div>
+                        <div class="skeleton-v2 skeleton-text-v2"></div>
+                        <div class="skeleton-v2 skeleton-text-v2"></div>
+                        <div class="skeleton-v2 skeleton-text-v2" style="width: 70%;"></div>
+                        <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                            <div class="skeleton-v2 skeleton-badge-v2"></div>
+                            <div class="skeleton-v2 skeleton-badge-v2"></div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else if (!filteredCases.Any())
+        {
+            <div class="empty-state-v2">
+                <i class="bi bi-inbox empty-icon-v2" aria-hidden="true"></i>
+                <h3>No cases found</h3>
+                <p>Try adjusting your filters or create a new case</p>
+                @if (currentUser?.Role != UserRole.Citizen)
+                {
+                    <button class="btn-new-case-v2" @onclick="ShowNewCaseForm" aria-label="Create your first case">
+                        <i class="bi bi-plus-lg" aria-hidden="true"></i> Create First Case
+                    </button>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="cases-grid-v2" role="list" aria-label="Cases list">
+                @foreach (var case_ in filteredCases)
+                {
+                    <div class="case-card-v2" 
+                         @onclick="@(() => ViewCaseDetails(case_.Id))"
+                         tabindex="0"
+                         role="listitem"
+                         aria-label="Case: @case_.Title, Number: @case_.CaseNumber, Status: @case_.Status"
+                         @onkeydown="@(e => HandleKeyPress(e, () => ViewCaseDetails(case_.Id)))">
+                        <div class="case-card-header-v2">
+                            <div>
+                                <h3>@case_.Title</h3>
+                                <p class="case-number-v2">@case_.CaseNumber</p>
+                            </div>
+                            @if (case_.IsCybercrime)
+                            {
+                                <div class="cybercrime-badge-v2" 
+                                     aria-label="Cybercrime case"
+                                     title="Cybercrime Case">
+                                    <i class="bi bi-shield-exclamation"></i>
+                                </div>
+                            }
+                        </div>
+                        <p class="case-description-v2">@GetTruncatedDescription(case_.Description)</p>
+                        <div class="case-meta-v2">
+                            <div class="meta-item-v2">
+                                <i class="bi bi-calendar" aria-hidden="true"></i>
+                                <span>@case_.FiledDate.ToString("MMM dd, yyyy")</span>
+                            </div>
+                            <div class="meta-item-v2">
+                                <i class="bi bi-tag" aria-hidden="true"></i>
+                                <span>@case_.Type</span>
+                            </div>
+                        </div>
+                        <div class="case-card-footer-v2">
+                            <span class="status-badge-v2 @GetStatusClassV2(case_.Status)">@case_.Status</span>
+                            <div class="case-card-actions" style="display: flex; gap: 8px;">
+                                @if (currentUser?.Role == UserRole.Police)
+                                {
+                                    <button class="view-details-v2copilot" 
+                                            @onclick="@(() => NavigateTo($"/caseiq/{case_.Id}"))"
+                                            @onclick:stopPropagation="true"
+                                            title="Open CaseIQ - AI Investigation Assistant"
+                                            aria-label="CaseIQ for case @case_.CaseNumber">
+                                        <i class="bi bi-robot" aria-hidden="true"></i> CaseIQ
+                                    </button>
+                                }
+                                <button class="view-details-v2" 
+                                        @onclick="@(() => ViewCaseDetails(case_.Id))" 
+                                        @onclick:stopPropagation="true"
+                                        aria-label="View details for case @case_.CaseNumber">
+                                    View Details <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- New Case Form Modal -->
+        @if (showNewCaseModal)
+        {
+            <div class="modal-overlay-v2" @onclick="CloseNewCaseForm">
+                <div class="modal-content-v2" @onclick:stopPropagation="true">
+                    <div class="modal-header-v2">
+                        <h2>
+                            @if (currentUser?.Role == UserRole.Police)
+                            {
+                                <i class="bi bi-file-earmark-plus"></i>
+                                <span>File New FIR</span>
+                            }
+                            else if (currentUser?.Role == UserRole.Lawyer)
+                            {
+                                <i class="bi bi-briefcase"></i>
+                                <span>Create New Case</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-file-text"></i>
+                                <span>File Complaint</span>
+                            }
+                        </h2>
+                        <button class="modal-close-v2" @onclick="CloseNewCaseForm">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+
+                    <div class="modal-body-v2">
+                        <div class="form-group-v2">
+                            <label>Title <span class="required">*</span></label>
+                            <input type="text" class="form-input-v2" @bind="newCase.Title" placeholder="Brief case title" />
+                        </div>
+
+                        <div class="form-group-v2">
+                            <label>Description <span class="required">*</span></label>
+                            <textarea class="form-textarea-v2" rows="4" @bind="newCase.Description" placeholder="Detailed description of the case"></textarea>
+                        </div>
+
+                        <div class="form-row-v2">
+                            <div class="form-group-v2">
+                                <label>Case Type <span class="required">*</span></label>
+                                <select class="form-select-v2" @bind="newCase.Type">
+                                    <option value="Criminal">Criminal</option>
+                                    <option value="Civil">Civil</option>
+                                    <option value="Cybercrime">Cybercrime</option>
+                                    <option value="Constitutional">Constitutional</option>
+                                </select>
+                            </div>
+                            <div class="form-group-v2">
+                                <label>@(currentUser?.Role == UserRole.Police ? "Plaintiff/Complainant" : "Plaintiff") <span class="required">*</span></label>
+                                <input type="text" class="form-input-v2" @bind="newCase.Plaintiff" />
+                            </div>
+                        </div>
+
+                        <div class="form-row-v2">
+                            <div class="form-group-v2">
+                                <label>Defendant/Accused @(currentUser?.Role == UserRole.Police ? "*" : "")</label>
+                                <input type="text" class="form-input-v2" @bind="newCase.Defendant" />
+                            </div>
+                            @if (currentUser?.Role == UserRole.Lawyer)
+                            {
+                                <div class="form-group-v2">
+                                    <label>Court</label>
+                                    <input type="text" class="form-input-v2" @bind="newCase.Court" placeholder="e.g., Delhi High Court" />
+                                </div>
+                            }
+                        </div>
+
+                        <div class="form-group-v2">
+                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="checkbox" @bind="newCase.IsCybercrime" />
+                                <span>This is a cybercrime case</span>
+                            </label>
+                        </div>
+
+                        @if (newCase.IsCybercrime)
+                        {
+                            <div class="cybercrime-section" style="padding: 1rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px; margin-bottom: 1rem;">
+                                <div class="form-group-v2">
+                                    <label>Cybercrime Category <span class="required">*</span></label>
+                                    <select class="form-select-v2" @bind="newCase.CybercrimeCategory">
+                                        <option value="">Select Category</option>
+                                        <option value="Online Fraud">Online Fraud</option>
+                                        <option value="Identity Theft">Identity Theft</option>
+                                        <option value="Cyberstalking">Cyberstalking</option>
+                                        <option value="Data Breach">Data Breach</option>
+                                        <option value="Hacking">Hacking</option>
+                                        <option value="Phishing">Phishing</option>
+                                        <option value="Ransomware">Ransomware</option>
+                                        <option value="Child Pornography">Child Pornography</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+
+                                @if (currentUser?.Role == UserRole.Police)
+                                {
+                                    <div class="form-group-v2">
+                                        <label class="checkbox-label" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                            <input type="checkbox" @bind="newCase.DigitalEvidenceCollected" />
+                                            <span>Digital evidence collected</span>
+                                        </label>
+                                    </div>
+                                }
+
+                                <div class="form-group-v2">
+                                    <label>Applicable IT Act Sections</label>
+                                    <input type="text" class="form-input-v2" @bind="applicableSectionsInput" placeholder="e.g., 66, 66C, 67" />
+                                    <small style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem; display: block;">Comma-separated section numbers</small>
+                                </div>
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(newCaseError))
+                        {
+                            <div class="alert alert-danger" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; padding: 1rem; border-radius: 10px; display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="bi bi-exclamation-triangle"></i> @newCaseError
+                            </div>
+                        }
+                    </div>
+
+                    <div class="modal-footer-v2">
+                        <button class="btn-cancel-v2" @onclick="CloseNewCaseForm">Cancel</button>
+                        <button class="btn-submit-v2" @onclick="CreateNewCase" disabled="@isSaving">
+                            @if (isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm"></span>
+                                <span>Saving...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-check-lg"></i>
+                                <span>@(currentUser?.Role == UserRole.Police ? "File FIR" : "Create Case")</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+
+    <!-- Toast Notification -->
+    @if (showToast)
+    {
+        <div class="toast-notification" role="alert" aria-live="polite" aria-atomic="true">
+            <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+            <span>@toastMessage</span>
+            <button class="toast-close" @onclick="HideToast" aria-label="Close notification">
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int? CaseId { get; set; }
+
+    private User? currentUser;
+    private List<Case> allCases = new();
+    private List<Case> filteredCases = new();
+    private Case? selectedCase;
+    private Case newCase = new();
+    
+    private bool isLoading = true;
+    private bool showNewCaseModal = false;
+    private bool isEditMode = false;
+    private bool isSaving = false;
+    private Case? originalCase; // Store original state for cancel operation
+    
+    // Export and Print States
+    private bool isExporting = false;
+    private bool isPrinting = false;
+    private bool showExportMenu = false;
+    
+    // Filtering and Sorting
+    private string searchQuery = "";
+    private string filterStatus = "";
+    private string filterType = "";
+    private bool showCybercrimeOnly = false;
+    private string sortColumn = "FiledDate";
+    private bool sortAscending = false;
+    private DateTime? filterDateFrom = null;
+    private DateTime? filterDateTo = null;
+    
+    // Toast notification
+    private string toastMessage = "";
+    private bool showToast = false;
+    
+    private string applicableSectionsInput = "";
+    private string newCaseError = "";
+    
+    // Timeline
+    private string activeDetailTab = "info";
+    private List<CaseTimelineEvent> timelineEvents = new();
+    private TimelineStatistics? timelineStats;
+
+    protected override async Task OnInitializedAsync()
+    {
+        LangService.OnLanguageChanged += OnLanguageChanged;
+        
+        currentUser = AuthService.GetCurrentUser();
+        
+        if (currentUser == null)
+        {
+            NavigationManager.NavigateTo("/login", true);
+            return;
+        }
+
+        await LoadCases();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (CaseId.HasValue)
+        {
+            await LoadCaseDetails(CaseId.Value);
+        }
+    }
+
+    private async Task LoadCases()
+    {
+        isLoading = true;
+        allCases = await CaseService.GetCasesByRoleAsync(currentUser!.Role, currentUser!.Email);
+        ApplyFilters();
+        isLoading = false;
+    }
+
+    private async Task LoadCaseDetails(int caseId)
+    {
+        selectedCase = await CaseService.GetCaseByIdAsync(caseId);
+        if (selectedCase == null)
+        {
+            NavigationManager.NavigateTo("/cases");
+        }
+        else
+        {
+            // Load timeline data
+            timelineEvents = TimelineService.GetTimelineForCase(caseId);
+            timelineStats = TimelineService.GetTimelineStatistics(caseId);
+            activeDetailTab = "info"; // Reset to info tab when loading new case
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        filteredCases = allCases;
+
+        if (!string.IsNullOrWhiteSpace(searchQuery))
+        {
+            filteredCases = filteredCases.Where(c => 
+                c.Title.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                c.CaseNumber.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                c.Description.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(filterStatus))
+        {
+            if (Enum.TryParse<CaseStatus>(filterStatus, out var status))
+            {
+                filteredCases = filteredCases.Where(c => c.Status == status).ToList();
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(filterType))
+        {
+            if (Enum.TryParse<CaseType>(filterType, out var type))
+            {
+                filteredCases = filteredCases.Where(c => c.Type == type).ToList();
+            }
+        }
+
+        if (showCybercrimeOnly)
+        {
+            filteredCases = filteredCases.Where(c => c.IsCybercrime).ToList();
+        }
+
+        // Date range filtering
+        if (filterDateFrom.HasValue)
+        {
+            filteredCases = filteredCases.Where(c => c.FiledDate >= filterDateFrom.Value).ToList();
+        }
+
+        if (filterDateTo.HasValue)
+        {
+            filteredCases = filteredCases.Where(c => c.FiledDate <= filterDateTo.Value).ToList();
+        }
+
+        // Apply sorting after filtering
+        ApplySorting();
+    }
+
+    private void SearchCases()
+    {
+        ApplyFilters();
+    }
+
+    private void ViewCaseDetails(int caseId)
+    {
+        NavigationManager.NavigateTo($"/cases/{caseId}");
+    }
+
+    private void ShowNewCaseForm()
+    {
+        newCase = new Case 
+        { 
+            FiledDate = DateTime.Now,
+            Status = currentUser?.Role == UserRole.Police ? CaseStatus.UnderInvestigation : CaseStatus.Draft,
+            Type = CaseType.Criminal
+        };
+        newCaseError = "";
+        showNewCaseModal = true;
+    }
+
+    private void CloseNewCaseForm()
+    {
+        showNewCaseModal = false;
+        newCase = new();
+        newCaseError = "";
+    }
+
+    private async Task CreateNewCase()
+    {
+        newCaseError = "";
+
+        if (string.IsNullOrWhiteSpace(newCase.Title))
+        {
+            newCaseError = "Please enter a case title";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(newCase.Description))
+        {
+            newCaseError = "Please enter a case description";
+            return;
+        }
+
+        if (newCase.IsCybercrime && string.IsNullOrWhiteSpace(newCase.CybercrimeCategory))
+        {
+            newCaseError = "Please select a cybercrime category";
+            return;
+        }
+
+        isSaving = true;
+
+        try
+        {
+            // Parse applicable sections
+            if (!string.IsNullOrWhiteSpace(applicableSectionsInput))
+            {
+                newCase.ApplicableSections = applicableSectionsInput
+                    .Split(',')
+                    .Select(s => s.Trim())
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .ToList();
+            }
+
+            // Generate case number
+            var prefix = newCase.IsCybercrime ? "CYB" : newCase.Type.ToString().Substring(0, 3).ToUpper();
+            newCase.CaseNumber = $"{prefix}/{DateTime.Now.Year}/{new Random().Next(1000, 9999)}";
+
+            // Set initial status based on role
+            if (currentUser?.Role == UserRole.Police)
+            {
+                newCase.Status = CaseStatus.UnderInvestigation;
+            }
+            else if (currentUser?.Role == UserRole.Lawyer)
+            {
+                newCase.Status = CaseStatus.Filed;
+                newCase.LawyerName = currentUser.Name;
+            }
+            else
+            {
+                newCase.Status = CaseStatus.Draft;
+            }
+
+            await CaseService.CreateCaseAsync(newCase);
+            await LoadCases();
+            CloseNewCaseForm();
+        }
+        catch (Exception ex)
+        {
+            newCaseError = $"Error creating case: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void ToggleEditMode()
+    {
+        if (selectedCase == null) return;
+
+        if (!isEditMode)
+        {
+            // Entering edit mode - save original state
+            originalCase = new Case
+            {
+                Id = selectedCase.Id,
+                Title = selectedCase.Title,
+                Description = selectedCase.Description,
+                Status = selectedCase.Status,
+                Court = selectedCase.Court,
+                Type = selectedCase.Type
+            };
+            isEditMode = true;
+        }
+        else
+        {
+            // Canceling edit - restore original state
+            if (originalCase != null)
+            {
+                selectedCase.Title = originalCase.Title;
+                selectedCase.Description = originalCase.Description;
+                selectedCase.Status = originalCase.Status;
+                selectedCase.Court = originalCase.Court;
+                selectedCase.Type = originalCase.Type;
+            }
+            isEditMode = false;
+            originalCase = null;
+        }
+    }
+
+    private async Task SaveCase()
+    {
+        if (selectedCase != null)
+        {
+            try
+            {
+                await CaseService.UpdateCaseAsync(selectedCase);
+                
+                // Reload the data
+                allCases = await CaseService.GetCasesByRoleAsync(currentUser!.Role, currentUser!.Email);
+                ApplyFilters();
+                
+                // Refresh selected case
+                selectedCase = await CaseService.GetCaseByIdAsync(selectedCase.Id);
+                
+                isEditMode = false;
+                originalCase = null;
+                
+                ShowToast("Case updated successfully!");
+            }
+            catch (Exception ex)
+            {
+                ShowToast($"Error updating case: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task GenerateAIAnalysis()
+    {
+        if (selectedCase != null)
+        {
+            selectedCase.AIAnalysis = "AI Analysis: Based on the case details and applicable sections, " +
+                "this case has strong legal merit. Recommended precedents include similar cybercrime cases " +
+                "under IT Act Section 66C and 66D. Suggested strategy: Focus on digital evidence authentication " +
+                "and establish clear chain of custody for all electronic records.";
+            await CaseService.UpdateCaseAsync(selectedCase);
+        }
+    }
+
+    private void NavigateTo(string url)
+    {
+        NavigationManager.NavigateTo(url);
+    }
+
+    private string GetPageTitle()
+    {
+        return currentUser?.Role switch
+        {
+            UserRole.Lawyer => "Case Management",
+            UserRole.Police => "FIR & Investigation Management",
+            UserRole.Citizen => "My Cases & Complaints",
+            _ => "Cases"
+        };
+    }
+
+    private string GetStatusClass(CaseStatus status)
+    {
+        return status switch
+        {
+            CaseStatus.Draft => "badge-draft",
+            CaseStatus.Filed => "badge-filed",
+            CaseStatus.UnderInvestigation => "badge-investigating",
+            CaseStatus.InProgress => "badge-progress",
+            CaseStatus.OnHold => "badge-hold",
+            CaseStatus.Closed => "badge-closed",
+            CaseStatus.Dismissed => "badge-dismissed",
+            CaseStatus.Appealed => "badge-appealed",
+            _ => "badge-secondary"
+        };
+    }
+
+    private string GetStatusClassV2(CaseStatus status)
+    {
+        return status switch
+        {
+            CaseStatus.Draft => "draft",
+            CaseStatus.Filed => "filed",
+            CaseStatus.UnderInvestigation => "investigation",
+            CaseStatus.InProgress => "progress",
+            CaseStatus.OnHold => "hold",
+            CaseStatus.Closed => "closed",
+            CaseStatus.Dismissed => "dismissed",
+            CaseStatus.Appealed => "appealed",
+            _ => "draft"
+        };
+    }
+
+    private string GetTruncatedDescription(string description)
+    {
+        if (string.IsNullOrEmpty(description)) return "";
+        return description.Length > 120 ? description.Substring(0, 120) + "..." : description;
+    }
+
+    // ============================================
+    // NEW ENHANCEMENT METHODS
+    // ============================================
+
+    // Export Functionality
+    private void ToggleExportMenu()
+    {
+        if (!isExporting)
+        {
+            showExportMenu = !showExportMenu;
+        }
+    }
+
+    private async Task ExportCases(string format)
+    {
+        showExportMenu = false;
+        isExporting = true;
+        StateHasChanged();
+
+        var casesToExport = filteredCases.ToList();
+
+        if (!casesToExport.Any())
+        {
+            ShowToast("No cases to export. Please adjust your filters.");
+            isExporting = false;
+            return;
+        }
+
+        try
+        {
+            // Simulate export processing delay
+            await Task.Delay(1000);
+
+            switch (format.ToLower())
+            {
+                case "csv":
+                    ExportToCsv(casesToExport);
+                    break;
+                case "pdf":
+                    ExportToPdf(casesToExport);
+                    break;
+                case "json":
+                    ExportToJson(casesToExport);
+                    break;
+            }
+
+            ShowToast($"Exported {casesToExport.Count} cases as {format.ToUpper()}");
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Export failed: {ex.Message}");
+            Console.WriteLine($"Export error: {ex}");
+        }
+        finally
+        {
+            isExporting = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ExportToCsv(List<Case> cases)
+    {
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("Case Number,Title,Type,Status,Filed Date,Plaintiff,Defendant,Court,Is Cybercrime");
+
+        foreach (var c in cases)
+        {
+            csv.AppendLine($"\"{c.CaseNumber}\",\"{c.Title}\",\"{c.Type}\",\"{c.Status}\",\"{c.FiledDate:yyyy-MM-dd}\",\"{c.Plaintiff}\",\"{c.Defendant}\",\"{c.Court}\",\"{c.IsCybercrime}\"");
+        }
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(csv.ToString());
+        var base64 = Convert.ToBase64String(bytes);
+        var dataUrl = $"data:text/csv;base64,{base64}";
+
+        JSRuntime.InvokeVoidAsync("downloadFile", dataUrl, $"cases_{DateTime.Now:yyyyMMdd}.csv");
+    }
+
+    private void ExportToPdf(List<Case> cases)
+    {
+        var tableRows = string.Join("", cases.Select(c => $@"
+                    <tr>
+                        <td>{c.CaseNumber}</td>
+                        <td>{c.Title}</td>
+                        <td>{c.Type}</td>
+                        <td>{c.Status}</td>
+                        <td>{c.FiledDate:yyyy-MM-dd}</td>
+                    </tr>"));
+
+        var html = $@"
+            <html>
+            <head>
+                <style>
+                    body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                    h1 {{ color: #d4af37; }}
+                    table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
+                    th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+                    th {{ background-color: #f2f2f2; }}
+                </style>
+            </head>
+            <body>
+                <h1>Cases Report</h1>
+                <p>Generated: {DateTime.Now:MMMM dd, yyyy HH:mm}</p>
+                <p>Total Cases: {cases.Count}</p>
+                <table>
+                    <tr>
+                        <th>Case Number</th>
+                        <th>Title</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Filed Date</th>
+                    </tr>
+                    {tableRows}
+                </table>
+            </body>
+            </html>";
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(html);
+        var base64 = Convert.ToBase64String(bytes);
+        var dataUrl = $"data:text/html;base64,{base64}";
+
+        JSRuntime.InvokeVoidAsync("downloadFile", dataUrl, $"cases_{DateTime.Now:yyyyMMdd}.html");
+    }
+
+    private void ExportToJson(List<Case> cases)
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(cases, new System.Text.Json.JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+        var base64 = Convert.ToBase64String(bytes);
+        var dataUrl = $"data:application/json;base64,{base64}";
+
+        JSRuntime.InvokeVoidAsync("downloadFile", dataUrl, $"cases_{DateTime.Now:yyyyMMdd}.json");
+    }
+
+    // Print Functionality
+    private async Task PrintCases()
+    {
+        isPrinting = true;
+        StateHasChanged();
+
+        try
+        {
+            await Task.Delay(300);
+            await JSRuntime.InvokeVoidAsync("window.print");
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Print failed: {ex.Message}");
+            Console.WriteLine($"Print error: {ex}");
+        }
+        finally
+        {
+            isPrinting = false;
+            StateHasChanged();
+        }
+    }
+
+    // Advanced Filtering and Sorting
+    private void ClearAllFilters()
+    {
+        searchQuery = "";
+        filterStatus = "";
+        filterType = "";
+        showCybercrimeOnly = false;
+        filterDateFrom = null;
+        filterDateTo = null;
+        sortColumn = "FiledDate";
+        sortAscending = false;
+        SearchCases();
+        ShowToast("All filters cleared");
+    }
+
+    private void ApplySorting()
+    {
+        filteredCases = sortColumn switch
+        {
+            "Title" => sortAscending 
+                ? filteredCases.OrderBy(c => c.Title).ToList()
+                : filteredCases.OrderByDescending(c => c.Title).ToList(),
+            "CaseNumber" => sortAscending
+                ? filteredCases.OrderBy(c => c.CaseNumber).ToList()
+                : filteredCases.OrderByDescending(c => c.CaseNumber).ToList(),
+            "Status" => sortAscending
+                ? filteredCases.OrderBy(c => c.Status).ToList()
+                : filteredCases.OrderByDescending(c => c.Status).ToList(),
+            "Type" => sortAscending
+                ? filteredCases.OrderBy(c => c.Type).ToList()
+                : filteredCases.OrderByDescending(c => c.Type).ToList(),
+            _ => sortAscending
+                ? filteredCases.OrderBy(c => c.FiledDate).ToList()
+                : filteredCases.OrderByDescending(c => c.FiledDate).ToList()
+        };
+        StateHasChanged();
+    }
+
+    // Accessibility - Keyboard Navigation
+    private void HandleKeyPress(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e, Action action)
+    {
+        if (e.Key == "Enter" || e.Key == " ")
+        {
+            action.Invoke();
+        }
+    }
+
+    // Toast Notification
+    private async void ShowToast(string message)
+    {
+        toastMessage = message;
+        showToast = true;
+        StateHasChanged();
+        
+        await Task.Delay(3000);
+        showToast = false;
+        StateHasChanged();
+    }
+
+    private void HideToast()
+    {
+        showToast = false;
+        StateHasChanged();
+    }
+
+    private void OnLanguageChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        LangService.OnLanguageChanged -= OnLanguageChanged;
+    }
+
+    private async Task ExportCaseToPDF()
+    {
+        if (selectedCase == null) return;
+        
+        try
+        {
+            var filename = $"Case_{selectedCase.CaseNumber}_{DateTime.Now:yyyyMMdd}.pdf";
+            await JSRuntime.InvokeAsync<object>("pdfDownload.downloadPdfGet", 
+                $"/api/PdfExport/case/{selectedCase.Id}",
+                filename);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error exporting case PDF: {ex.Message}");
+            ShowToast("Error generating PDF. Please try again.");
+        }
+    }
+}
+</CustomErrorBoundary>
