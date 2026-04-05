@@ -63,16 +63,19 @@
 
     protected override async Task OnErrorAsync(Exception exception)
     {
-        await OnError.InvokeAsync();
         await base.OnErrorAsync(exception);
+        if (OnError.HasDelegate)
+        {
+            await OnError.InvokeAsync();
+        }
     }
 
-    public void HandleError(Exception exception)
+    public async Task HandleError(Exception exception)
     {
         // Delegate to the built-in ErrorBoundary mechanism
         // This allows child components to manually report errors
-        OnErrorAsync(exception);
-        StateHasChanged();
+        await OnErrorAsync(exception);
+        await InvokeAsync(StateHasChanged);
     }
 
     private string GetUserFriendlyMessage(Exception exception)

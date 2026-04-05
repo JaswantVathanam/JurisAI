@@ -336,4 +336,3 @@ For questions, feedback, or support, please open an issue on GitHub.
 <p align="center">Made with ❤️ for India's Justice System</p>
 <p align="center"><em>Empowering legal access through intelligent technology</em></p>
 
- 
